@@ -28,7 +28,7 @@
         
         <meta-data
             android:name="com.amap.api.v2.apikey"
-            android:value="72dd56ef8ddc4589d3783b4a210caea3" />
+            android:value="5b24b0b05cec9290b712ddc749d86661" />
         
         <meta-data
             android:name="com.google.android.geo.API_KEY"
