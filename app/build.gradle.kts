@@ -24,8 +24,8 @@ android {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1117
-        versionName = "1.11.7"
+        versionCode = 1127
+        versionName = "1.12.7"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -67,6 +67,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += listOf("-Xskip-metadata-version-check")
     }
     buildFeatures {
         compose = true
@@ -84,6 +85,7 @@ android {
 
 dependencies {
     compileOnly(libs.xposed.api)
+    implementation(libs.xposed.service)
     implementation(libs.koin.androidx.compose)
     implementation(libs.amap.map)
     implementation(libs.amap.search)
