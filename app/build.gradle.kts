@@ -24,8 +24,8 @@ android {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1147
-        versionName = "1.14.7"
+        versionCode = 1148
+        versionName = "1.14.8"
 
         vectorDrawables {
             useSupportLibrary = true
