@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -12,20 +13,22 @@ android {
         if (localYml.exists()) {
             val line = localYml.readLines().find { it.startsWith("$key:") }
             if (line != null) {
-                return line.substringAfter(":").trim().removeSurrounding("\"").removeSurrounding("'")
+                return line.substringAfter(":").trim().removeSurrounding("\"")
+                    .removeSurrounding("'")
             }
         }
         return null
     }
 
-    val googleMapsApiKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: getLocalConfig("GOOGLE_MAPS_API_KEY") ?: ""
+    val googleMapsApiKey =
+        System.getenv("GOOGLE_MAPS_API_KEY") ?: getLocalConfig("GOOGLE_MAPS_API_KEY") ?: ""
 
     defaultConfig {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1149
-        versionName = "1.14.9"
+        versionCode = 11510
+        versionName = "1.15.10"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -104,5 +107,11 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
+
+    // Room
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+
     debugImplementation(libs.androidx.ui.tooling)
 }
