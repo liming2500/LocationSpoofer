@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.ksp)
+    kotlin("plugin.serialization") version "1.9.22"
 }
 
 android {
@@ -27,8 +28,8 @@ android {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11710
-        versionName = "1.17.10"
+        versionCode = 11810
+        versionName = "1.18.10"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -94,6 +95,8 @@ dependencies {
     implementation(libs.amap.search)
     implementation(libs.google.maps)
     implementation(libs.google.places)
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation(libs.play.services.location)
     implementation(libs.okhttp)
     implementation(libs.androidx.core.ktx)
