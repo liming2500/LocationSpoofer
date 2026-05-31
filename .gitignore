@@ -32,3 +32,6 @@ captures/
 *.keystore
 keystore.properties
 google-services.json
+
+# ─── Builds / Outputs ────────────────────────────────────
+app/release/
