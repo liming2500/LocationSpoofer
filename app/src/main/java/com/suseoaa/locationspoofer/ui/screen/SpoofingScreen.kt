@@ -692,7 +692,8 @@ fun SpoofingScreen(
             },
             onToggleWifi = { viewModel.toggleMockWifi() },
             onToggleCell = { viewModel.toggleMockCell() },
-            onToggleBluetooth = { viewModel.toggleMockBluetooth() }
+            onToggleBluetooth = { viewModel.toggleMockBluetooth() },
+            onToggleJitter = { viewModel.toggleEnableJitter() }
         )
     }
 
@@ -1465,7 +1466,8 @@ fun StartSpoofingDialog(
     onConfirm: () -> Unit,
     onToggleWifi: () -> Unit,
     onToggleCell: () -> Unit,
-    onToggleBluetooth: () -> Unit
+    onToggleBluetooth: () -> Unit,
+    onToggleJitter: () -> Unit
 ) {
     LocalizedDialog(onDismissRequest = onDismiss) {
         Surface(
@@ -1508,6 +1510,12 @@ fun StartSpoofingDialog(
                     Spacer(Modifier.width(12.dp))
                     Text("伪造蓝牙数据", modifier = Modifier.weight(1f), fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground)
                     Switch(checked = uiState.mockBluetooth, onCheckedChange = { onToggleBluetooth() })
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.GraphicEq, null, tint = AccentBlue, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text("开启轻微抖动", modifier = Modifier.weight(1f), fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground)
+                    Switch(checked = uiState.enableJitter, onCheckedChange = { onToggleJitter() })
                 }
 
                 Spacer(Modifier.height(24.dp))
