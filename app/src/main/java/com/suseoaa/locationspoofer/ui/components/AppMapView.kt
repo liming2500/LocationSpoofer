@@ -303,10 +303,13 @@ class BaiduMapControllerImpl(private val map: com.baidu.mapapi.map.BaiduMap, pri
 
     override fun clear() { map.clear() }
     override fun addPolyline(points: List<Pair<Double, Double>>, colorInt: Int, width: Float) {
+        if (points.size < 2) return
+        val latLngList = points.map { com.baidu.mapapi.model.LatLng(it.first, it.second) }
         map.addOverlay(
-            com.baidu.mapapi.map.PolylineOptions().color(colorInt).width(width.toInt()).apply {
-                points.forEach { points(listOf(com.baidu.mapapi.model.LatLng(it.first, it.second))) }
-            }
+            com.baidu.mapapi.map.PolylineOptions()
+                .color(colorInt)
+                .width(width.toInt())
+                .points(latLngList)
         )
     }
     override fun addCircle(lat: Double, lng: Double, radius: Double, fillColorInt: Int, strokeColorInt: Int, strokeWidth: Float) {
