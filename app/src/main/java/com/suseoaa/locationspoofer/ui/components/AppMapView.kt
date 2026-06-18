@@ -43,9 +43,18 @@ interface AppMapController {
     fun setOnCameraChangeListener(onFinish: (lat: Double, lng: Double) -> Unit)
     fun disableUiControls()
     fun setMapType(type: AppMapType)
+    fun setDarkMode(isDark: Boolean, context: android.content.Context)
 }
 
 class AMapControllerImpl(private val map: AMap) : AppMapController {
+    private var isDarkMode: Boolean = false
+    private var currentMapType: AppMapType = AppMapType.NORMAL
+
+    override fun setDarkMode(isDark: Boolean, context: android.content.Context) {
+        isDarkMode = isDark
+        setMapType(currentMapType)
+    }
+
     override fun clear() { map.clear() }
     override fun addPolyline(points: List<Pair<Double, Double>>, colorInt: Int, width: Float) {
         map.addPolyline(
@@ -110,9 +119,10 @@ class AMapControllerImpl(private val map: AMap) : AppMapController {
     }
     
     override fun setMapType(type: AppMapType) {
+        currentMapType = type
         when (type) {
             AppMapType.NORMAL -> {
-                map.mapType = AMap.MAP_TYPE_NORMAL
+                map.mapType = if (isDarkMode) AMap.MAP_TYPE_NIGHT else AMap.MAP_TYPE_NORMAL
                 val cameraPosition = map.cameraPosition ?: return
                 val newCam = com.amap.api.maps.model.CameraPosition(
                     cameraPosition.target,
@@ -134,7 +144,7 @@ class AMapControllerImpl(private val map: AMap) : AppMapController {
                 map.moveCamera(CameraUpdateFactory.newCameraPosition(newCam))
             }
             AppMapType.MAP_3D -> {
-                map.mapType = AMap.MAP_TYPE_NORMAL
+                map.mapType = if (isDarkMode) AMap.MAP_TYPE_NIGHT else AMap.MAP_TYPE_NORMAL
                 val cameraPosition = map.cameraPosition ?: return
                 val newCam = com.amap.api.maps.model.CameraPosition(
                     cameraPosition.target,
@@ -149,6 +159,23 @@ class AMapControllerImpl(private val map: AMap) : AppMapController {
 }
 
 class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
+    private var isDarkMode: Boolean = false
+    private var currentMapType: AppMapType = AppMapType.NORMAL
+
+    override fun setDarkMode(isDark: Boolean, context: android.content.Context) {
+        isDarkMode = isDark
+        try {
+            if (isDark) {
+                map.setMapStyle(com.google.android.gms.maps.model.MapStyleOptions.loadRawResourceStyle(context, com.suseoaa.locationspoofer.R.raw.map_style_dark))
+            } else {
+                map.setMapStyle(null)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        setMapType(currentMapType)
+    }
+
     override fun clear() { map.clear() }
     override fun addPolyline(points: List<Pair<Double, Double>>, colorInt: Int, width: Float) {
         map.addPolyline(
@@ -213,6 +240,7 @@ class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
     }
 
     override fun setMapType(type: AppMapType) {
+        currentMapType = type
         when (type) {
             AppMapType.NORMAL -> {
                 map.mapType = GoogleMap.MAP_TYPE_NORMAL
@@ -256,6 +284,12 @@ class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
 fun AppMapView(isDomestic: Boolean, modifier: Modifier = Modifier, onMapReady: (AppMapController) -> Unit) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    var mapController by remember { mutableStateOf<AppMapController?>(null) }
+
+    LaunchedEffect(isDark, mapController) {
+        mapController?.setDarkMode(isDark, context)
+    }
 
     if (isDomestic) {
         val amapView = remember { 
@@ -284,7 +318,12 @@ fun AppMapView(isDomestic: Boolean, modifier: Modifier = Modifier, onMapReady: (
             factory = {
                 amapView.apply {
                     setOnTouchListener { v, _ -> v.parent?.requestDisallowInterceptTouchEvent(true); false }
-                    map.setOnMapLoadedListener { onMapReady(AMapControllerImpl(map)) }
+                    map.setOnMapLoadedListener { 
+                        val controller = AMapControllerImpl(map)
+                        mapController = controller
+                        controller.setDarkMode(isDark, context)
+                        onMapReady(controller) 
+                    }
                 }
             },
             modifier = modifier
@@ -316,7 +355,12 @@ fun AppMapView(isDomestic: Boolean, modifier: Modifier = Modifier, onMapReady: (
             factory = {
                 gmapView.apply {
                     setOnTouchListener { v, _ -> v.parent?.requestDisallowInterceptTouchEvent(true); false }
-                    getMapAsync { map -> onMapReady(GMapControllerImpl(map)) }
+                    getMapAsync { map -> 
+                        val controller = GMapControllerImpl(map)
+                        mapController = controller
+                        controller.setDarkMode(isDark, context)
+                        onMapReady(controller) 
+                    }
                 }
             },
             modifier = modifier
