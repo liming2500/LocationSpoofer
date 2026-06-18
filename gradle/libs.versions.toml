@@ -28,6 +28,7 @@ amap-location = { module = "com.amap.api:location", version.ref = "amapLocation"
 amap-search = { module = "com.amap.api:search", version.ref = "amapSearch" }
 baidu-map = { module = "com.baidu.lbsyun:BaiduMapSDK_Map", version.ref = "baiduMap" }
 baidu-location = { module = "com.baidu.lbsyun:BaiduMapSDK_Location", version.ref = "baiduLocation" }
+baidu-search = { module = "com.baidu.lbsyun:BaiduMapSDK_Search", version.ref = "baiduMap" }
 xposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }
 xposed-service = { group = "io.github.libxposed", name = "service", version.ref = "libxposedService" }
 google-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "googleMaps" }

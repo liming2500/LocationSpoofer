@@ -305,7 +305,7 @@ fun SpoofingScreen(
                         showSearchResults = results.isNotEmpty()
                     }
                 } else if (searchQuery.isNotBlank()) {
-                    performPoiSearch(context, searchQuery, isDomestic) { results ->
+                    performPoiSearch(context, uiState.mapEngine, searchQuery, isDomestic) { results ->
                         searchResults = results
                         showSearchResults = results.isNotEmpty()
                     }
@@ -1658,11 +1658,42 @@ private var cachedPlacesClient: com.google.android.libraries.places.api.net.Plac
 
 fun performPoiSearch(
     context: android.content.Context,
+    mapEngine: com.suseoaa.locationspoofer.data.model.MapEngine,
     keyword: String,
     isDomestic: Boolean,
     onResult: (List<AppPoiItem>) -> Unit
 ) {
-    if (isDomestic) {
+    if (mapEngine == com.suseoaa.locationspoofer.data.model.MapEngine.BAIDU) {
+        try {
+            val mPoiSearch = com.baidu.mapapi.search.poi.PoiSearch.newInstance()
+            mPoiSearch.setOnGetPoiSearchResultListener(object : com.baidu.mapapi.search.poi.OnGetPoiSearchResultListener {
+                override fun onGetPoiResult(result: com.baidu.mapapi.search.poi.PoiResult?) {
+                    if (result == null || result.error != com.baidu.mapapi.search.core.SearchResult.ERRORNO.NO_ERROR) {
+                        onResult(emptyList())
+                        mPoiSearch.destroy()
+                        return
+                    }
+                    val items = result.allPoi?.map {
+                        AppPoiItem(it.name ?: "", it.address ?: "", it.location.latitude, it.location.longitude)
+                    } ?: emptyList()
+                    onResult(items)
+                    mPoiSearch.destroy()
+                }
+                override fun onGetPoiDetailResult(p0: com.baidu.mapapi.search.poi.PoiDetailResult?) {}
+                override fun onGetPoiDetailResult(p0: com.baidu.mapapi.search.poi.PoiDetailSearchResult?) {}
+                override fun onGetPoiIndoorResult(p0: com.baidu.mapapi.search.poi.PoiIndoorResult?) {}
+            })
+            val option = com.baidu.mapapi.search.poi.PoiCitySearchOption()
+                .city("全国")
+                .keyword(keyword)
+                .pageNum(0)
+                .pageCapacity(20)
+            mPoiSearch.searchInCity(option)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            onResult(emptyList())
+        }
+    } else if (isDomestic) {
         try {
             val query = PoiSearch.Query(keyword, "", "")
             query.pageSize = 10

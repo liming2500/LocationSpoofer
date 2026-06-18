@@ -203,7 +203,7 @@ fun FullScreenMapPage(
                         keyboardActions = KeyboardActions(onSearch = {
                             focusManager.clearFocus()
                             if (searchQuery.isNotBlank()) {
-                                performPoiSearch(context, searchQuery, isDomestic) { r ->
+                                performPoiSearch(context, uiState.mapEngine, searchQuery, isDomestic) { r ->
                                     searchResults = r
                                     showSearchResults = r.isNotEmpty()
                                 }

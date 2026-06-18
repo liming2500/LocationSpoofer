@@ -29,8 +29,8 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 13218
-        versionName = "1.32.18"
+        versionCode = 13219
+        versionName = "1.32.19"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -99,6 +99,7 @@ dependencies {
     implementation(libs.amap.search)
     implementation(libs.baidu.map)
     implementation(libs.baidu.location)
+    implementation(libs.baidu.search)
     implementation(libs.google.maps)
     implementation(libs.google.places)
     implementation(libs.kotlinx.serialization.json)
