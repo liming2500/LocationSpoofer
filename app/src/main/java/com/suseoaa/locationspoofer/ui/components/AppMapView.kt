@@ -355,11 +355,16 @@ class BaiduMapControllerImpl(private val map: com.baidu.mapapi.map.BaiduMap, pri
     
     override fun setOnCameraChangeListener(onFinish: (lat: Double, lng: Double) -> Unit) {
         map.setOnMapStatusChangeListener(object : com.baidu.mapapi.map.BaiduMap.OnMapStatusChangeListener {
+            private var lastReason: Int = 0
             override fun onMapStatusChangeStart(p0: com.baidu.mapapi.map.MapStatus?) {}
-            override fun onMapStatusChangeStart(p0: com.baidu.mapapi.map.MapStatus?, p1: Int) {}
+            override fun onMapStatusChangeStart(p0: com.baidu.mapapi.map.MapStatus?, p1: Int) {
+                lastReason = p1
+            }
             override fun onMapStatusChange(p0: com.baidu.mapapi.map.MapStatus?) {}
             override fun onMapStatusChangeFinish(p0: com.baidu.mapapi.map.MapStatus?) {
-                p0?.target?.let { onFinish(it.latitude, it.longitude) }
+                if (lastReason == com.baidu.mapapi.map.BaiduMap.OnMapStatusChangeListener.REASON_GESTURE) {
+                    p0?.target?.let { onFinish(it.latitude, it.longitude) }
+                }
             }
         })
     }
