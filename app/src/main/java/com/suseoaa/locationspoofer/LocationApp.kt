@@ -52,6 +52,7 @@ class LocationApp : Application(), XposedServiceHelper.OnServiceListener {
 
         try {
             com.baidu.mapapi.SDKInitializer.setAgreePrivacy(this, true)
+            com.baidu.mapapi.SDKInitializer.setCoordType(com.baidu.mapapi.CoordType.GCJ02)
             com.baidu.mapapi.SDKInitializer.initialize(this)
         } catch (e: Exception) {
             e.printStackTrace()
