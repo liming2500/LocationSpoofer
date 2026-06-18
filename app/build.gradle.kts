@@ -27,9 +27,10 @@ android {
     defaultConfig {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 13116
-        versionName = "1.31.16"
+        //noinspection OldTargetApi
+        targetSdk = 36
+        versionCode = 13216
+        versionName = "1.32.16"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -96,10 +97,11 @@ dependencies {
     implementation(libs.koin.androidx.compose)
     implementation(libs.amap.map)
     implementation(libs.amap.search)
+    implementation(libs.baidu.map)
+    implementation(libs.baidu.location)
     implementation(libs.google.maps)
     implementation(libs.google.places)
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.location)
     implementation(libs.okhttp)
     implementation(libs.androidx.core.ktx)

@@ -36,10 +36,28 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
         settingsManager.amapApiKey = value
     }
 
+    fun getBaiduApiKey(): String = settingsManager.baiduApiKey
+
+    fun setBaiduApiKey(value: String) {
+        settingsManager.baiduApiKey = value
+    }
+
+    fun getGoogleApiKey(): String = settingsManager.googleApiKey
+
+    fun setGoogleApiKey(value: String) {
+        settingsManager.googleApiKey = value
+    }
+
     fun getMapType(): String = settingsManager.mapType
 
     fun setMapType(value: String) {
         settingsManager.mapType = value
+    }
+
+    fun getMapEngine(): String = settingsManager.mapEngine
+
+    fun setMapEngine(value: String) {
+        settingsManager.mapEngine = value
     }
 
     fun getIgnoredVersion(): String = settingsManager.ignoredVersion

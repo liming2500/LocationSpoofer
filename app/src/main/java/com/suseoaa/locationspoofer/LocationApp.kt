@@ -45,8 +45,22 @@ class LocationApp : Application(), XposedServiceHelper.OnServiceListener {
             ServiceSettings.getInstance().setApiKey(customApiKey)
         }
 
+        val baiduApiKey = prefs.getString("baidu_api_key", "")
+        if (!baiduApiKey.isNullOrEmpty()) {
+            com.baidu.mapapi.SDKInitializer.setApiKey(baiduApiKey)
+        }
+
+        try {
+            com.baidu.mapapi.SDKInitializer.setAgreePrivacy(this, true)
+            com.baidu.mapapi.SDKInitializer.initialize(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        val googleApiKey = prefs.getString("google_api_key", "")
         if (!Places.isInitialized()) {
-            Places.initialize(this, BuildConfig.GOOGLE_MAPS_API_KEY)
+            val keyToUse = if (!googleApiKey.isNullOrEmpty()) googleApiKey else BuildConfig.GOOGLE_MAPS_API_KEY
+            Places.initialize(this, keyToUse)
         }
 
         startKoin {

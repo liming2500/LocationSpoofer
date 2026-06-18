@@ -147,7 +147,7 @@ fun FullScreenMapPage(
     Box(modifier = Modifier.fillMaxSize()) {
 
         // 地图
-        AppMapView(isDomestic = isDomestic, modifier = Modifier.fillMaxSize()) { map ->
+        AppMapView(mapEngine = uiState.mapEngine, isDomestic = isDomestic, modifier = Modifier.fillMaxSize()) { map ->
             mapRef = map
             map.disableUiControls()
             val initLat = uiState.latitudeInput.toDoubleOrNull() ?: 39.9042
@@ -378,6 +378,8 @@ fun FullScreenMapPage(
         MapTypeDialog(
             currentMapType = uiState.mapType,
             onMapTypeSelected = { viewModel.setMapType(it) },
+            currentMapEngine = uiState.mapEngine,
+            onMapEngineSelected = { viewModel.setMapEngine(it) },
             onDismiss = { showMapTypeDialog = false }
         )
     }

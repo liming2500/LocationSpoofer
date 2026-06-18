@@ -351,7 +351,7 @@ fun SpoofingScreen(
 
         // 地图缩略图
         Box(modifier = Modifier.fillMaxWidth().height(280.dp)) {
-            AppMapView(isDomestic = isDomestic, modifier = Modifier.fillMaxSize()) { map ->
+            AppMapView(mapEngine = uiState.mapEngine, isDomestic = isDomestic, modifier = Modifier.fillMaxSize()) { map ->
                 smallMapRef = map
                 map.disableUiControls()
                 val initLat = uiState.latitudeInput.toDoubleOrNull() ?: 39.9042
@@ -968,6 +968,8 @@ fun SpoofingScreen(
         MapTypeDialog(
             currentMapType = uiState.mapType,
             onMapTypeSelected = { viewModel.setMapType(it) },
+            currentMapEngine = uiState.mapEngine,
+            onMapEngineSelected = { viewModel.setMapEngine(it) },
             onDismiss = { showMapTypeDialog = false }
         )
     }

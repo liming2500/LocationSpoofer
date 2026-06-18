@@ -27,9 +27,21 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("amap_api_key", "") ?: ""
         set(value) = prefs.edit().putString("amap_api_key", value).apply()
 
+    var baiduApiKey: String
+        get() = prefs.getString("baidu_api_key", "") ?: ""
+        set(value) = prefs.edit().putString("baidu_api_key", value).apply()
+
+    var googleApiKey: String
+        get() = prefs.getString("google_api_key", "") ?: ""
+        set(value) = prefs.edit().putString("google_api_key", value).apply()
+
     var mapType: String
         get() = prefs.getString("map_type", "NORMAL") ?: "NORMAL"
         set(value) = prefs.edit().putString("map_type", value).apply()
+
+    var mapEngine: String
+        get() = prefs.getString("map_engine", "AUTO") ?: "AUTO"
+        set(value) = prefs.edit().putString("map_engine", value).apply()
 
     var ignoredVersion: String
         get() = prefs.getString("ignored_version", "") ?: ""

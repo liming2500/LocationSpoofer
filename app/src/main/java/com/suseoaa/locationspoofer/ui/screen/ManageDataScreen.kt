@@ -144,6 +144,7 @@ fun ManageDataScreen(
                 // Top Map
                 Box(modifier = Modifier.fillMaxWidth().weight(0.4f)) {
                     AppMapView(
+                        mapEngine = uiState.mapEngine,
                         isDomestic = viewModel.isDomesticEnvironment(),
                         modifier = Modifier.fillMaxSize(),
                         onMapReady = { controller ->

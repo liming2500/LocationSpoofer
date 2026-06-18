@@ -48,6 +48,11 @@ class MainViewModel(
             } catch (e: Exception) {
                 AppMapType.NORMAL
             },
+            mapEngine = try {
+                com.suseoaa.locationspoofer.data.model.MapEngine.valueOf(settingsRepository.getMapEngine())
+            } catch (e: Exception) {
+                com.suseoaa.locationspoofer.data.model.MapEngine.AUTO
+            },
             savedLocations = settingsRepository.getSavedLocations(),
             currentLanguage = settingsRepository.getLanguage(),
             isLanguageSet = settingsRepository.isLanguageSet(),
@@ -102,6 +107,8 @@ class MainViewModel(
                     longitudeInput = if (settingsRepository.isSpoofingActive) settingsRepository.lastSpoofedLng else it.longitudeInput,
                     routePlanStage = RoutePlanStage.IDLE,
                     amapApiKey = settingsRepository.getAmapApiKey(),
+                    baiduApiKey = settingsRepository.getBaiduApiKey(),
+                    googleApiKey = settingsRepository.getGoogleApiKey(),
                     appSha1 = getAppSignatureSHA1()
                 )
             }
@@ -132,6 +139,11 @@ class MainViewModel(
     fun setMapType(type: AppMapType) {
         settingsRepository.setMapType(type.name)
         _uiState.update { it.copy(mapType = type) }
+    }
+
+    fun setMapEngine(engine: com.suseoaa.locationspoofer.data.model.MapEngine) {
+        settingsRepository.setMapEngine(engine.name)
+        _uiState.update { it.copy(mapEngine = engine) }
     }
 
     fun setSearchMode(mode: com.suseoaa.locationspoofer.data.model.SearchMode) {
@@ -1117,6 +1129,16 @@ class MainViewModel(
     fun setAmapApiKey(key: String) {
         settingsRepository.setAmapApiKey(key)
         _uiState.update { it.copy(amapApiKey = key) }
+    }
+
+    fun setBaiduApiKey(key: String) {
+        settingsRepository.setBaiduApiKey(key)
+        _uiState.update { it.copy(baiduApiKey = key) }
+    }
+
+    fun setGoogleApiKey(key: String) {
+        settingsRepository.setGoogleApiKey(key)
+        _uiState.update { it.copy(googleApiKey = key) }
     }
 
     @Suppress("DEPRECATION")
