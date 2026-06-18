@@ -29,14 +29,18 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 13219
-        versionName = "1.32.19"
+        versionCode = 13319
+        versionName = "1.33.19"
 
         vectorDrawables {
             useSupportLibrary = true
         }
 
         manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
+
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
     }
     signingConfigs {
         create("release") {
