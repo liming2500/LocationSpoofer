@@ -37,18 +37,34 @@ fun AppCoordinateScreen(
         showSystemApps || !app.isSystem
     }
 
-    val milkyWhiteColorScheme = lightColorScheme(
-        background = androidx.compose.ui.graphics.Color(0xFFFDFBF7),
-        surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
-        onBackground = androidx.compose.ui.graphics.Color(0xFF2C2C2C),
-        onSurface = androidx.compose.ui.graphics.Color(0xFF2C2C2C),
-        surfaceVariant = androidx.compose.ui.graphics.Color(0xFFF5F0E6),
-        onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF4A4A4A),
-        primary = androidx.compose.ui.graphics.Color(0xFFC7A27C),
-        onPrimary = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
-        primaryContainer = androidx.compose.ui.graphics.Color(0xFFF4E5D3),
-        onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFF5E4226)
-    )
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val milkyWhiteColorScheme = if (isDark) {
+        darkColorScheme(
+            background = androidx.compose.ui.graphics.Color(0xFF121212),
+            surface = androidx.compose.ui.graphics.Color(0xFF1E1E1E),
+            onBackground = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
+            onSurface = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
+            surfaceVariant = androidx.compose.ui.graphics.Color(0xFF2D2D2D),
+            onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFB0B0B0),
+            primary = androidx.compose.ui.graphics.Color(0xFFE3C5A5),
+            onPrimary = androidx.compose.ui.graphics.Color(0xFF3E2711),
+            primaryContainer = androidx.compose.ui.graphics.Color(0xFF5E4226),
+            onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFF4E5D3)
+        )
+    } else {
+        lightColorScheme(
+            background = androidx.compose.ui.graphics.Color(0xFFFDFBF7),
+            surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
+            onBackground = androidx.compose.ui.graphics.Color(0xFF2C2C2C),
+            onSurface = androidx.compose.ui.graphics.Color(0xFF2C2C2C),
+            surfaceVariant = androidx.compose.ui.graphics.Color(0xFFF5F0E6),
+            onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF4A4A4A),
+            primary = androidx.compose.ui.graphics.Color(0xFFC7A27C),
+            onPrimary = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
+            primaryContainer = androidx.compose.ui.graphics.Color(0xFFF4E5D3),
+            onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFF5E4226)
+        )
+    }
 
     MaterialTheme(colorScheme = milkyWhiteColorScheme) {
         Scaffold(
