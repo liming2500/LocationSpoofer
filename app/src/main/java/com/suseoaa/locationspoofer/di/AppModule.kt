@@ -19,6 +19,7 @@ val appModule = module {
     single { com.suseoaa.locationspoofer.utils.EnvironmentScanner(androidContext()) }
 
     single { com.suseoaa.locationspoofer.utils.WigleClient() }
+    single { com.suseoaa.locationspoofer.utils.OpenCellIdClient() }
     single { com.suseoaa.locationspoofer.data.repository.WifiRepository(get()) }
 
     single { LocationRepository(get(), get(), get(), get(), get()) }
@@ -28,6 +29,6 @@ val appModule = module {
     single { get<com.suseoaa.locationspoofer.data.db.AppDatabase>().environmentDao() }
     single { get<com.suseoaa.locationspoofer.data.db.AppDatabase>().savedRouteDao() }
 
-    viewModel { MainViewModel(get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { MainViewModel(get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { com.suseoaa.locationspoofer.viewmodel.UpdateViewModel(androidContext()) }
 }

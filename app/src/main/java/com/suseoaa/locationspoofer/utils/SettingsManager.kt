@@ -39,6 +39,10 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("wigle_api_token", "") ?: ""
         set(value) = prefs.edit().putString("wigle_api_token", value).apply()
 
+    var opencellidApiToken: String
+        get() = prefs.getString("opencellid_api_token", "") ?: ""
+        set(value) = prefs.edit().putString("opencellid_api_token", value).apply()
+
     var mapType: String
         get() = prefs.getString("map_type", "NORMAL") ?: "NORMAL"
         set(value) = prefs.edit().putString("map_type", value).apply()

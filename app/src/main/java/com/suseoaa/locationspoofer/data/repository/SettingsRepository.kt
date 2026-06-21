@@ -54,6 +54,12 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
         settingsManager.wigleApiToken = value
     }
 
+    fun getOpencellidApiToken(): String = settingsManager.opencellidApiToken
+
+    fun setOpencellidApiToken(value: String) {
+        settingsManager.opencellidApiToken = value
+    }
+
     fun getMapType(): String = settingsManager.mapType
 
     fun setMapType(value: String) {
