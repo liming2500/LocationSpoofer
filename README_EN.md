@@ -16,7 +16,7 @@
 
 ---
 
-> **📢 Join our [Telegram Group](https://t.me/+CsxZGItXdW40ZWVl) for ~~technical discussion, updates,~~ random chat.**
+> **📢 Join our [Telegram Group](https://t.me/+CsxZGItXdW40ZWVl) for** ~~technical discussion, updates,~~ **random chat.**
 
 ---
 

@@ -17,7 +17,7 @@
 
 ---
 
-> **📢 加入我们的 [Telegram 交流群](https://t.me/+CsxZGItXdW40ZWVl) 进行~~技术探讨、催更、~~日常吹水。**
+> **📢 加入我们的 [Telegram 交流群](https://t.me/+CsxZGItXdW40ZWVl) 进行**~~技术探讨、催更、~~**日常吹水。**
 
 ---
 
