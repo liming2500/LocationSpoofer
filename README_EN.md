@@ -17,16 +17,27 @@
 ---
 
 > **📢 Join our [Telegram Group](https://t.me/+CsxZGItXdW40ZWVl) for** ~~technical discussion, updates,~~ **bragging and shitposting.**
+>
+> **📖 Read the [LocationSpoofer Detailed Tutorial](https://docs.google.com/document/d/1fFEz3k7ATdN2dwY1L3RJn1QuzgokIsslNa88-vUPxPk/edit?usp=sharing)**
 
 ---
 
 ## 📖 Introduction
 
-In modern Android risk control environments, the standard developer options feature "Mock Location" has long been flagged as a high-risk indicator by major anti-cheat SDKs (such as AMap risk control, Tencent Security, NetEase EasyShield, etc.). These SDKs do not merely verify the standard `isFromMockProvider` API flag; they also gather environmental signals such as **surrounding Wi-Fi BSSID lists**, **cellular tower cell IDs (cellular fingerprints)**, and **local BLE beacons**. Furthermore, they perform Fast Fourier Transform (FFT) analysis on location coordinate sequences to detect artificial static coordinates or deterministic linear trajectory patterns.
+In modern Android risk control environments, the standard developer options feature "Mock Location" has long been flagged as a high-risk indicator by major anti-cheat SDKs (such as AMap risk control, Tencent Security, NetEase EasyShield, etc.). These SDKs do not merely verify the standard `isFromMockProvider` API flag; they also gather environmental signals such as:
 
-**LocationSpoofer** is a system-level virtual positioning and radio environment cloning solution designed specifically to counter these deep anti-cheating mechanisms. By leveraging **KernelSU / Magisk / APatch** for root privileges and the **LSPosed (libxposed)** framework to inject hook routines into targeted processes, LocationSpoofer intercepts and fakes all positioning and wireless networking API responses with high physical fidelity. This ensures the target apps receive highly consistent location fingerprints without detecting any virtualization.
+*   **Surrounding Wi-Fi BSSID lists**
+*   **Cellular tower cell IDs (cellular fingerprints)**
+*   **Local BLE beacons**
+*   Furthermore, they perform Fast Fourier Transform (FFT) analysis on location coordinate sequences to detect artificial static coordinates or deterministic linear trajectory patterns.
 
-The latest version adds more complete **Wi-Fi environment simulation** and **cell tower simulation**. It can build realistic radio fingerprints around the spoofed coordinates from local street-scan records, WiGLE cloud Wi-Fi data, and OpenCellID cell tower data, then inject consistent responses into target app processes through `WifiManager`, `TelephonyManager`, `PhoneStateListener`, and `TelephonyCallback` APIs.
+**LocationSpoofer** is a **system-level virtual positioning and radio environment cloning solution** designed specifically to counter these deep anti-cheating mechanisms. 
+By leveraging **KernelSU / Magisk / APatch** for root privileges and the **LSPosed (libxposed)** framework to inject hook routines into targeted processes, LocationSpoofer intercepts and fakes all positioning and wireless networking API responses with high physical fidelity. This ensures the target apps receive highly consistent location fingerprints without detecting any virtualization.
+
+> [!TIP]
+> **🌟 Major Update in Latest Version**
+> 
+> The latest version adds more complete **Wi-Fi environment simulation** and **cell tower simulation**. It can build realistic radio fingerprints around the spoofed coordinates from local street-scan records, WiGLE cloud Wi-Fi data, and OpenCellID cell tower data, then inject consistent responses into target app processes through `WifiManager`, `TelephonyManager`, `PhoneStateListener`, and `TelephonyCallback` APIs.
 
 ---
 
