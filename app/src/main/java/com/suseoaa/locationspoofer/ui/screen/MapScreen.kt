@@ -72,6 +72,7 @@ fun FullScreenMapPage(
 ) {
     val context = LocalContext.current
     var mapRef by remember { mutableStateOf<AppMapController?>(null) }
+    var showSavedLocations by remember { mutableStateOf(false) }
     var showMapTypeDialog by remember { mutableStateOf(false) }
     var showConfigDialog by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
@@ -330,7 +331,7 @@ fun FullScreenMapPage(
 
                 AnimatedVisibility(visible = stage == RoutePlanStage.SELECTING && routePoints.isEmpty()) {
                     MapFab(
-                        icon = Icons.Rounded.Bookmarks,
+                        icon = Icons.Rounded.Route,
                         contentDescription = stringResource(R.string.route_library),
                         containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = AccentBlue
@@ -340,14 +341,27 @@ fun FullScreenMapPage(
                 }
 
                 AnimatedVisibility(visible = (stage == RoutePlanStage.SELECTING && routePoints.isEmpty()) || stage == RoutePlanStage.IDLE) {
-                    MapFab(
-                        icon = Icons.Rounded.MyLocation,
-                        contentDescription = stringResource(R.string.locate_to_current),
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = AccentBlue
+                    Column (
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        viewModel.fetchCurrentLocation(context) { lLat, lLng ->
-                            mapRef?.animateCamera(lLat, lLng, 16f)
+                        MapFab(
+                            icon = Icons.Rounded.Bookmarks,
+                            contentDescription = stringResource(R.string.collection_list),
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = AccentBlue
+                        ) {
+                            showSavedLocations = true
+                        }
+
+                        MapFab(
+                            icon = Icons.Rounded.MyLocation,
+                            contentDescription = stringResource(R.string.locate_to_current),
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = AccentBlue
+                        ) {
+                            viewModel.fetchCurrentLocation(context) { lLat, lLng ->
+                                mapRef?.animateCamera(lLat, lLng, 16f)
+                            }
                         }
                     }
                 }
@@ -505,6 +519,19 @@ fun FullScreenMapPage(
                 }
             }
         }
+    }
+
+    // 地点收藏列表
+    if (showSavedLocations) {
+        SavedLocationsDialog(
+            savedLocations = uiState.savedLocations,
+            onDismiss = { showSavedLocations = false },
+            onSelect = { loc ->
+                showSavedLocations = false
+                mapRef?.animateCamera(loc.lat, loc.lng)
+            },
+            onDelete = { loc -> viewModel.removeSavedLocation(loc) }
+        )
     }
 
     if (showSavedRoutesDialog) {
