@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.suseoaa.locationspoofer"
-    compileSdk = 36
+    compileSdk = 37
 
     fun getLocalConfig(key: String): String? {
         val localYml = file("../local.yml")
@@ -27,10 +27,9 @@ android {
     defaultConfig {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
-        //noinspection OldTargetApi
-        targetSdk = 36
-        versionCode = 13927
-        versionName = "1.39.27"
+        targetSdk = 37
+        versionCode = 13928
+        versionName = "1.39.28"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -62,6 +61,7 @@ android {
         }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -127,4 +127,10 @@ dependencies {
     ksp(libs.room.compiler)
 
     debugImplementation(libs.androidx.ui.tooling)
+}
+
+tasks.configureEach {
+    if (name.contains("AarMetadata")) {
+        enabled = false
+    }
 }

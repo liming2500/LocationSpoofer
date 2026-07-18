@@ -13,7 +13,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import java.lang.reflect.Member
 
-// --- Legacy Compatibility Layer ---
+// --- 旧版本兼容层 ---
 abstract class XC_MethodHook {
     open fun beforeHookedMethod(param: MethodHookParam) {}
     open fun afterHookedMethod(param: MethodHookParam) {}
@@ -225,7 +225,7 @@ class LocationHooker : XposedModule() {
     private var currentPackageName: String = ""
 
     override fun onPackageLoaded(param: XposedModuleInterface.PackageLoadedParam) {
-        // Nothing here for now
+        // 目前这里没有内容
     }
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
@@ -252,6 +252,13 @@ class LocationHooker : XposedModule() {
         if (pkg == "com.suseoaa.locationspoofer") {
             return // 宿主App不需要注入定位Hook
         }
+        
+        // 防止注入到 SystemUI 导致崩溃
+        if (pkg == "com.android.systemui") {
+            return 
+        }
+        
+        val isSystemServer = (pkg == "android")
 
         // 系统进程：允许执行所有的环境数据Hook，实现系统原生界面的完美覆盖
         // if (SYSTEM_PACKAGES.contains(pkg)) {
@@ -267,11 +274,14 @@ class LocationHooker : XposedModule() {
         hookAntiDetection(classLoader)
 
         hookLocationAPIs(classLoader, pkg)
-        hookWifiEnvironment(classLoader)
-        hookCellEnvironment(classLoader)
-        hookConnectivityLayer(classLoader)
-        hookBluetoothLE(classLoader)
         hookGnssStatus(classLoader)
+        
+        if (!isSystemServer) {
+            hookWifiEnvironment(classLoader)
+            hookCellEnvironment(classLoader)
+            hookConnectivityLayer(classLoader)
+            hookBluetoothLE(classLoader)
+        }
     }
 
     /**
@@ -306,6 +316,7 @@ class LocationHooker : XposedModule() {
                 "java.lang.Throwable", classLoader, "getStackTrace",
                 object : XC_MethodHook() {
                     override fun afterHookedMethod(param: MethodHookParam) {
+                        @Suppress("UNCHECKED_CAST")
                         val stackTrace = param.result as? Array<StackTraceElement> ?: return
                         val filtered = stackTrace.filter { elem ->
                             elem.className !in xposedClassNames
@@ -322,6 +333,7 @@ class LocationHooker : XposedModule() {
                 "java.lang.Thread", classLoader, "getStackTrace",
                 object : XC_MethodHook() {
                     override fun afterHookedMethod(param: MethodHookParam) {
+                        @Suppress("UNCHECKED_CAST")
                         val stackTrace = param.result as? Array<StackTraceElement> ?: return
                         val filtered = stackTrace.filter { elem ->
                             elem.className !in xposedClassNames
@@ -722,7 +734,7 @@ class LocationHooker : XposedModule() {
                                 XposedHelpers.callMethod(loc, "getExtras") as? android.os.Bundle
                             extras?.remove("mockLocation")
                             extras?.remove("isMock")
-                            // ★ Add fake satellites count to bundle
+                            // ★ 将伪造的卫星数量添加到 bundle 中
                             val satCount = config.optInt("satellite_count", 10)
                             if (extras == null) {
                                 val newBundle = android.os.Bundle()
@@ -834,7 +846,7 @@ class LocationHooker : XposedModule() {
                         for (i in args.indices) {
                             val arg = args[i] ?: continue
                             
-                            // Check if it implements OnNmeaMessageListener
+                            // 检查它是否实现了 OnNmeaMessageListener
                             val isOnNmea = try {
                                 val clazz = classLoader.loadClass("android.location.OnNmeaMessageListener")
                                 clazz.isInstance(arg)
@@ -842,7 +854,7 @@ class LocationHooker : XposedModule() {
                                 false
                             }
                             
-                            // Check if it implements GpsStatus.NmeaListener
+                            // 检查它是否实现了 GpsStatus.NmeaListener
                             val isGpsNmea = try {
                                 val clazz = classLoader.loadClass("android.location.GpsStatus\$NmeaListener")
                                 clazz.isInstance(arg)
@@ -2471,7 +2483,7 @@ class LocationHooker : XposedModule() {
                                     try { XposedHelpers.setIntField(fakeWifiInfo, "mWifiStandard", standardVal) } catch (e: Throwable) {}
                                 }
                                 
-                                // Inject TRANSPORT_WIFI (1) into NetworkCapabilities so DevCheck sees it as Wi-Fi
+                                // 将 TRANSPORT_WIFI (1) 注入 NetworkCapabilities 中，以便 DevCheck 将其识别为 Wi-Fi
                                 try {
                                     val field = nc.javaClass.getDeclaredField("mTransportTypes")
                                     field.isAccessible = true
@@ -3422,7 +3434,7 @@ class LocationHooker : XposedModule() {
             else -> 1 + (satIndex * 5) % 63 // BDS
         }
         
-        // Log satellite generated occasionally or if debugging
+        // 偶尔或者在调试时记录生成的卫星
         // XposedBridge.log("[GPS_Spoofer] Generated Sat: type=$type, svid=$svid, cn0=$cn0, elev=$elevation, az=$currentAzimuth")
 
         val rngFix = java.util.Random(satIndex.toLong() + 2000L)
@@ -3612,7 +3624,7 @@ class LocationHooker : XposedModule() {
                 })
             } catch (e: Throwable) {}
 
-            // Hook GpsStatus.getSatellites() for legacy Apps like DevCheck
+            // Hook GpsStatus.getSatellites() 以适配像 DevCheck 这样的旧应用
             try {
                 XposedHelpers.findAndHookMethod("android.location.GpsStatus", classLoader, "getSatellites", object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam) {
@@ -3781,21 +3793,9 @@ class LocationHooker : XposedModule() {
                     try { XposedHelpers.setBooleanField(sat, "mHasEphemeris", true) } catch (e: Throwable) {}
                     try { XposedHelpers.setBooleanField(sat, "mHasAlmanac", true) } catch (e: Throwable) {}
                     try { XposedHelpers.setBooleanField(sat, "mUsedInFix", data.usedInFix) } catch (e: Throwable) {}
-                    try { 
-                        val f = satelliteClass.getDeclaredField("mSnr")
-                        f.isAccessible = true
-                        f.setFloat(sat, data.cn0)
-                    } catch (e: Throwable) {}
-                    try { 
-                        val f = satelliteClass.getDeclaredField("mElevation")
-                        f.isAccessible = true
-                        f.setFloat(sat, data.elevation)
-                    } catch (e: Throwable) {}
-                    try { 
-                        val f = satelliteClass.getDeclaredField("mAzimuth")
-                        f.isAccessible = true
-                        f.setFloat(sat, data.azimuth)
-                    } catch (e: Throwable) {}
+                    try { XposedHelpers.setObjectField(sat, "mSnr", data.cn0) } catch (_: Throwable) {}
+                    try { XposedHelpers.setObjectField(sat, "mElevation", data.elevation) } catch (_: Throwable) {}
+                    try { XposedHelpers.setObjectField(sat, "mAzimuth", data.azimuth) } catch (_: Throwable) {}
                     list.add(sat)
                 }
                 cachedGpsSatellitesList = list
@@ -3818,7 +3818,7 @@ class LocationHooker : XposedModule() {
                         val originalMsg = args[0] as? String
                         if (originalMsg != null) {
                             val spoofedMsg = spoofNmeaMessage(originalMsg)
-                            if (spoofedMsg == null) return null // Allow dropping messages
+                            if (spoofedMsg == null) return null // 允许丢弃消息
                             val newArgs = arrayOfNulls<Any>(args.size)
                             for (i in args.indices) {
                                 newArgs[i] = if (i == 0) spoofedMsg else args[i]
@@ -3846,7 +3846,7 @@ class LocationHooker : XposedModule() {
                         val originalMsg = args[1] as? String
                         if (originalMsg != null) {
                             val spoofedMsg = spoofNmeaMessage(originalMsg)
-                            if (spoofedMsg == null) return null // Allow dropping messages
+                            if (spoofedMsg == null) return null // 允许丢弃消息
                             val newArgs = arrayOfNulls<Any>(args.size)
                             for (i in args.indices) {
                                 newArgs[i] = if (i == 1) spoofedMsg else args[i]
@@ -3880,9 +3880,9 @@ class LocationHooker : XposedModule() {
             val type = fields[0]
             var modified = false
             
-            // Drop GSV sentences to hide real hardware satellites.
-            // (We removed the fake GSV injector, so the app will simply not see GSV sentences,
-            // which is safer than showing real hardware GSV sentences that conflict with our fake GnssStatus).
+            // 丢弃 GSV 语句以隐藏真实的硬件卫星。
+            // （我们移除了伪造的 GSV 注入器，因此应用程序将根本看不到 GSV 语句，
+            // 这比显示与我们伪造的 GnssStatus 冲突的真实硬件 GSV 语句更安全）。
             if (type.endsWith("GSV")) {
                 return null
             }

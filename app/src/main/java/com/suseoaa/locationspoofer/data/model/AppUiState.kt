@@ -49,7 +49,7 @@ data class AppState(
     val mapType: AppMapType = AppMapType.NORMAL,
     val mapEngine: MapEngine = MapEngine.AUTO,
     val isInitializing: Boolean = true,
-    val isLanguageSet: Boolean = true, // Default to true to avoid flicker if not needed
+    val isLanguageSet: Boolean = true, // 默认为 true，以避免在不需要时发生闪烁
     val currentLanguage: String = "",
     val hasRootAccess: Boolean = false,
     val isLSPosedActive: Boolean = false,
