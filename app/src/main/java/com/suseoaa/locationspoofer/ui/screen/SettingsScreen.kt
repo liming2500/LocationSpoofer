@@ -123,9 +123,16 @@ fun SettingsScreen(
                 trailingIcon = {
                     IconButton(onClick = {
                         clipboardManager.setText(AnnotatedString(context.packageName))
-                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.copied_to_clipboard),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }) {
-                        Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.copy))
+                        Icon(
+                            Icons.Outlined.ContentCopy,
+                            contentDescription = stringResource(R.string.copy)
+                        )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -146,9 +153,16 @@ fun SettingsScreen(
                 trailingIcon = {
                     IconButton(onClick = {
                         clipboardManager.setText(AnnotatedString(uiState.appSha1))
-                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.copied_to_clipboard),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }) {
-                        Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.copy))
+                        Icon(
+                            Icons.Outlined.ContentCopy,
+                            contentDescription = stringResource(R.string.copy)
+                        )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -205,34 +219,67 @@ fun SettingsScreen(
                     value = localAmapApiKey,
                     onValueChange = { localAmapApiKey = it },
                     label = { Text(stringResource(R.string.custom_amap_key)) },
-                    placeholder = { Text(stringResource(R.string.custom_amap_key_hint), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    placeholder = {
+                        Text(
+                            stringResource(R.string.custom_amap_key_hint),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue, unfocusedBorderColor = MaterialTheme.colorScheme.outline, focusedLabelColor = AccentBlue)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedLabelColor = AccentBlue
+                    )
                 )
             }
-            
+
             AnimatedVisibility(visible = uiState.mapEngine == MapEngine.BAIDU) {
                 OutlinedTextField(
                     value = localBaiduApiKey,
                     onValueChange = { localBaiduApiKey = it },
                     label = { Text(stringResource(R.string.custom_baidu_key)) },
-                    placeholder = { Text(stringResource(R.string.custom_baidu_key_hint), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    placeholder = {
+                        Text(
+                            stringResource(R.string.custom_baidu_key_hint),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue, unfocusedBorderColor = MaterialTheme.colorScheme.outline, focusedLabelColor = AccentBlue)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedLabelColor = AccentBlue
+                    )
                 )
             }
-            
+
             AnimatedVisibility(visible = uiState.mapEngine == MapEngine.GOOGLE) {
                 OutlinedTextField(
                     value = localGoogleApiKey,
                     onValueChange = { localGoogleApiKey = it },
                     label = { Text(stringResource(R.string.custom_google_key)) },
-                    placeholder = { Text(stringResource(R.string.custom_google_key_hint), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    placeholder = {
+                        Text(
+                            stringResource(R.string.custom_google_key_hint),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue, unfocusedBorderColor = MaterialTheme.colorScheme.outline, focusedLabelColor = AccentBlue)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedLabelColor = AccentBlue
+                    )
                 )
             }
 
@@ -250,10 +297,21 @@ fun SettingsScreen(
                 value = localWigleToken,
                 onValueChange = { localWigleToken = it },
                 label = { Text(stringResource(R.string.custom_wigle_token)) },
-                placeholder = { Text(stringResource(R.string.custom_wigle_token_hint), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)) },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                placeholder = {
+                    Text(
+                        stringResource(R.string.custom_wigle_token_hint),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
                 singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue, unfocusedBorderColor = MaterialTheme.colorScheme.outline, focusedLabelColor = AccentBlue)
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentBlue,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedLabelColor = AccentBlue
+                )
             )
 
             Spacer(Modifier.height(16.dp))
@@ -270,10 +328,21 @@ fun SettingsScreen(
                 value = localOpencellidToken,
                 onValueChange = { localOpencellidToken = it },
                 label = { Text(stringResource(R.string.custom_opencellid_token)) },
-                placeholder = { Text(stringResource(R.string.custom_opencellid_token_hint), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)) },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                placeholder = {
+                    Text(
+                        stringResource(R.string.custom_opencellid_token_hint),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
                 singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue, unfocusedBorderColor = MaterialTheme.colorScheme.outline, focusedLabelColor = AccentBlue)
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentBlue,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedLabelColor = AccentBlue
+                )
             )
 
             Spacer(Modifier.height(16.dp))
@@ -284,7 +353,11 @@ fun SettingsScreen(
                     viewModel.setGoogleApiKey(localGoogleApiKey)
                     viewModel.setWigleApiToken(localWigleToken)
                     viewModel.setOpencellidApiToken(localOpencellidToken)
-                    Toast.makeText(context, context.getString(R.string.restart_required_hint), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.restart_required_hint),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
@@ -292,7 +365,7 @@ fun SettingsScreen(
             ) {
                 Text(stringResource(R.string.save), modifier = Modifier.padding(vertical = 4.dp))
             }
-            
+
             Spacer(Modifier.height(24.dp))
         }
     }

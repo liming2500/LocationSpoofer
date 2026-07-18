@@ -34,7 +34,9 @@ fun MapTypeDialog(
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -62,7 +64,7 @@ fun MapTypeDialog(
                         },
                         modifier = Modifier.weight(1f)
                     )
-                    
+
                     MapTypeItem(
                         title = stringResource(R.string.map_type_satellite),
                         icon = Icons.Rounded.Satellite,
@@ -86,7 +88,10 @@ fun MapTypeDialog(
                     )
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                Divider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                )
 
                 Text(
                     text = "地图引擎",
@@ -109,7 +114,7 @@ fun MapTypeDialog(
                         },
                         modifier = Modifier.weight(1f)
                     )
-                    
+
                     MapTypeItem(
                         title = "高德地图",
                         icon = Icons.Rounded.Map,
@@ -163,7 +168,8 @@ private fun MapTypeItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val borderColor = if (isSelected) AccentBlue else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val borderColor =
+        if (isSelected) AccentBlue else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     val containerColor = if (isSelected) AccentBlue.copy(alpha = 0.08f) else Color.Transparent
     val contentColor = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -175,7 +181,9 @@ private fun MapTypeItem(
         colors = CardDefaults.outlinedCardColors(containerColor = containerColor)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

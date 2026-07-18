@@ -9,7 +9,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class SettingsManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
     var isDarkMode: Boolean
         get() = prefs.getBoolean("is_dark_mode", true)
@@ -98,7 +99,13 @@ class SettingsManager(context: Context) {
             val jsonArray = JSONArray(jsonString)
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
-                list.add(SavedLocation(obj.getString("name"), obj.getDouble("lat"), obj.getDouble("lng")))
+                list.add(
+                    SavedLocation(
+                        obj.getString("name"),
+                        obj.getDouble("lat"),
+                        obj.getDouble("lng")
+                    )
+                )
             }
         } catch (e: Exception) {
             e.printStackTrace()
