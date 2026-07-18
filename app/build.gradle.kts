@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.suseoaa.locationspoofer"
-    compileSdk = 37
+    compileSdk = 35
 
     fun getLocalConfig(key: String): String? {
         val localYml = file("../local.yml")
@@ -27,9 +27,9 @@ android {
     defaultConfig {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
-        targetSdk = 37
-        versionCode = 13928
-        versionName = "1.39.28"
+        targetSdk = 35
+        versionCode = 14028
+        versionName = "1.40.28"
 
         vectorDrawables {
             useSupportLibrary = true
