@@ -468,7 +468,7 @@ fun SpoofingScreen(
                                         .padding(horizontal = 16.dp)
                                         .offset(y = (-4).dp)
                                 ) {
-                                    LazyColumn(modifier = Modifier.fillMaxHeight()) {
+                                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
                                         items(spoofingUiState.searchResults.take(15)) { poi ->
                                             Row(
                                                 modifier = Modifier
