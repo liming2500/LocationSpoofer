@@ -1,3 +1,19 @@
+@file:Suppress(
+    "UNUSED_PARAMETER",
+    "UNUSED_VARIABLE",
+    "UNNECESSARY_NOT_NULL_ASSERTION",
+    "DEPRECATION",
+    "NAME_SHADOWING",
+    "FunctionName",
+    "PrivatePropertyName",
+    "SpellCheckingInspection",
+    "RedundantUnitReturnType",
+    "RemoveRedundantQualifierName",
+    "OPT_IN_USAGE",
+    "unused",
+    "UnusedImport"
+)
+
 package com.suseoaa.locationspoofer.ui.screen
 
 import android.Manifest
