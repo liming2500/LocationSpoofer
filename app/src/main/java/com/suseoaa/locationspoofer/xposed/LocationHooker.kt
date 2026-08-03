@@ -268,6 +268,27 @@ class LocationHooker : XposedModule() {
     @Volatile
     private var lastSpoofedLng = 0.0
 
+    @Volatile
+    private var cachedProvince = "模拟省"
+    @Volatile
+    private var cachedCity = "模拟市"
+    @Volatile
+    private var cachedDistrict = "模拟区"
+    @Volatile
+    private var cachedStreet = "模拟街道"
+    @Volatile
+    private var cachedStreetNum = "1号"
+    @Volatile
+    private var cachedAddress = "模拟省模拟市模拟区模拟街道1号"
+    @Volatile
+    private var cachedCountry = "中国"
+    @Volatile
+    private var cachedPoiName = "模拟位置"
+    @Volatile
+    private var lastGeocodedLat = -999.0
+    @Volatile
+    private var lastGeocodedLng = -999.0
+
     override fun onPackageLoaded(param: XposedModuleInterface.PackageLoadedParam) {
         // 目前这里没有内容
     }
@@ -1949,21 +1970,21 @@ class LocationHooker : XposedModule() {
                     val res = param.result as? String
                     if (res.isNullOrEmpty() || res.contains("Unknown", ignoreCase = true)) {
                         param.result = when (method.name) {
-                            "getCity" -> "模拟市"
-                            "getProvince" -> "模拟省"
-                            "getDistrict" -> "模拟区"
-                            "getAddress", "getAddrStr" -> "模拟省模拟市模拟区模拟街道1号"
-                            "getCountry", "getNation" -> "中国"
-                            "getStreet" -> "模拟街道"
-                            "getStreetNum", "getStreetNumber", "getStreetNo" -> "1号"
-                            "getCityCode" -> "0000"
-                            "getAdCode" -> "000000"
-                            "getPoiName" -> "模拟位置"
-                            "getAoiName" -> "模拟区域"
-                            "getTown" -> "模拟镇"
-                            "getVillage" -> "模拟村"
-                            "getLocationDescribe" -> "在模拟位置附近"
-                            else -> "模拟数据"
+                            "getCity" -> cachedCity
+                            "getProvince" -> cachedProvince
+                            "getDistrict" -> cachedDistrict
+                            "getAddress", "getAddrStr" -> cachedAddress
+                            "getCountry", "getNation" -> cachedCountry
+                            "getStreet" -> cachedStreet
+                            "getStreetNum", "getStreetNumber", "getStreetNo" -> cachedStreetNum
+                            "getCityCode" -> ""
+                            "getAdCode" -> ""
+                            "getPoiName" -> cachedPoiName
+                            "getAoiName" -> cachedPoiName
+                            "getTown" -> ""
+                            "getVillage" -> ""
+                            "getLocationDescribe" -> "在${cachedPoiName}附近"
+                            else -> ""
                         }
                     }
                 }
@@ -5421,6 +5442,35 @@ class LocationHooker : XposedModule() {
                                 val currentLng = newConfig.optDouble("lng", 0.0)
                                 lastSpoofedLat = currentLat
                                 lastSpoofedLng = currentLng
+
+                                val dist = FloatArray(1)
+                                android.location.Location.distanceBetween(lastGeocodedLat, lastGeocodedLng, currentLat, currentLng, dist)
+                                if (dist[0] > 500f || lastGeocodedLat == -999.0) {
+                                    lastGeocodedLat = currentLat
+                                    lastGeocodedLng = currentLng
+                                    try {
+                                        val activityThreadClass = XposedHelpers.findClassIfExists("android.app.ActivityThread", currentClassLoader)
+                                        val context = if (activityThreadClass != null) {
+                                            XposedHelpers.callStaticMethod(activityThreadClass, "currentApplication") as? android.app.Application
+                                        } else null
+                                        if (context != null) {
+                                            val geocoder = android.location.Geocoder(context)
+                                            val addresses = geocoder.getFromLocation(currentLat, currentLng, 1)
+                                            if (!addresses.isNullOrEmpty()) {
+                                                val addr = addresses[0]
+                                                cachedCountry = addr.countryName ?: "中国"
+                                                cachedProvince = addr.adminArea ?: "未知省"
+                                                cachedCity = addr.locality ?: addr.subAdminArea ?: "未知市"
+                                                cachedDistrict = addr.subLocality ?: "未知区"
+                                                cachedStreet = addr.thoroughfare ?: "未知街道"
+                                                cachedStreetNum = addr.subThoroughfare ?: "1号"
+                                                cachedAddress = addr.getAddressLine(0) ?: "${cachedProvince}${cachedCity}${cachedDistrict}${cachedStreet}${cachedStreetNum}"
+                                                cachedPoiName = addr.featureName ?: "未知位置"
+                                            }
+                                        }
+                                    } catch (e: Throwable) {
+                                    }
+                                }
 
                                 val cl = currentClassLoader
                                 val nCount = capturedLocationListeners.size
