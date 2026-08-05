@@ -38,3 +38,6 @@ app/release/
 
 # Local Gradle user home/cache
 .gradle-home/
+
+# Custom Gradle Home
+.gradle_home/

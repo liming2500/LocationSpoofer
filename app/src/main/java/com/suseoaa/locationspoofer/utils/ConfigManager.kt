@@ -1,14 +1,30 @@
 package com.suseoaa.locationspoofer.utils
 
+import android.content.Context
+import android.location.Geocoder
 import com.suseoaa.locationspoofer.data.model.RoutePoint
+import com.suseoaa.locationspoofer.utils.CoordinateUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-class ConfigManager(private val rootManager: RootManager) {
+class ConfigManager(private val context: Context, private val rootManager: RootManager) {
+
+
+    private var lastGeocodedLat = -999.0
+    private var lastGeocodedLng = -999.0
+    private var cachedProvince = ""
+    private var cachedCity = ""
+    private var cachedDistrict = ""
+    private var cachedStreet = ""
+    private var cachedStreetNum = ""
+    private var cachedAddressText = ""
+    private var cachedCountry = ""
+    private var cachedPoiName = ""
 
     suspend fun saveConfig(
+
         lat: Double,
         lng: Double,
         active: Boolean,
@@ -36,7 +52,54 @@ class ConfigManager(private val rootManager: RootManager) {
             routeArray.put(obj)
         }
 
+
+        val dist = FloatArray(1)
+        if (lastGeocodedLat != -999.0) {
+            android.location.Location.distanceBetween(
+                lastGeocodedLat,
+                lastGeocodedLng,
+                lat,
+                lng,
+                dist
+            )
+        }
+
+        if (lastGeocodedLat == -999.0 || dist[0] > 500f) {
+            lastGeocodedLat = lat
+            lastGeocodedLng = lng
+            try {
+                // 原坐标是 GCJ-02，Geocoder 是调用 Android 系统的原生服务，严格要求 WGS-84 坐标
+                // 因此在此处做一次逆向偏移，防止解析出的街道文本发生几百米的偏移误差
+                val wgs84 = CoordinateUtils.gcj02ToWgs84(lat, lng)
+                val geocoder = Geocoder(context)
+                val addresses = geocoder.getFromLocation(wgs84.lat, wgs84.lng, 1)
+                if (!addresses.isNullOrEmpty()) {
+                    val addr = addresses[0]
+                    cachedCountry = addr.countryName ?: ""
+                    cachedProvince = addr.adminArea ?: ""
+                    cachedCity = addr.locality ?: addr.subAdminArea ?: ""
+                    cachedDistrict = addr.subLocality ?: ""
+                    cachedStreet = addr.thoroughfare ?: ""
+                    cachedStreetNum = addr.subThoroughfare ?: ""
+                    cachedAddressText = addr.getAddressLine(0)
+                        ?: "${cachedProvince}${cachedCity}${cachedDistrict}${cachedStreet}${cachedStreetNum}"
+                    cachedPoiName = addr.featureName ?: ""
+                }
+            } catch (e: Exception) {
+                // Ignore network/geocoder errors
+            }
+        }
+
         val json = JSONObject().apply {
+            put("province", cachedProvince)
+            put("city", cachedCity)
+            put("district", cachedDistrict)
+            put("street", cachedStreet)
+            put("streetNum", cachedStreetNum)
+            put("address", cachedAddressText)
+            put("country", cachedCountry)
+            put("poiName", cachedPoiName)
+
             put("lat", lat)
             put("lng", lng)
             put("active", active)

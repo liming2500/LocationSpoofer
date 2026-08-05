@@ -13,7 +13,7 @@ import org.koin.dsl.module
 
 val appModule = module {
     single { RootManager() }
-    single { ConfigManager(get()) }
+    single { ConfigManager(androidContext(), get()) }
     single { LSPosedManager() }
     single { SettingsManager(androidContext()) }
     single { com.suseoaa.locationspoofer.utils.EnvironmentScanner(androidContext()) }

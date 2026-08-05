@@ -1,0 +1,652 @@
+@file:Suppress(
+    "UNUSED_PARAMETER",
+    "UNUSED_VARIABLE",
+    "UNNECESSARY_NOT_NULL_ASSERTION",
+    "DEPRECATION",
+    "NAME_SHADOWING",
+    "FunctionName",
+    "PrivatePropertyName",
+    "SpellCheckingInspection",
+    "RedundantUnitReturnType",
+    "RemoveRedundantQualifierName",
+    "OPT_IN_USAGE",
+    "unused",
+    "UnusedImport"
+)
+
+package com.suseoaa.locationspoofer.xposed.hooks
+
+import com.suseoaa.locationspoofer.xposed.LocationHooker
+import com.suseoaa.locationspoofer.xposed.utils.*
+import com.suseoaa.locationspoofer.xposed.hooks.*
+import org.json.JSONObject
+import java.util.concurrent.ConcurrentHashMap
+import java.lang.reflect.*
+import kotlin.math.*
+import io.github.libxposed.api.*
+
+/**
+ * 地图 SDK 专项拦截模块 (Map SDK Hooker)
+ * 
+ * 上下文:
+ * 虽然底层 LocationManager 被劫持了，但国内的地图服务商 (高德 AMap, 百度 BDLocation, 腾讯 TencentLocation)
+ * 自己封装了庞大且复杂的定位 SDK。它们不仅读取底层 GPS，还会缓存最后一次位置、读取基站和 WiFi、
+ * 并自行进行坐标系偏转 (WGS84 -> GCJ02 -> BD09) 以及逆地理编码 (把坐标变成 "XX省XX市" 的文字描述)。
+ * 
+ * 作用:
+ * 专门针对高德、百度、腾讯地图 SDK 的类和回调接口进行 Hook。
+ * 关键部分解释:
+ * 1. 逆地理编码文本替换 (hookAddressFields): App 请求反查地址时，如果我们在配置里填了 "XX省XX市"，
+ *    这个方法就会拦截 `getCity()`, `getProvince()` 等方法，直接用我们的数据覆盖 SDK 查出的真实文本。
+ * 2. 坐标系适配: 各种 SDK 期望的输入和输出不同。例如百度地图强行需要 BD-09 坐标系，
+ *    如果底层返回了 GCJ-02，这里必须拦截并保证传给百度的正是它想要的格式，否则会在地图上出现数百米的偏移。
+ */
+
+
+internal fun LocationHooker.hookTencentSDK(classLoader: ClassLoader) {
+    // 腾讯SDK已知的实现类名(按优先级排列)
+    val implCandidates = listOf(
+        "com.tencent.map.geolocation.internal.TencentLocationImpl",
+        "com.tencent.map.geolocation.TencentLocationImpl",
+        "com.tencent.tencentmap.mapsdk.map.model.TencentLocationImpl"
+    )
+
+    // 阶段1: 尝试直接Hook已知实现类
+    var hooked = false
+    for (implClass in implCandidates) {
+        val clazz = XposedHelpers.findClassIfExists(implClass, classLoader)
+        if (clazz != null) {
+            hookTencentLocationClass(clazz, classLoader)
+            hooked = true
+            XposedBridge.log("[LocationSpoofer] TencentLocation impl found: $implClass")
+            break
+        }
+    }
+
+    // 阶段2: 若已知类名均不存在,尝试通过接口反向查找
+    if (!hooked) {
+        val interfaceClazz = XposedHelpers.findClassIfExists(
+            "com.tencent.map.geolocation.TencentLocation", classLoader
+        )
+        if (interfaceClazz != null && interfaceClazz.isInterface) {
+            // TencentLocation是接口,无法直接Hook。
+            // 但腾讯SDK的定位结果最终会通过TencentLocationListener.onLocationChanged(TencentLocation)
+            // 回调给App。我们Hook这个回调,在App拿到结果前篡改TencentLocation实例的字段。
+            hookTencentLocationCallback(classLoader)
+            hooked = true
+        } else if (interfaceClazz != null) {
+            // 某些版本中TencentLocation是具体类而非接口
+            hookTencentLocationClass(interfaceClazz, classLoader)
+            hooked = true
+        }
+    }
+
+    if (!hooked) {
+        XposedBridge.log("[LocationSpoofer] TencentLocation SDK not found, skipped")
+    }
+
+    // 捕获 Listener 实例以便后续主动推送
+    val tencentManagerClass = XposedHelpers.findClassIfExists(
+        "com.tencent.map.geolocation.TencentLocationManager", classLoader
+    )
+    if (tencentManagerClass != null) {
+        try {
+            XposedHelpers.hookAllMethods(
+                tencentManagerClass,
+                "requestLocationUpdates"
+            ) { chain, method ->
+                // 监听器通常是第二个参数，但我们会查找任何实现了监听器接口的参数
+                for (arg in chain.args) {
+                    if (arg != null) {
+                        try {
+                            if (LocationHooker.hasTypeByName(
+                                    arg.javaClass,
+                                    "com.tencent.map.geolocation.TencentLocationListener"
+                                )
+                            ) {
+                                capturedTencentListeners.addIfAbsent(arg)
+                            }
+                        } catch (e: Throwable) {
+                        }
+                    }
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+        } catch (e: Throwable) {
+        }
+    }
+}
+
+/**
+ * 对TencentLocation的具体实现类进行方法Hook
+ */
+internal fun LocationHooker.hookTencentLocationClass(clazz: Class<*>, classLoader: ClassLoader) {
+    try {
+        // hookAllMethods: 不管方法签名如何变化,只要方法名匹配就Hook
+        XposedHelpers.hookAllMethods(clazz, "getLatitude") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val baseLat = config.optDouble("lat", 0.0)
+                val baseLng = config.optDouble("lng", 0.0)
+                val jittered = getJitteredLocation(baseLat, baseLng)
+                result = jittered.first
+            }
+            return@hookAllMethods result
+        }
+        XposedHelpers.hookAllMethods(clazz, "getLongitude") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val baseLat = config.optDouble("lat", 0.0)
+                val baseLng = config.optDouble("lng", 0.0)
+                val jittered = getJitteredLocation(baseLat, baseLng)
+                result = jittered.second
+            }
+            return@hookAllMethods result
+        }
+    } catch (e: Throwable) {
+        XposedBridge.log("[LocationSpoofer] TencentLocation class hook failed: $e")
+        return
+    }
+
+    // 动态保留网络定位提供者标识，避免室内强行返回GPS引发风控检测
+    try {
+        XposedHelpers.hookAllMethods(clazz, "getProvider") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val originalProvider = result as? String ?: "gps"
+                // 腾讯地图SDK的定位提供者通常也是"gps"或者"network"
+                if (originalProvider == "network" || originalProvider.contains(
+                        "wifi",
+                        ignoreCase = true
+                    )
+                ) {
+                    result = originalProvider
+                } else {
+                    result = "gps" // 默认强制修改为GPS定位
+                }
+            }
+            return@hookAllMethods result
+        }
+    } catch (e: Throwable) { /* 忽略 */
+    }
+
+    try {
+        XposedHelpers.hookAllMethods(clazz, "getAccuracy") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                result = getJitteredAccuracy()
+            }
+            return@hookAllMethods result
+        }
+    } catch (e: Throwable) { /* 忽略 */
+    }
+
+    try {
+        XposedHelpers.hookAllMethods(clazz, "isMockGps") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                result = 0
+            }
+            return@hookAllMethods result
+        }
+    } catch (e: Throwable) { /* 忽略 */
+    }
+
+    // Inject mock address strings to prevent 'Location fetch failed' NPEs
+    hookAddressFields(clazz, classLoader)
+
+    XposedBridge.log("[LocationSpoofer] TencentLocation hooks installed on ${clazz.name}")
+}
+
+/**
+ * 通过拦截TencentLocationListener回调来修改坐标
+ *
+ * 当无法直接Hook TencentLocation实现类时的降级方案:
+ * Hook TencentLocationListener.onLocationChanged(TencentLocation, int, String)回调,
+ * 在回调触发时通过反射修改TencentLocation实例的内部字段。
+ */
+internal fun LocationHooker.hookTencentLocationCallback(classLoader: ClassLoader) {
+    val listenerClass = XposedHelpers.findClassIfExists(
+        "com.tencent.map.geolocation.TencentLocationListener", classLoader
+    ) ?: return
+
+    try {
+        // hookAllMethods可以Hook接口的所有实现类中的方法
+        XposedHelpers.hookAllMethods(listenerClass, "onLocationChanged") { chain, method ->
+            val config = readConfig()
+            if (config == null || !config.optBoolean(
+                    "active",
+                    false
+                )
+            ) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            if (chain.args.isEmpty()) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+
+            val tencentLoc =
+                chain.args[0] ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            val baseLat = config.optDouble("lat", 0.0)
+            val baseLng = config.optDouble("lng", 0.0)
+            val jittered = getJitteredLocation(baseLat, baseLng)
+
+            // 通过反射直接写入TencentLocation实现类的经纬度字段
+            try {
+                XposedHelpers.callMethod(tencentLoc, "setLatitude", jittered.first)
+            } catch (e: Throwable) {
+                try {
+                    XposedHelpers.setDoubleField(tencentLoc, "latitude", jittered.first)
+                } catch (e2: Throwable) {
+                    try {
+                        XposedHelpers.setDoubleField(
+                            tencentLoc,
+                            "mLatitude",
+                            jittered.first
+                        )
+                    } catch (e3: Throwable) {
+                        try {
+                            XposedHelpers.setDoubleField(
+                                tencentLoc,
+                                "a",
+                                jittered.first
+                            )
+                        } catch (e4: Throwable) {
+                        }
+                    }
+                }
+            }
+            try {
+                XposedHelpers.callMethod(tencentLoc, "setLongitude", jittered.second)
+            } catch (e: Throwable) {
+                try {
+                    XposedHelpers.setDoubleField(
+                        tencentLoc,
+                        "longitude",
+                        jittered.second
+                    )
+                } catch (e2: Throwable) {
+                    try {
+                        XposedHelpers.setDoubleField(
+                            tencentLoc,
+                            "mLongitude",
+                            jittered.second
+                        )
+                    } catch (e3: Throwable) {
+                        try {
+                            XposedHelpers.setDoubleField(
+                                tencentLoc,
+                                "b",
+                                jittered.second
+                            )
+                        } catch (e4: Throwable) {
+                        }
+                    }
+                }
+            }
+            return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+        }
+        XposedBridge.log("[LocationSpoofer] TencentLocationListener callback hook installed")
+    } catch (e: Throwable) {
+        XposedBridge.log("[LocationSpoofer] TencentLocationListener hook failed: $e")
+    }
+}
+
+/**
+ * 百度定位SDK深度Hook
+ *
+ * 百度定位SDK的核心定位回调对象为com.baidu.location.BDLocation。
+ * 百度地图使用BD-09坐标系,这是在GCJ-02基础上施加二次偏移的专有坐标系。
+ *
+ * 关键区别:
+ * - 高德/腾讯: 使用GCJ-02,直接返回config中的lat/lng
+ * - 百度: 使用BD-09,必须调用gcj02ToBd09()转换后再返回
+ *
+ * 双重保险策略:
+ * 1. 直接Hook BDLocation.getLatitude/getLongitude(方法级拦截)
+ * 2. Hook BDAbstractLocationListener.onReceiveLocation回调(回调级拦截)
+ * 两者互为补充,确保无论百度SDK内部架构如何变化,BD-09坐标都能正确注入。
+ */
+internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
+    val baiduLocClass = "com.baidu.location.BDLocation"
+
+    // 安全探测: 当前进程是否加载了百度定位SDK
+    val baiduClazz = XposedHelpers.findClassIfExists(baiduLocClass, classLoader)
+    if (baiduClazz == null) {
+        XposedBridge.log("[LocationSpoofer] BDLocation class not found, skipping")
+        return
+    }
+
+    try {
+        // 使用hookAllMethods: BDLocation在不同版本中可能有多个getLatitude重载
+        XposedHelpers.hookAllMethods(baiduClazz, "getLatitude") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val coorType = try {
+                    XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
+                } catch (e: Throwable) {
+                    null
+                }
+                val targetLat: Double
+                val targetLng: Double
+                when (coorType) {
+                    "bd09ll", "bd09mc", "bd09" -> {
+                        targetLat = config.optDouble("bd09_lat", 0.0)
+                        targetLng = config.optDouble("bd09_lng", 0.0)
+                    }
+
+                    "wgs84" -> {
+                        targetLat = config.optDouble("wgs84_lat", 0.0)
+                        targetLng = config.optDouble("wgs84_lng", 0.0)
+                    }
+
+                    else -> { // gcj02 或默认(中国标准坐标系)
+                        targetLat = config.optDouble("lat", 0.0)
+                        targetLng = config.optDouble("lng", 0.0)
+                    }
+                }
+                val jittered = getJitteredLocation(targetLat, targetLng)
+                result = jittered.first
+            }
+            return@hookAllMethods result
+        }
+
+        XposedHelpers.hookAllMethods(baiduClazz, "getLongitude") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val coorType = try {
+                    XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
+                } catch (e: Throwable) {
+                    null
+                }
+                val targetLat: Double
+                val targetLng: Double
+                when (coorType) {
+                    "bd09ll", "bd09mc", "bd09" -> {
+                        targetLat = config.optDouble("bd09_lat", 0.0)
+                        targetLng = config.optDouble("bd09_lng", 0.0)
+                    }
+
+                    "wgs84" -> {
+                        targetLat = config.optDouble("wgs84_lat", 0.0)
+                        targetLng = config.optDouble("wgs84_lng", 0.0)
+                    }
+
+                    else -> { // gcj02 或默认(中国标准坐标系)
+                        targetLat = config.optDouble("lat", 0.0)
+                        targetLng = config.optDouble("lng", 0.0)
+                    }
+                }
+                val jittered = getJitteredLocation(targetLat, targetLng)
+                result = jittered.second
+            }
+            return@hookAllMethods result
+        }
+
+        // getLocType -> 动态保留网络定位类型，适配百度SDK的161和601类型，否则强制返回GPS定位(61)
+        XposedHelpers.hookAllMethods(baiduClazz, "getLocType") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val originalLocationType = result as? Int ?: 61
+                // 百度地图SDK中：61代表GPS定位结果，161代表网络定位结果，601代表某些特殊或离线网络定位结果
+                // 为了避免在室内环境（如没有GPS信号）强行返回61导致应用侧判定为作弊，
+                // 我们直接放行原有的网络定位类型，由于经纬度已经被修改，这样显得更加真实自然。
+                if (originalLocationType == 161 || originalLocationType == 601) {
+                    result = originalLocationType
+                } else {
+                    result = 61 // 默认强制修改为GPS定位（61）
+                }
+            }
+            return@hookAllMethods result
+        }
+
+        // getRadius(精度) -> 与全局抖动精度同步
+        try {
+            XposedHelpers.hookAllMethods(baiduClazz, "getRadius") { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    result = getJitteredAccuracy()
+                }
+                return@hookAllMethods result
+            }
+        } catch (e: Throwable) { /* 忽略 */
+        }
+
+        // getMockGps -> 0(非模拟)
+        try {
+            XposedHelpers.hookAllMethods(baiduClazz, "getMockGps") { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    result = 0
+                }
+                return@hookAllMethods result
+            }
+        } catch (e: Throwable) { /* 忽略 */
+        }
+
+        // getSatelliteNumber -> 12-18颗
+        try {
+            XposedHelpers.hookAllMethods(baiduClazz, "getSatelliteNumber") { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    result = 12 + rng.nextInt(7)
+                }
+                return@hookAllMethods result
+            }
+        } catch (e: Throwable) { /* 忽略 */
+        }
+
+        // Inject mock address strings to prevent 'Location fetch failed' NPEs
+        hookAddressFields(baiduClazz, classLoader)
+
+        XposedBridge.log("[LocationSpoofer] BDLocation method hooks installed")
+    } catch (e: Throwable) {
+        XposedBridge.log("[LocationSpoofer] BDLocation method hook failed: $e")
+    }
+
+    // ── 方案2(补充): Hook百度定位回调,在App接收BDLocation前修改其内部字段 ──
+    // BDAbstractLocationListener是百度SDK 7.0+推荐的回调基类
+    val listenerCandidates = listOf(
+        "com.baidu.location.BDAbstractLocationListener",
+        "com.baidu.location.BDLocationListener"
+    )
+    for (listenerClassName in listenerCandidates) {
+        val listenerClazz =
+            XposedHelpers.findClassIfExists(listenerClassName, classLoader) ?: continue
+        try {
+            XposedHelpers.hookAllMethods(listenerClazz, "onReceiveLocation") { chain, method ->
+                val config =
+                    readConfig() ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                if (!config.optBoolean(
+                        "active",
+                        false
+                    )
+                ) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                if (chain.args.isEmpty()) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+
+                val bdLoc =
+                    chain.args[0] ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+
+                val coorType = try {
+                    XposedHelpers.callMethod(bdLoc, "getCoorType") as? String
+                } catch (e: Throwable) {
+                    null
+                }
+
+                val targetLat: Double
+                val targetLng: Double
+                when (coorType) {
+                    "bd09ll", "bd09mc", "bd09" -> {
+                        targetLat = config.optDouble("bd09_lat", 0.0)
+                        targetLng = config.optDouble("bd09_lng", 0.0)
+                    }
+
+                    "wgs84" -> {
+                        targetLat = config.optDouble("wgs84_lat", 0.0)
+                        targetLng = config.optDouble("wgs84_lng", 0.0)
+                    }
+
+                    else -> { // gcj02 或默认(中国标准坐标系)
+                        targetLat = config.optDouble("lat", 0.0)
+                        targetLng = config.optDouble("lng", 0.0)
+                    }
+                }
+
+                val jittered = getJitteredLocation(targetLat, targetLng)
+
+                // 通过反射直接写入BDLocation实例的经纬度
+                try {
+                    XposedHelpers.callMethod(bdLoc, "setLatitude", jittered.first)
+                } catch (e: Throwable) {
+                    try {
+                        XposedHelpers.setDoubleField(bdLoc, "mLatitude", jittered.first)
+                    } catch (e2: Throwable) {
+                    }
+                }
+                try {
+                    XposedHelpers.callMethod(bdLoc, "setLongitude", jittered.second)
+                } catch (e: Throwable) {
+                    try {
+                        XposedHelpers.setDoubleField(
+                            bdLoc,
+                            "mLongitude",
+                            jittered.second
+                        )
+                    } catch (e2: Throwable) {
+                    }
+                }
+                // 动态设置定位类型：保留网络定位类型（161和601），其余强制覆盖为GPS定位（61）
+                try {
+                    val currentLocationType =
+                        XposedHelpers.callMethod(bdLoc, "getLocType") as? Int ?: 61
+                    // 如果当前回调原本就是网络定位，那么我们不修改类型，只替换了上面的经纬度坐标
+                    if (currentLocationType != 161 && currentLocationType != 601) {
+                        XposedHelpers.callMethod(bdLoc, "setLocType", 61)
+                    }
+                } catch (e: Throwable) { /* 忽略反射调用可能出现的异常 */
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+            XposedBridge.log("[LocationSpoofer] $listenerClassName callback hook installed")
+        } catch (e: Throwable) { /* 忽略 */
+        }
+    }
+
+    // 3. 捕获 Listener 实例以便后续主动推送
+    val locationClientClass = XposedHelpers.findClassIfExists(
+        "com.baidu.location.LocationClient", classLoader
+    )
+    if (locationClientClass != null) {
+        try {
+            XposedHelpers.hookAllMethods(
+                locationClientClass,
+                "registerLocationListener"
+            ) { chain, method ->
+                val listener = chain.args[0]
+                if (listener != null) {
+                    try {
+                        if (LocationHooker.hasTypeByName(
+                                listener.javaClass,
+                                "com.baidu.location.BDAbstractLocationListener"
+                            )
+                        ) {
+                            capturedBaiduListeners.addIfAbsent(listener)
+                        }
+                        if (LocationHooker.hasTypeByName(
+                                listener.javaClass,
+                                "com.baidu.location.BDLocationListener"
+                            )
+                        ) {
+                            capturedBaiduListeners.addIfAbsent(listener)
+                        }
+                    } catch (e: Throwable) {
+                    }
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(
+                locationClientClass,
+                "unRegisterLocationListener"
+            ) { chain, method ->
+                val listener = chain.args[0]
+                if (listener != null) {
+                    capturedBaiduListeners.remove(listener)
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+        } catch (e: Throwable) {
+        }
+    }
+}
+
+/**
+ * Inject generic mock values for address/city/province fields in Map SDK Location objects.
+ * When Wi-Fi/Cell is spoofed, Map SDK's cloud reverse geocoding usually fails, leaving these fields null.
+ * Returning null causes target apps (e.g., DingTalk, WeChat) to report "Location fetch failed".
+ */
+internal fun LocationHooker.hookAddressFields(clazz: Class<*>, classLoader: ClassLoader) {
+    val stringMethods = arrayOf(
+        "getCity",
+        "getProvince",
+        "getDistrict",
+        "getAddress",
+        "getAddrStr",
+        "getCountry",
+        "getNation",
+        "getStreet",
+        "getStreetNum",
+        "getStreetNumber",
+        "getStreetNo",
+        "getCityCode",
+        "getAdCode",
+        "getPoiName",
+        "getAoiName",
+        "getTown",
+        "getVillage",
+        "getLocationDescribe"
+    )
+    for (methodName in stringMethods) {
+        try {
+            XposedHelpers.hookAllMethods(clazz, methodName) { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                if (method !is Method) return@hookAllMethods result
+                if (method.returnType != String::class.java) return@hookAllMethods result
+
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    val res = result as? String
+                    if (res.isNullOrEmpty() || res.contains("Unknown", ignoreCase = true)) {
+                        result = when (method.name) {
+                            "getCity" -> cachedCity
+                            "getProvince" -> cachedProvince
+                            "getDistrict" -> cachedDistrict
+                            "getAddress", "getAddrStr" -> cachedAddress
+                            "getCountry", "getNation" -> cachedCountry
+                            "getStreet" -> cachedStreet
+                            "getStreetNum", "getStreetNumber", "getStreetNo" -> cachedStreetNum
+                            "getCityCode" -> ""
+                            "getAdCode" -> ""
+                            "getPoiName" -> cachedPoiName
+                            "getAoiName" -> cachedPoiName
+                            "getTown" -> ""
+                            "getVillage" -> ""
+                            "getLocationDescribe" -> "在${cachedPoiName}附近"
+                            else -> ""
+                        }
+                    }
+                }
+                return@hookAllMethods result
+            }
+        } catch (e: Throwable) { /* ignore */
+        }
+    }
+}
+
+// Wi-Fi 环境伪造 — 覆盖 WifiInfo / WifiManager / NetworkInfo

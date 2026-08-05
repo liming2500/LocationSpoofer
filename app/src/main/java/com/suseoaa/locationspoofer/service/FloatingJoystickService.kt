@@ -71,7 +71,7 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
     private lateinit var rootManager: RootManager
     private lateinit var configManager: ConfigManager
     private lateinit var settingsRepo: SettingsRepository
-    
+
     private var lastConfigSaveTime = 0L
 
     override fun onCreate() {
@@ -79,11 +79,11 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        
+
         rootManager = RootManager()
-        configManager = ConfigManager(rootManager)
+        configManager = ConfigManager(this, rootManager)
         settingsRepo = SettingsRepository(SettingsManager(this))
-        
+
         showFloatingWindow()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
@@ -128,7 +128,8 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
                             } else {
                                 lifecycleScope.launch {
                                     val rootManager = RootManager()
-                                    val configManager = ConfigManager(rootManager)
+                                    val configManager =
+                                        ConfigManager(this@FloatingJoystickService, rootManager)
                                     val settingsRepo = SettingsRepository(
                                         SettingsManager(this@FloatingJoystickService)
                                     )
@@ -189,7 +190,7 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
         SpooferProvider.latitude = Math.toDegrees(newLatRad)
         SpooferProvider.longitude = Math.toDegrees(newLngRad)
         SpooferProvider.startTimestamp = now // 将模拟开始时间重置为当前时间，以避免位置跳跃
-        
+
         if (now - lastConfigSaveTime > 1000) {
             lastConfigSaveTime = now
             lifecycleScope.launch {
