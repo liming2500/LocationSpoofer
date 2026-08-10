@@ -269,7 +269,7 @@ fun ActionButtons(
                 onClick = onStartFixedSpoofing,
                 enabled = !uiState.isSavingConfig,
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
@@ -291,22 +291,6 @@ fun ActionButtons(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-            }
-            Button(
-                onClick = { viewModel.enterRoutePlanning(); onOpenMap() },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen)
-            ) {
-                Icon(Icons.Rounded.Route, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    stringResource(R.string.route_planning),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
             }
         }
     }
@@ -393,7 +377,12 @@ fun SavedLocationsCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+        ) {
             savedLocations.forEachIndexed { index, loc ->
                 Row(
                     modifier = Modifier

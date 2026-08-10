@@ -42,8 +42,8 @@ class LocationHooker : XposedModule() {
     internal val nmeaTimers = ConcurrentHashMap<Any, java.util.Timer>()
     internal val hookedCallbackClasses = ConcurrentHashMap<Class<*>, Boolean>()
 
-    // Tracks active Android LocationListeners for dynamic proactive spoofing
-    // Use CopyOnWriteArrayList with strong references to prevent GC from removing listeners
+    // 用于跟踪活动的 Android LocationListener，实现动态主动欺骗
+    // 使用 CopyOnWriteArrayList 和强引用，防止 GC 移除监听器
     internal val capturedLocationListeners = CopyOnWriteArrayList<Any>()
     internal val capturedAMapListeners = CopyOnWriteArrayList<Any>()
     internal val capturedBaiduListeners = CopyOnWriteArrayList<Any>()
@@ -100,8 +100,6 @@ class LocationHooker : XposedModule() {
         val classLoader = param.classLoader
         handleLoadPackage(pkg, classLoader)
     }
-
-    // --- Original Logic ---
 
 
     companion object {
@@ -248,8 +246,8 @@ class LocationHooker : XposedModule() {
         enableJitter: Boolean,
         timeSec: Double
     ): SatelliteData {
-        // 增量刷新优化 (Incremental Update Optimization):
-        // 强制每个卫星的数据每 4 秒才变化一次，并使用 satIndex 进行错开 (Staggering)。
+        // 增量刷新优化:
+        // 强制每个卫星的数据每 4 秒才变化一次，并使用 satIndex 进行错开。
         // 这意味着在任何一秒钟，只有 25% 的卫星数据发生变化。
         // 目标 App 的 DiffUtil 会发现 75% 的卫星数据完全没变，从而跳过大部分 UI 重绘，彻底解决滑动卡顿！
         val updateIntervalSec = 4.0
@@ -285,7 +283,7 @@ class LocationHooker : XposedModule() {
         }
         val svid = when (type) {
             1 -> 1 + (satIndex * 7) % 32 // GPS
-            3 -> 1 + (satIndex * 3) % 24 // GLONASS (GnssStatus standard is 1-24)
+            3 -> 1 + (satIndex * 3) % 24 // GLONASS (GnssStatus 规定是 1-24)
             else -> 1 + (satIndex * 5) % 63 // BDS
         }
 

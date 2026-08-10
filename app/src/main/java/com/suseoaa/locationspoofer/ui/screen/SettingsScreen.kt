@@ -44,26 +44,22 @@ fun SettingsScreen(
     var localOpencellidToken by remember(uiState.opencellidToken) { mutableStateOf(uiState.opencellidToken) }
     val clipboardManager = LocalClipboardManager.current
 
-    Column(
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onClose) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.back),
-                    tint = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            Spacer(Modifier.width(8.dp))
             Text(
                 text = stringResource(R.string.settings),
                 fontSize = 20.sp,
@@ -78,9 +74,8 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
                 .padding(horizontal = 20.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState())
+                .imePadding()
         ) {
             Text(
                 stringResource(R.string.select_language),
@@ -367,6 +362,7 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(24.dp))
+        }
         }
     }
 }

@@ -37,7 +37,7 @@ class SpooferProvider : ContentProvider() {
             )
         )
         cursor.addRow(
-            arrayOf(
+            arrayOf<Any?>(
                 if (isActive) 1 else 0,
                 latitude,
                 longitude,

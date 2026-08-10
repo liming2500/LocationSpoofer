@@ -242,7 +242,7 @@ fun JoystickOverlay(
             .background(Color.White.copy(alpha = 0.8f), shape = MaterialTheme.shapes.medium)
             .padding(8.dp)
     ) {
-        // Drag Handle
+        // 拖动手柄
         Row(
             modifier = Modifier
                 .fillMaxWidth(0.5f)
@@ -272,7 +272,7 @@ fun JoystickOverlay(
             }
         }
         Spacer(Modifier.height(8.dp))
-        // Joystick
+        // 摇杆
         Joystick(onJoystickChanged = onJoystickChanged)
     }
 }

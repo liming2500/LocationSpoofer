@@ -1,13 +1,18 @@
+@file:Suppress("DEPRECATION")
+
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
-    alias(libs.plugins.ksp)
-    kotlin("plugin.serialization") version "1.9.22"
+    alias(libs.plugins.jetbrains.kotlin.compose)
+    kotlin("kapt")
+    alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
 android {
     namespace = "com.suseoaa.locationspoofer"
-    compileSdk = 35
+    compileSdk = 37
 
     fun getLocalConfig(key: String): String? {
         val localYml = file("../local.yml")
@@ -79,24 +84,24 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-Xskip-metadata-version-check",
-            "-opt-in=kotlinx.serialization.InternalSerializationApi"
-        )
-    }
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.11"
     }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+        freeCompilerArgs.addAll(
+            "-Xskip-metadata-version-check",
+            "-opt-in=kotlinx.serialization.InternalSerializationApi"
+        )
     }
 }
 
@@ -129,13 +134,11 @@ dependencies {
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
+    kapt(libs.room.compiler)
+    kapt(libs.kotlin.metadata.jvm)
+
+    implementation(libs.miuix.ui)
+    implementation(libs.miuix.blur)
 
     debugImplementation(libs.androidx.ui.tooling)
-}
-
-tasks.configureEach {
-    if (name.contains("AarMetadata")) {
-        enabled = false
-    }
 }

@@ -16,13 +16,15 @@ data class SpoofingUiState(
     val showStartSpoofingDialog: Boolean = false,
     val showAppCoordinateScreen: Boolean = false,
 
-    // Bottom Sheet & Search State
+    // 底部抽屉与搜索状态
     val isSheetExpanded: Boolean = true,
     val isSearchActive: Boolean = false,
     val searchQuery: String = "",
     val searchResults: List<AppPoiItem> = emptyList(),
     val showSearchResults: Boolean = false,
+    val cachedSearchQuery: String = "",
+    val cachedSearchAt: Long = 0L,
 
-    // Notifications / Error
+    // 通知 / 错误
     val toastMessage: String? = null
 )

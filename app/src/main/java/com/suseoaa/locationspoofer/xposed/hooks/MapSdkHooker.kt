@@ -197,7 +197,7 @@ internal fun LocationHooker.hookTencentLocationClass(clazz: Class<*>, classLoade
     } catch (e: Throwable) { /* 忽略 */
     }
 
-    // Inject mock address strings to prevent 'Location fetch failed' NPEs
+    // 注入模拟的地址字符串，防止目标 App 抛出定位失败等空指针异常
     hookAddressFields(clazz, classLoader)
 
     XposedBridge.log("[LocationSpoofer] TencentLocation hooks installed on ${clazz.name}")
@@ -443,7 +443,7 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
         } catch (e: Throwable) { /* 忽略 */
         }
 
-        // Inject mock address strings to prevent 'Location fetch failed' NPEs
+        // 注入模拟的地址字符串，防止目标 App 抛出定位失败等空指针异常
         hookAddressFields(baiduClazz, classLoader)
 
         XposedBridge.log("[LocationSpoofer] BDLocation method hooks installed")
@@ -587,9 +587,9 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
 }
 
 /**
- * Inject generic mock values for address/city/province fields in Map SDK Location objects.
- * When Wi-Fi/Cell is spoofed, Map SDK's cloud reverse geocoding usually fails, leaving these fields null.
- * Returning null causes target apps (e.g., DingTalk, WeChat) to report "Location fetch failed".
+ * 在地图 SDK 的 Location 对象中注入地址/城市/省份等通用模拟值。
+ * 当 WiFi/基站被模拟时，地图 SDK 的云端逆地理编码通常会失败，导致这些字段为空。
+ * 返回 null 会导致目标 App (如钉钉、微信) 报“获取位置失败”。
  */
 internal fun LocationHooker.hookAddressFields(clazz: Class<*>, classLoader: ClassLoader) {
     val stringMethods = arrayOf(

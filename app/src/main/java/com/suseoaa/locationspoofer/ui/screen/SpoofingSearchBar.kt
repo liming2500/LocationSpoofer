@@ -38,6 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.shadow
@@ -108,78 +111,100 @@ fun HomeSearchBar(
     searchMode: com.suseoaa.locationspoofer.data.model.SearchMode,
     onSearchModeChange: (com.suseoaa.locationspoofer.data.model.SearchMode) -> Unit,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    onFocus: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null
 ) {
-    Row(
-        modifier = Modifier
+    Box(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        androidx.compose.foundation.text.BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            textStyle = androidx.compose.ui.text.TextStyle(
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onBackground
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(52.dp)
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(26.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f),
+                spotColor = Color.Black.copy(alpha = 0.1f)
+            )
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(26.dp)
             ),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .height(48.dp)
-                .shadow(4.dp, RoundedCornerShape(22.dp))
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(22.dp))
-                .padding(horizontal = 16.dp),
-            decorationBox = { innerTextField ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Rounded.Search,
-                        null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                .fillMaxSize()
+                .padding(end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            androidx.compose.foundation.text.BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                ),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 20.dp, end = 8.dp)
+                    .then(
+                        focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Box(modifier = Modifier.weight(1f)) {
-                        if (query.isEmpty()) {
-                            Text(
-                                "搜索地点或坐标...",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
-                            )
-                        }
-                        innerTextField()
-                    }
-                    if (query.isNotEmpty()) {
-                        IconButton(
-                            onClick = { onQueryChange("") },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Close,
-                                null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                            )
+                    .onFocusChanged { if (it.isFocused) onFocus() },
+                decorationBox = { innerTextField ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (query.isEmpty()) {
+                                Text(
+                                    "搜索地点、建筑或坐标...",
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                            innerTextField()
                         }
                     }
                 }
-            }
-        )
-        Spacer(Modifier.width(10.dp))
-        FilledIconButton(
-            onClick = onSearch,
-            modifier = Modifier.size(48.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(containerColor = AccentBlue)
-        ) {
-            Icon(
-                Icons.Rounded.Search,
-                stringResource(R.string.search),
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
             )
+
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(AccentBlue)
+                    .clickable { onSearch() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.Search,
+                    stringResource(R.string.search),
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

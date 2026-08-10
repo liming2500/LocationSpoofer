@@ -417,7 +417,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             XposedBridge.log(e)
         }
 
-        // ★ Capture LocationListeners for proactive mock location injection
+        // ★ 捕获 LocationListener 以便主动注入模拟位置
         try {
             val locationManagerClazz =
                 XposedHelpers.findClass("android.location.LocationManager", classLoader)

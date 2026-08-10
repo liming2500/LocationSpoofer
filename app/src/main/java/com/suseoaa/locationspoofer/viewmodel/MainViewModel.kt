@@ -2480,6 +2480,10 @@ class MainViewModel(
                 )
             }
 
+            SpoofingIntent.HideSearchResults -> _spoofingUiState.update {
+                it.copy(showSearchResults = false)
+            }
+
             is SpoofingIntent.UpdateSearchQuery -> _spoofingUiState.update {
                 it.copy(
                     searchQuery = intent.query
@@ -2498,9 +2502,12 @@ class MainViewModel(
             }
 
             is SpoofingIntent.SetSearchResults -> _spoofingUiState.update {
+                val query = intent.query.ifBlank { it.searchQuery }
                 it.copy(
                     searchResults = intent.results,
-                    showSearchResults = intent.show
+                    showSearchResults = intent.show,
+                    cachedSearchQuery = if (intent.results.isNotEmpty()) query else it.cachedSearchQuery,
+                    cachedSearchAt = if (intent.results.isNotEmpty()) System.currentTimeMillis() else it.cachedSearchAt
                 )
             }
 

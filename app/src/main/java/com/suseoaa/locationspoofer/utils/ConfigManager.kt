@@ -86,7 +86,7 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
                     cachedPoiName = addr.featureName ?: ""
                 }
             } catch (e: Exception) {
-                // Ignore network/geocoder errors
+                // 忽略网络或地理编码错误
             }
         }
 

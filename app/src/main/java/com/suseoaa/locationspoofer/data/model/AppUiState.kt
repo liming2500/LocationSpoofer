@@ -113,7 +113,7 @@ data class AppState(
     val canMockCell: Boolean = false,
     val canMockBluetooth: Boolean = false,
 
-    // Data Management
+    // 数据管理
     val isManageDataScreen: Boolean = false,
     val manageDataList: List<com.suseoaa.locationspoofer.data.db.CompleteLocation> = emptyList(),
     val manageDataIsLoading: Boolean = false

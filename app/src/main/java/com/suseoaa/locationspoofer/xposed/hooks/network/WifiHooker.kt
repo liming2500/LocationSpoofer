@@ -313,7 +313,7 @@ internal fun LocationHooker.hookWifiEnvironment(
                     val networkIdVal = connectedWifi.optInt("networkId", 1)
 
                     if (currentResult != null) {
-                        // In-place modification to avoid ClassCastException in ColorOS system_server
+                        // 就地修改返回值以避免在 ColorOS 的 system_server 中发生 ClassCastException
                         try {
                             XposedHelpers.setObjectField(
                                 currentResult,

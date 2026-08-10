@@ -714,7 +714,7 @@ fun FullScreenMapPage(
 // 顶部栏
 
 @Composable
-private fun TopBar(
+fun TopBar(
     stage: RoutePlanStage,
     routePointCount: Int,
     isManual: Boolean,
@@ -730,21 +730,7 @@ private fun TopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Surface(
-            onClick = onBack,
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 4.dp,
-            modifier = Modifier.size(44.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    stringResource(R.string.back),
-                    tint = MaterialTheme.colorScheme.onBackground
-                )
-            }
-        }
+
 
         if (stage != RoutePlanStage.IDLE) {
             Surface(
@@ -795,7 +781,7 @@ private fun TopBar(
 // 底部操作栏（由阶段驱动）
 
 @Composable
-private fun BottomActionBar(
+fun BottomActionBar(
     modifier: Modifier,
     stage: RoutePlanStage,
     routePoints: List<RoutePoint>,
@@ -959,7 +945,7 @@ private fun BottomActionBar(
 // 路线配置对话框
 
 @Composable
-private fun RoutePlanConfigDialog(
+fun RoutePlanConfigDialog(
     uiState: AppState,
     onDismiss: () -> Unit,
     onStartRoute: () -> Unit,

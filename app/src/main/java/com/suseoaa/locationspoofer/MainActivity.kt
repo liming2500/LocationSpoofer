@@ -114,16 +114,24 @@ class MainActivity : ComponentActivity() {
                     LocalDensity provides appDensity
                 ) {
                     MaterialTheme(colorScheme = colorScheme) {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background
+                        top.yukonga.miuix.kmp.theme.MiuixTheme(
+                            colors = if (isDark) {
+                                top.yukonga.miuix.kmp.theme.darkColorScheme()
+                            } else {
+                                top.yukonga.miuix.kmp.theme.lightColorScheme()
+                            }
                         ) {
-                            MainScreen(
-                                viewModel = viewModel,
-                                uiState = uiState,
-                                isDark = isDark,
-                                isInPipMode = pipModeState
-                            )
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                color = MaterialTheme.colorScheme.background
+                            ) {
+                                MainScreen(
+                                    viewModel = viewModel,
+                                    uiState = uiState,
+                                    isDark = isDark,
+                                    isInPipMode = pipModeState
+                                )
+                            }
                         }
                     }
                 }
@@ -297,13 +305,9 @@ fun MainScreen(
                     isDark = isDark
                 )
 
-                else -> SpoofingScreen(
+                else -> com.suseoaa.locationspoofer.ui.screen.MainScaffoldScreen(
                     viewModel = viewModel,
-                    uiState = uiState,
-                    isDark = isDark,
-                    onExpandMap = { isFullScreenMap = true },
-                    onExpandScannerMap = { isScannerMap = true },
-                    onExpandSettings = { isSettingsScreen = true }
+                    uiState = uiState
                 )
             }
         }

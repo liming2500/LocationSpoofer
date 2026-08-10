@@ -443,6 +443,7 @@ fun CustomCoordinateDialog(
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.imePadding(),
         containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
         title = {
             androidx.compose.runtime.CompositionLocalProvider(
@@ -600,15 +601,26 @@ fun StartSpoofingDialog(
     onAltitudeChange: (String) -> Unit,
     onSatelliteCountChange: (String) -> Unit
 ) {
-    LocalizedDialog(onDismissRequest = onDismiss) {
+    LocalizedDialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = AppColors.cardBackground(isDark)
+            color = AppColors.cardBackground(isDark),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .imePadding()
         ) {
             Column(
                 modifier = Modifier
                     .padding(20.dp)
                     .fillMaxWidth()
+                    .heightIn(max = 620.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = stringResource(R.string.spoofing_options_title),

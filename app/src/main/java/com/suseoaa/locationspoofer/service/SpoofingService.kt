@@ -86,7 +86,7 @@ class SpoofingService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
-            // Ignore, continue running without foreground status
+            // 忽略异常，在没有前台状态的情况下继续运行
         }
         isRunning = true
 
