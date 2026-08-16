@@ -46,7 +46,7 @@ internal fun LocationHooker.hookWifiEnvironment(
     isCoreSystemProcess: Boolean = false
 ) {
 
-    // ── 1. WifiInfo getter Hook ──
+    // 1. WifiInfo getter Hook
     try {
         val wifiInfoMethods = listOf(
             "getBSSID", "getMacAddress", "getSSID", "getNetworkId",
@@ -106,7 +106,7 @@ internal fun LocationHooker.hookWifiEnvironment(
         XposedBridge.log(e)
     }
 
-    // ── 1b. WifiInfo.getSupplicantState() ──
+    // 1b. WifiInfo.getSupplicantState()
     try {
         XposedHelpers.hookMethod(
             "android.net.wifi.WifiInfo", classLoader, "getSupplicantState"
@@ -134,7 +134,7 @@ internal fun LocationHooker.hookWifiEnvironment(
     } catch (e: Throwable) { /* 忽略 */
     }
 
-    // ── 2. Wi-Fi 扫描结果伪造 (getScanResults) ──
+    // 2. Wi-Fi 扫描结果伪造 (getScanResults)
     val realCapabilities = listOf(
         "[WPA2-PSK-CCMP][RSN-PSK-CCMP][ESS]",
         "[WPA2-PSK-CCMP+TKIP][RSN-PSK-CCMP+TKIP][ESS]",
@@ -148,7 +148,7 @@ internal fun LocationHooker.hookWifiEnvironment(
         "[WPA2-PSK+SAE-CCMP][RSN-PSK+SAE-CCMP][ESS]"
     )
 
-    // ── 3. WifiManager 整体 Hook ──
+    // 3. WifiManager 整体 Hook
     try {
         XposedHelpers.hookMethod(
             "android.net.wifi.WifiManager", classLoader, "getScanResults"
@@ -593,7 +593,7 @@ internal fun LocationHooker.hookWifiEnvironment(
         XposedBridge.log(e)
     }
 
-    // ── 4. NetworkInfo.getExtraInfo() ──
+    // 4. NetworkInfo.getExtraInfo()
     try {
         XposedHelpers.hookMethod(
             "android.net.NetworkInfo", classLoader, "getExtraInfo"
@@ -619,7 +619,7 @@ internal fun LocationHooker.hookWifiEnvironment(
         XposedBridge.log(e)
     }
 
-    // ── 5. WifiScanner Hook ──
+    // 5. WifiScanner Hook
     try {
         val wifiScannerClass =
             XposedHelpers.findClassIfExists("android.net.wifi.WifiScanner", classLoader)

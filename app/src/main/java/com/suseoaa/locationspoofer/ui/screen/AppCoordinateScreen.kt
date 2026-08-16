@@ -70,25 +70,26 @@ fun AppCoordinateScreen(
         }
     }
 
-    val appsToShow = remember(uiState.hookedApps, searchQuery, selectedFilter, uiState.appCoordinateSystems) {
-        uiState.hookedApps.filter { app ->
-            val matchesSearch = searchQuery.isBlank() ||
-                    app.appName.contains(searchQuery, ignoreCase = true) ||
-                    app.packageName.contains(searchQuery, ignoreCase = true)
+    val appsToShow =
+        remember(uiState.hookedApps, searchQuery, selectedFilter, uiState.appCoordinateSystems) {
+            uiState.hookedApps.filter { app ->
+                val matchesSearch = searchQuery.isBlank() ||
+                        app.appName.contains(searchQuery, ignoreCase = true) ||
+                        app.packageName.contains(searchQuery, ignoreCase = true)
 
-            if (!matchesSearch) return@filter false
+                if (!matchesSearch) return@filter false
 
-            val currentSys = uiState.appCoordinateSystems[app.packageName]
-            val isCustom = currentSys != null && currentSys != "GCJ-02"
+                val currentSys = uiState.appCoordinateSystems[app.packageName]
+                val isCustom = currentSys != null && currentSys != "GCJ-02"
 
-            when (selectedFilter) {
-                CoordinateFilterTab.All -> true
-                CoordinateFilterTab.Customized -> isCustom
-                CoordinateFilterTab.UserApps -> !app.isSystem
-                CoordinateFilterTab.SystemApps -> app.isSystem
+                when (selectedFilter) {
+                    CoordinateFilterTab.All -> true
+                    CoordinateFilterTab.Customized -> isCustom
+                    CoordinateFilterTab.UserApps -> !app.isSystem
+                    CoordinateFilterTab.SystemApps -> app.isSystem
+                }
             }
         }
-    }
 
     Box(
         modifier = Modifier
@@ -116,7 +117,9 @@ fun AppCoordinateScreen(
                         .background(if (isDark) Color(0xFF22272E) else Color.White)
                         .border(
                             width = 1.dp,
-                            color = if (isDark) Color.White.copy(alpha = 0.14f) else Color(0xFFE5E8EC),
+                            color = if (isDark) Color.White.copy(alpha = 0.14f) else Color(
+                                0xFFE5E8EC
+                            ),
                             shape = CircleShape
                         )
                         .noRippleClickable(onClick = onBack),
@@ -161,7 +164,9 @@ fun AppCoordinateScreen(
                         .background(if (isDark) Color(0xFF22272E) else Color.White)
                         .border(
                             width = 0.8.dp,
-                            color = if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.05f),
+                            color = if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(
+                                alpha = 0.05f
+                            ),
                             shape = RoundedCornerShape(14.dp)
                         )
                         .padding(horizontal = 14.dp),
@@ -245,7 +250,9 @@ fun AppCoordinateScreen(
                             text = label,
                             fontSize = 12.5.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface.copy(
+                                alpha = 0.7f
+                            )
                         )
                     }
                 }
@@ -267,7 +274,11 @@ fun AppCoordinateScreen(
                             modifier = Modifier
                                 .size(64.dp)
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f)),
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(
+                                        alpha = 0.03f
+                                    )
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -298,7 +309,12 @@ fun AppCoordinateScreen(
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 24.dp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(appsToShow, key = { it.packageName }) { app ->
@@ -379,7 +395,11 @@ private fun AppItemCard(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(13.dp))
-                    .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f)),
+                    .background(
+                        if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(
+                            alpha = 0.03f
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 AppIconImage(
@@ -408,7 +428,11 @@ private fun AppItemCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                        alpha = 0.05f
+                                    )
+                                )
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
@@ -450,7 +474,9 @@ private fun AppItemCard(
                         text = displaySystem,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isCustom) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = if (isCustom) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(
+                            alpha = 0.6f
+                        )
                     )
                 }
 
@@ -541,7 +567,11 @@ private fun CoordinateSelectionDialog(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f)),
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(
+                                    alpha = 0.03f
+                                )
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         AppIconImage(
@@ -573,7 +603,11 @@ private fun CoordinateSelectionDialog(
                         modifier = Modifier
                             .size(30.dp)
                             .clip(CircleShape)
-                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                    alpha = 0.05f
+                                )
+                            )
                             .noRippleClickable(onClick = onDismiss),
                         contentAlignment = Alignment.Center
                     ) {
@@ -601,7 +635,9 @@ private fun CoordinateSelectionDialog(
                                 )
                                 .border(
                                     width = if (isSelected) 1.5.dp else 0.8.dp,
-                                    color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.10f else 0.05f),
+                                    color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.outline.copy(
+                                        alpha = if (isDark) 0.10f else 0.05f
+                                    ),
                                     shape = RoundedCornerShape(14.dp)
                                 )
                                 .noRippleClickable { selectedOption = option.key }
@@ -642,7 +678,9 @@ private fun CoordinateSelectionDialog(
                                     Text(
                                         text = option.desc,
                                         fontSize = 11.5.sp,
-                                        color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = 0.5f
+                                        ),
                                         lineHeight = 16.sp
                                     )
                                 }
@@ -657,7 +695,9 @@ private fun CoordinateSelectionDialog(
                                         .background(if (isSelected) AccentBlue else Color.Transparent)
                                         .border(
                                             width = if (isSelected) 0.dp else 1.5.dp,
-                                            color = if (isSelected) Color.Transparent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                            color = if (isSelected) Color.Transparent else MaterialTheme.colorScheme.onSurface.copy(
+                                                alpha = 0.3f
+                                            ),
                                             shape = CircleShape
                                         ),
                                     contentAlignment = Alignment.Center
@@ -687,7 +727,11 @@ private fun CoordinateSelectionDialog(
                             .weight(1f)
                             .height(44.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                    alpha = 0.05f
+                                )
+                            )
                             .noRippleClickable(onClick = onDismiss),
                         contentAlignment = Alignment.Center
                     ) {

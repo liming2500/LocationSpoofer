@@ -77,13 +77,16 @@ fun parseAndCategorizeReleaseNotes(releases: List<GithubRelease>): GroupedReleas
             }
 
             val isListItem = cleanLine.startsWith("- ") || cleanLine.startsWith("* ") ||
-                cleanLine.startsWith("+ ") || cleanLine.startsWith("• ") ||
-                cleanLine.matches(Regex("""^\d+[\.\)]\s+.*"""))
+                    cleanLine.startsWith("+ ") || cleanLine.startsWith("• ") ||
+                    cleanLine.matches(Regex("""^\d+[\.\)]\s+.*"""))
 
             if (isListItem) {
                 val itemContent = when {
                     cleanLine.startsWith("- ") || cleanLine.startsWith("* ") ||
-                        cleanLine.startsWith("+ ") || cleanLine.startsWith("• ") -> cleanLine.substring(2).trim()
+                            cleanLine.startsWith("+ ") || cleanLine.startsWith("• ") -> cleanLine.substring(
+                        2
+                    ).trim()
+
                     else -> cleanLine.replace(Regex("""^\d+[\.\)]\s*"""), "").trim()
                 }
 
@@ -207,8 +210,14 @@ fun parseMarkdownBlocks(rawText: String): List<MarkdownBlock> {
             val headerText = headerMatch.groupValues[2].trim()
             val lower = headerText.lowercase()
             val category = when {
-                lower.contains("功能") || lower.contains("feature") || lower.contains("新增") || lower.contains("优化") -> "feature"
-                lower.contains("修复") || lower.contains("fix") || lower.contains("bug") || lower.contains("解决") -> "fix"
+                lower.contains("功能") || lower.contains("feature") || lower.contains("新增") || lower.contains(
+                    "优化"
+                ) -> "feature"
+
+                lower.contains("修复") || lower.contains("fix") || lower.contains("bug") || lower.contains(
+                    "解决"
+                ) -> "fix"
+
                 else -> "other"
             }
             if (headerText.isNotEmpty()) {
@@ -225,7 +234,10 @@ fun parseMarkdownBlocks(rawText: String): List<MarkdownBlock> {
             continue
         }
 
-        val isBullet = line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ") || line.startsWith("• ")
+        val isBullet =
+            line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ") || line.startsWith(
+                "• "
+            )
         val isNumbered = line.matches(Regex("""^\d+[\.\)]\s+.*"""))
 
         if (isBullet) {
@@ -374,11 +386,21 @@ fun parseInlineMarkdownString(text: String): androidx.compose.ui.text.AnnotatedS
             var minIdx = Int.MAX_VALUE
             var tokenType = ""
 
-            if (bold1 in i until minIdx) { minIdx = bold1; tokenType = "bold1" }
-            if (bold2 in i until minIdx) { minIdx = bold2; tokenType = "bold2" }
-            if (code in i until minIdx) { minIdx = code; tokenType = "code" }
-            if (link in i until minIdx) { minIdx = link; tokenType = "link" }
-            if (italic in i until minIdx && italic != bold1) { minIdx = italic; tokenType = "italic" }
+            if (bold1 in i until minIdx) {
+                minIdx = bold1; tokenType = "bold1"
+            }
+            if (bold2 in i until minIdx) {
+                minIdx = bold2; tokenType = "bold2"
+            }
+            if (code in i until minIdx) {
+                minIdx = code; tokenType = "code"
+            }
+            if (link in i until minIdx) {
+                minIdx = link; tokenType = "link"
+            }
+            if (italic in i until minIdx && italic != bold1) {
+                minIdx = italic; tokenType = "italic"
+            }
 
             if (minIdx == Int.MAX_VALUE) {
                 append(text.substring(i))
@@ -404,6 +426,7 @@ fun parseInlineMarkdownString(text: String): androidx.compose.ui.text.AnnotatedS
                         parsed = true
                     }
                 }
+
                 "italic" -> {
                     val end = text.indexOf("*", i + 1)
                     if (end != -1) {
@@ -414,6 +437,7 @@ fun parseInlineMarkdownString(text: String): androidx.compose.ui.text.AnnotatedS
                         parsed = true
                     }
                 }
+
                 "code" -> {
                     val end = text.indexOf("`", i + 1)
                     if (end != -1) {
@@ -429,6 +453,7 @@ fun parseInlineMarkdownString(text: String): androidx.compose.ui.text.AnnotatedS
                         parsed = true
                     }
                 }
+
                 "link" -> {
                     val closeBracket = text.indexOf("]", i + 1)
                     if (closeBracket != -1 && closeBracket + 1 < text.length && text[closeBracket + 1] == '(') {

@@ -72,23 +72,22 @@ internal fun LocationHooker.gcjTransformLng(x: Double, y: Double): Double {
     return ret
 }
 
-// ── GCJ-02 → BD-09 转换(百度坐标系) ──
-//
-// BD-09是百度在GCJ-02基础上施加的二次偏移坐标系。百度地图/百度定位SDK(BDLocation)
-// 内部期望接收BD-09坐标,若直接传入GCJ-02会产生约100-500米的固定偏移。
+// GCJ-02 转 BD-09 转换(百度坐标系)
+// BD-09 是百度在 GCJ-02 基础上施加的二次偏移坐标系。百度地图/百度定位 SDK (BDLocation)
+// 内部期望接收 BD-09 坐标，若直接传入 GCJ-02 会产生约 100-500 米的固定偏移。
 //
 // 算法原理:
-// 1. 将GCJ-02坐标解释为以(0,0)为中心的直角坐标(x=lng, y=lat)
-// 2. 施加百度公开的偏移常量(x偏移0.0065度, y偏移0.006度)
-// 3. 将偏移后的直角坐标转为极坐标(r, theta),其中r=sqrt(x^2+y^2), theta=atan2(y,x)
-// 4. 对极角theta叠加一个与r相关的微小旋转量: theta += BD_PI * sin(r * BD_PI) * 0.000003
-//    BD_PI = pi * 3000/180 ≈ 52.3598..., 这是百度定义的旋转频率系数
-// 5. 对极径r叠加微小伸缩: r += BD_PI * cos(r * BD_PI) * 0.00002
-// 6. 将修正后的极坐标转回直角坐标,即为BD-09经纬度
+// 1. 将 GCJ-02 坐标解释为以 (0,0) 为中心的直角坐标 (x=lng, y=lat)
+// 2. 施加百度公开的偏移常量 (x偏移 0.0065度, y偏移 0.006度)
+// 3. 将偏移后的直角坐标转为极坐标 (r, theta)，其中 r=sqrt(x^2+y^2), theta=atan2(y,x)
+// 4. 对极角 theta 叠加一个与 r 相关的微小旋转量: theta += BD_PI * sin(r * BD_PI) * 0.000003
+//    BD_PI = pi * 3000/180 ≈ 52.3598...，这是百度定义的旋转频率系数
+// 5. 对极径 r 叠加微小伸缩: r += BD_PI * cos(r * BD_PI) * 0.00002
+// 6. 将修正后的极坐标转回直角坐标，即为 BD-09 经纬度
 //
 // 为何不能省略此转换:
-// BDLocation.getLatitude()被Hook后如果返回GCJ-02坐标,百度SDK内部不会再做转换,
-// 直接将该值作为BD-09渲染到地图上,导致显示位置相对真实位置偏移数百米。
+// BDLocation.getLatitude() 被 Hook 后如果返回 GCJ-02 坐标，百度 SDK 内部不会再做转换，
+// 直接将该值作为 BD-09 渲染到地图上，导致显示位置相对真实位置偏移数百米。
 
 /** 百度坐标系旋转频率常量: pi * 3000 / 180 */
 internal fun LocationHooker.gcj02ToBd09(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {

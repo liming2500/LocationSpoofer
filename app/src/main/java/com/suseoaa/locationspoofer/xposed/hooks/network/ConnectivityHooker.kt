@@ -75,7 +75,7 @@ internal fun LocationHooker.hookConnectivityLayer(
         }
     }
 
-    // ── 1. 强制让系统以为连着 Wi-Fi ──
+    // 1. 强制让系统以为连着 Wi-Fi
     try {
         XposedHelpers.hookMethod(
             "android.net.ConnectivityManager",
@@ -239,7 +239,7 @@ internal fun LocationHooker.hookConnectivityLayer(
     } catch (e: Throwable) {
     }
 
-    // ── 2. NetworkCapabilities 包含 WifiInfo ──
+    // 2. NetworkCapabilities 包含 WifiInfo
     try {
         XposedHelpers.hookMethod(
             "android.net.ConnectivityManager", classLoader,
@@ -533,7 +533,7 @@ internal fun LocationHooker.hookConnectivityLayer(
     } catch (e: Throwable) { /* 忽略 */
     }
 
-    // ── 3. NetworkInterface.getNetworkInterfaces() ──
+    // 3. NetworkInterface.getNetworkInterfaces()
     try {
         XposedHelpers.hookMethod(
             "java.net.NetworkInterface", classLoader, "getNetworkInterfaces"

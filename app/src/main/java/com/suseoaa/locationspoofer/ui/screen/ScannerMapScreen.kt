@@ -151,13 +151,18 @@ fun ScannerMapScreen(
                             .size(9.dp)
                             .clip(CircleShape)
                             .background(
-                                if (uiState.isContinuousScanning) AccentGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                if (uiState.isContinuousScanning) AccentGreen else MaterialTheme.colorScheme.onSurface.copy(
+                                    alpha = 0.35f
+                                )
                             )
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (uiState.isContinuousScanning) {
-                            stringResource(R.string.scanning_status_active, uiState.environmentRecordCount)
+                            stringResource(
+                                R.string.scanning_status_active,
+                                uiState.environmentRecordCount
+                            )
                         } else {
                             stringResource(R.string.scanning_status_inactive)
                         },
@@ -188,19 +193,28 @@ fun ScannerMapScreen(
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = stringResource(R.string.scanned_wifi_count, uiState.scannedWifiCount),
+                        text = stringResource(
+                            R.string.scanned_wifi_count,
+                            uiState.scannedWifiCount
+                        ),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(R.string.scanned_cell_count, uiState.scannedCellCount),
+                        text = stringResource(
+                            R.string.scanned_cell_count,
+                            uiState.scannedCellCount
+                        ),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(R.string.scanned_bt_count, uiState.scannedBluetoothCount),
+                        text = stringResource(
+                            R.string.scanned_bt_count,
+                            uiState.scannedBluetoothCount
+                        ),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface

@@ -110,7 +110,9 @@ fun ManageDataScreen(
                         .background(if (isDark) Color(0xFF22272E) else Color.White)
                         .border(
                             width = 1.dp,
-                            color = if (isDark) Color.White.copy(alpha = 0.14f) else Color(0xFFE5E8EC),
+                            color = if (isDark) Color.White.copy(alpha = 0.14f) else Color(
+                                0xFFE5E8EC
+                            ),
                             shape = CircleShape
                         )
                         .noRippleClickable(onClick = onClose),
@@ -164,7 +166,11 @@ fun ManageDataScreen(
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(RoundedCornerShape(22.dp))
-                                .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f)),
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(
+                                        alpha = 0.03f
+                                    )
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -188,7 +194,7 @@ fun ManageDataScreen(
                     }
                 }
             } else {
-                // 地图概览卡片 (Upper Map Card)
+                // 地图概览卡片
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -243,7 +249,7 @@ fun ManageDataScreen(
                     }
                 }
 
-                // 下部数据卡片列表 (向左滑动显露编辑与删除操作，顶部平滑溶解边界)
+                // 下部数据卡片列表（向左滑动显露编辑与删除操作，顶部平滑溶解边界）
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -251,7 +257,12 @@ fun ManageDataScreen(
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 24.dp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(dataList, key = { it.location.id }) { item ->
@@ -259,9 +270,25 @@ fun ManageDataScreen(
                                 item = item,
                                 isDark = isDark,
                                 onClick = {
-                                    viewModel.updateLatitude(String.format(Locale.US, "%.6f", item.location.lat))
-                                    viewModel.updateLongitude(String.format(Locale.US, "%.6f", item.location.lng))
-                                    mapController?.animateCamera(item.location.lat, item.location.lng, 17f)
+                                    viewModel.updateLatitude(
+                                        String.format(
+                                            Locale.US,
+                                            "%.6f",
+                                            item.location.lat
+                                        )
+                                    )
+                                    viewModel.updateLongitude(
+                                        String.format(
+                                            Locale.US,
+                                            "%.6f",
+                                            item.location.lng
+                                        )
+                                    )
+                                    mapController?.animateCamera(
+                                        item.location.lat,
+                                        item.location.lng,
+                                        17f
+                                    )
                                 },
                                 onEdit = { editingItem = item },
                                 onDelete = { itemToDelete = item }
@@ -318,7 +345,13 @@ fun ManageDataScreen(
         val displayName = when {
             targetItem.location.placeName.isNotBlank() -> targetItem.location.placeName
             targetItem.location.remark.isNotBlank() -> targetItem.location.remark
-            else -> "坐标 (${String.format(Locale.US, "%.4f", targetItem.location.lat)}, ${String.format(Locale.US, "%.4f", targetItem.location.lng)})"
+            else -> "坐标 (${
+                String.format(
+                    Locale.US,
+                    "%.4f",
+                    targetItem.location.lat
+                )
+            }, ${String.format(Locale.US, "%.4f", targetItem.location.lng)})"
         }
 
         Dialog(
@@ -379,7 +412,11 @@ fun ManageDataScreen(
                                 .weight(1f)
                                 .height(42.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                        alpha = 0.05f
+                                    )
+                                )
                                 .noRippleClickable { itemToDelete = null },
                             contentAlignment = Alignment.Center
                         ) {
@@ -402,7 +439,11 @@ fun ManageDataScreen(
                                 .weight(1.2f)
                                 .height(42.dp)
                         ) {
-                            Text(stringResource(R.string.delete), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(R.string.delete),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -432,7 +473,8 @@ private fun SwipeableDataListItem(
     val offsetX = remember { Animatable(0f) }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
-    val timeStr = remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
+    val timeStr =
+        remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
 
     val wifiCount = item.wifis.size
     val cellCount = item.cells.size
@@ -478,7 +520,10 @@ private fun SwipeableDataListItem(
                         coroutineScope.launch {
                             offsetX.animateTo(
                                 0f,
-                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = 500f)
+                                spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = 500f
+                                )
                             )
                         }
                         onEdit()
@@ -515,7 +560,10 @@ private fun SwipeableDataListItem(
                         coroutineScope.launch {
                             offsetX.animateTo(
                                 0f,
-                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = 500f)
+                                spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = 500f
+                                )
                             )
                         }
                         onDelete()
@@ -617,7 +665,13 @@ private fun SwipeableDataListItem(
 
                         // 经纬度坐标标签
                         Text(
-                            text = "${String.format(Locale.US, "%.5f", item.location.lat)}, ${String.format(Locale.US, "%.5f", item.location.lng)}",
+                            text = "${
+                                String.format(
+                                    Locale.US,
+                                    "%.5f",
+                                    item.location.lat
+                                )
+                            }, ${String.format(Locale.US, "%.5f", item.location.lng)}",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         )
@@ -649,7 +703,8 @@ private fun SwipeableDataListItem(
                     }
 
                     // 右侧指示可左滑的尖头小图标（随着滑动展开自然淡出）
-                    val chevronAlpha = ((1f - abs(offsetX.value) / maxRevealWidthPx) * 0.4f).coerceIn(0f, 0.4f)
+                    val chevronAlpha =
+                        ((1f - abs(offsetX.value) / maxRevealWidthPx) * 0.4f).coerceIn(0f, 0.4f)
                     Icon(
                         imageVector = Icons.Rounded.ChevronLeft,
                         contentDescription = "向左滑动",
@@ -691,7 +746,7 @@ private fun SwipeableDataListItem(
                                     val newOffset = if (dragAmount < 0) {
                                         // 向左滑动
                                         if (current < -maxRevealWidthPx) {
-                                            // 超过最大显露宽度时应用弹性阻尼 (Rubber-band damping)
+                                            // 超过最大显露宽度时应用弹性阻尼
                                             val overDrag = abs(current) - maxRevealWidthPx
                                             val dampingFactor = 1f / (1f + overDrag / 60f)
                                             current + dragAmount * dampingFactor
@@ -758,7 +813,8 @@ private fun ModernEditDataDialog(
     var placeName by remember { mutableStateOf(item.location.placeName) }
     var remark by remember { mutableStateOf(item.location.remark) }
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
-    val timeStr = remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
+    val timeStr =
+        remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -816,7 +872,11 @@ private fun ModernEditDataDialog(
                         modifier = Modifier
                             .size(30.dp)
                             .clip(CircleShape)
-                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                    alpha = 0.05f
+                                )
+                            )
                             .noRippleClickable(onClick = onDismiss),
                         contentAlignment = Alignment.Center
                     ) {
@@ -834,7 +894,11 @@ private fun ModernEditDataDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f))
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(
+                                alpha = 0.03f
+                            )
+                        )
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Row(
@@ -851,7 +915,13 @@ private fun ModernEditDataDialog(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = "${String.format(Locale.US, "%.5f", item.location.lat)}, ${String.format(Locale.US, "%.5f", item.location.lng)}",
+                                text = "${
+                                    String.format(
+                                        Locale.US,
+                                        "%.5f",
+                                        item.location.lat
+                                    )
+                                }, ${String.format(Locale.US, "%.5f", item.location.lng)}",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
@@ -885,7 +955,11 @@ private fun ModernEditDataDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
+                                alpha = 0.03f
+                            )
+                        )
                         .border(
                             0.8.dp,
                             MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.12f else 0.06f),
@@ -1017,7 +1091,11 @@ private fun ModernEditDataDialog(
                             .weight(1f)
                             .height(44.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                    alpha = 0.05f
+                                )
+                            )
                             .noRippleClickable(onClick = onDismiss),
                         contentAlignment = Alignment.Center
                     ) {

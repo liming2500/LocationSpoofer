@@ -316,7 +316,8 @@ private fun CurrentVersionHeroCard(
                         color = MaterialTheme.colorScheme.error
                     )
                 } else if (hasNewVersion && latestRelease != null) {
-                    val cleanLatestVersion = latestRelease.versionName.trim().removePrefix("v").removePrefix("V")
+                    val cleanLatestVersion =
+                        latestRelease.versionName.trim().removePrefix("v").removePrefix("V")
                     Box(
                         modifier = Modifier
                             .size(8.dp)
@@ -484,7 +485,8 @@ private fun ReleaseItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val cleanReleaseVersion = release.versionName.trim().removePrefix("v").removePrefix("V")
+                    val cleanReleaseVersion =
+                        release.versionName.trim().removePrefix("v").removePrefix("V")
                     Text(
                         text = "v$cleanReleaseVersion",
                         fontSize = 16.5.sp,

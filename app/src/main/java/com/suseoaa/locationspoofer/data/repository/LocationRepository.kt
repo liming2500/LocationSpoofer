@@ -116,33 +116,40 @@ class LocationRepository(
         if (lm != null) {
             try {
                 lm.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
-            } catch (e: Throwable) {}
+            } catch (e: Throwable) {
+            }
             try {
                 lm.removeTestProvider(LocationManager.GPS_PROVIDER)
-            } catch (e: Throwable) {}
+            } catch (e: Throwable) {
+            }
             try {
                 lm.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
-            } catch (e: Throwable) {}
+            } catch (e: Throwable) {
+            }
             try {
                 lm.removeTestProvider(LocationManager.NETWORK_PROVIDER)
-            } catch (e: Throwable) {}
+            } catch (e: Throwable) {
+            }
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     lm.setTestProviderEnabled(LocationManager.FUSED_PROVIDER, false)
                     lm.removeTestProvider(LocationManager.FUSED_PROVIDER)
                 }
-            } catch (e: Throwable) {}
+            } catch (e: Throwable) {
+            }
         }
 
         // 2. 停止前台模拟服务
         try {
             context.stopService(Intent(context, SpoofingService::class.java))
-        } catch (e: Throwable) {}
+        } catch (e: Throwable) {
+        }
         try {
             context.startService(Intent(context, SpoofingService::class.java).apply {
                 action = SpoofingService.ACTION_STOP
             })
-        } catch (e: Throwable) {}
+        } catch (e: Throwable) {
+        }
 
         // 3. 彻底重置系统的 mock_location 状态，防止被澎湃OS/系统安全中心记录为模拟中
         rootManager.revokeMockLocation()

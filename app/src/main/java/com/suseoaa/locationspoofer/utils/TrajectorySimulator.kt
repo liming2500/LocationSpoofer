@@ -158,7 +158,8 @@ object TrajectorySimulator {
         val (speedMs, stepFreqHz, jitterRadius) = getModeParams(simModeName)
         var remainingDist = speedMs * elapsedSec
 
-        val totalDistance = (0 until points.size - 1).sumOf { i -> haversineDistance(points[i], points[i + 1]) }
+        val totalDistance =
+            (0 until points.size - 1).sumOf { i -> haversineDistance(points[i], points[i + 1]) }
         val gapDistance = haversineDistance(points.last(), points.first())
         val isLoop = gapDistance < 100.0
 
@@ -174,12 +175,12 @@ object TrajectorySimulator {
             if (fullLoopDistance > 0) {
                 remainingDist %= fullLoopDistance
             }
-            
+
             var segStartIdx = 0
             while (true) {
                 val fromPoint = points[segStartIdx]
                 val waitDist = fromPoint.waitSec * speedMs
-                
+
                 if (remainingDist <= waitDist) {
                     from = fromPoint
                     to = fromPoint
@@ -190,7 +191,7 @@ object TrajectorySimulator {
 
                 val isLastToFirst = (segStartIdx == points.size - 1)
                 val toPoint = if (isLastToFirst) points.first() else points[segStartIdx + 1]
-                
+
                 val segLen = haversineDistance(fromPoint, toPoint)
                 if (remainingDist <= segLen) {
                     from = fromPoint
@@ -208,7 +209,7 @@ object TrajectorySimulator {
             while (segStartIdx < points.size - 1) {
                 val fromPoint = points[segStartIdx]
                 val waitDist = fromPoint.waitSec * speedMs
-                
+
                 if (remainingDist <= waitDist) {
                     from = fromPoint
                     to = fromPoint

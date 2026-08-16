@@ -2,7 +2,6 @@ package com.suseoaa.locationspoofer.ui.screen
 
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,17 +12,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.os.LocaleListCompat
-import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
-import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 data class LanguageOption(val name: String, val code: String, val nativeName: String)
 
@@ -36,7 +32,7 @@ val LANGUAGES = listOf(
 @Composable
 fun LanguageSelectionScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
-    val systemLocale = Locale.getDefault().language
+    val systemLocale = LocalLocale.current.platformLocale.language
 
     // 如果支持，则默认为系统语言，否则使用 English
     val defaultLang = when {

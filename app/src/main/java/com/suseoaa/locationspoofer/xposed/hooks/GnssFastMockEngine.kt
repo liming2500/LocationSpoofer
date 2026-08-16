@@ -65,7 +65,7 @@ object GnssFastMockEngine {
         1.1f, -0.9f, 0.7f, -0.4f, 1.3f, -1.2f, 0.3f, -0.2f
     )
 
-    // ── 缓存区 (零 GC 复用) ──
+    // 缓存区 (零 GC 复用)
     @Volatile
     private var cachedGnssStatusObj: Any? = null
     @Volatile
@@ -80,7 +80,7 @@ object GnssFastMockEngine {
     @Volatile
     private var cachedGpsSatCount: Int = 0
 
-    // ── 反射句柄缓存 ──
+    // 反射句柄缓存
     private class ClassReflectionHolder(val classLoader: ClassLoader) {
         var isInitialized = false
 

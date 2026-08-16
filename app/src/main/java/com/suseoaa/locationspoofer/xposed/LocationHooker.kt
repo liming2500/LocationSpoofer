@@ -189,7 +189,7 @@ class LocationHooker : XposedModule() {
      */
     internal var startTimestamp = System.currentTimeMillis()
 
-    // ── GCJ-02 → WGS-84 转换（Xposed模块运行在目标App进程，必须自带转换代码）──
+    // GCJ-02 转 WGS-84 转换常量（Xposed 模块运行在目标 App 进程中）
     internal val GCJ_A = 6378245.0
     internal val GCJ_EE = 0.00669342162296594
 

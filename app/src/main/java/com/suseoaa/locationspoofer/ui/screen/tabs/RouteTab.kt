@@ -250,7 +250,8 @@ fun RouteTab(
             val padLeft = with(density) { 36.dp.roundToPx() }
             val padTop = with(density) { 80.dp.roundToPx() }
             val padRight = with(density) { 36.dp.roundToPx() }
-            val effectiveBottomDp = if (bottomActionHeightDp > 0.dp) bottomActionHeightDp + bottomBarHeight + 24.dp else bottomBarHeight + 160.dp
+            val effectiveBottomDp =
+                if (bottomActionHeightDp > 0.dp) bottomActionHeightDp + bottomBarHeight + 24.dp else bottomBarHeight + 160.dp
             val padBottom = with(density) { effectiveBottomDp.roundToPx() }
             mapController?.fitBounds(
                 points = routePoints.map { Pair(it.lat, it.lng) },
@@ -267,14 +268,16 @@ fun RouteTab(
             targetState = isSearchActive,
             transitionSpec = {
                 androidx.compose.animation.EnterTransition.None togetherWith
-                    androidx.compose.animation.ExitTransition.None
+                        androidx.compose.animation.ExitTransition.None
             },
             label = "route_search_transition"
         ) content@{ searchActive ->
-            val searchModifier = Modifier.sharedElement(
-                rememberSharedContentState(key = "route_search_bar"),
-                this@content
-            ).onGloballyPositioned { searchBounds = it.boundsInRoot() }
+            val searchModifier = Modifier
+                .sharedElement(
+                    rememberSharedContentState(key = "route_search_bar"),
+                    this@content
+                )
+                .onGloballyPositioned { searchBounds = it.boundsInRoot() }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 // 中心瞄准标记（选点阶段显示，搜索激活时隐藏）
@@ -355,7 +358,9 @@ fun RouteTab(
                                     onQueryChange = { searchQuery = it },
                                     onSearch = submitSearch,
                                     onFocus = { isSearchActive = true },
-                                    modifier = searchModifier.then(barModifier).weight(1f),
+                                    modifier = searchModifier
+                                        .then(barModifier)
+                                        .weight(1f),
                                     focusRequester = searchFocusRequester
                                 )
 
@@ -479,7 +484,11 @@ fun RouteTab(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .noRippleClickable {
-                                                    mapController?.animateCamera(poi.lat, poi.lng, 17.5f)
+                                                    mapController?.animateCamera(
+                                                        poi.lat,
+                                                        poi.lng,
+                                                        17.5f
+                                                    )
                                                     showSearchResults = false
                                                     isSearchActive = false
                                                     searchQuery = poi.title
@@ -514,7 +523,9 @@ fun RouteTab(
                                                 Text(
                                                     poi.snippet,
                                                     fontSize = 11.5.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(
+                                                        alpha = 0.6f
+                                                    )
                                                 )
                                             }
                                         }
@@ -665,7 +676,11 @@ fun RouteTab(
                             onClick = {
                                 if (routeName.isNotBlank()) {
                                     viewModel.saveRoute(routeName, routePoints)
-                                    Toast.makeText(context, context.getString(R.string.save_success), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.save_success),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                     showSaveRouteDialog = false
                                 }
                             },
@@ -793,8 +808,10 @@ fun RouteTab(
                                             val padLeft = with(density) { 36.dp.roundToPx() }
                                             val padTop = with(density) { 80.dp.roundToPx() }
                                             val padRight = with(density) { 36.dp.roundToPx() }
-                                            val effectiveBottomDp = if (bottomActionHeightDp > 0.dp) bottomActionHeightDp + bottomBarHeight + 24.dp else bottomBarHeight + 160.dp
-                                            val padBottom = with(density) { effectiveBottomDp.roundToPx() }
+                                            val effectiveBottomDp =
+                                                if (bottomActionHeightDp > 0.dp) bottomActionHeightDp + bottomBarHeight + 24.dp else bottomBarHeight + 160.dp
+                                            val padBottom =
+                                                with(density) { effectiveBottomDp.roundToPx() }
                                             mapController?.fitBounds(
                                                 points = route.points.map { Pair(it.lat, it.lng) },
                                                 paddingLeft = padLeft,
@@ -804,11 +821,19 @@ fun RouteTab(
                                             )
                                         } else {
                                             route.points.firstOrNull()?.let { firstPoint ->
-                                                mapController?.animateCamera(firstPoint.lat, firstPoint.lng, 17.5f)
+                                                mapController?.animateCamera(
+                                                    firstPoint.lat,
+                                                    firstPoint.lng,
+                                                    17.5f
+                                                )
                                             }
                                         }
                                         showSavedRoutesDialog = false
-                                        Toast.makeText(context, "已加载路线「${route.name}」", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            "已加载路线「${route.name}」",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     },
                                     shape = RoundedCornerShape(16.dp),
                                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
@@ -846,9 +871,14 @@ fun RouteTab(
                                             )
                                             Spacer(Modifier.height(2.dp))
                                             Text(
-                                                stringResource(R.string.route_nodes_count, route.points.size),
+                                                stringResource(
+                                                    R.string.route_nodes_count,
+                                                    route.points.size
+                                                ),
                                                 fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                                color = MaterialTheme.colorScheme.onSurface.copy(
+                                                    alpha = 0.55f
+                                                )
                                             )
                                         }
 
@@ -880,7 +910,11 @@ fun RouteTab(
                             .fillMaxWidth()
                             .height(44.dp)
                     ) {
-                        Text(stringResource(R.string.close), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            stringResource(R.string.close),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
@@ -946,147 +980,192 @@ private fun RouteBottomPanel(
             ) {
                 Box(modifier = Modifier.padding(14.dp)) {
                     when (stage) {
-                RoutePlanStage.IDLE, RoutePlanStage.SELECTING -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 确认添加路点
-                        Button(
-                            onClick = onConfirmPoint,
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .height(50.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
-                        ) {
-                            Icon(Icons.Rounded.AddLocation, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                if (routePoints.isEmpty()) "添加起始点" else "添加第 ${routePoints.size + 1} 点",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
+                        RoutePlanStage.IDLE, RoutePlanStage.SELECTING -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 确认添加路点
+                                Button(
+                                    onClick = onConfirmPoint,
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.AddLocation,
+                                        null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        if (routePoints.isEmpty()) "添加起始点" else "添加第 ${routePoints.size + 1} 点",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+
+                                // 完成规划
+                                Button(
+                                    onClick = onFinishSelecting,
+                                    enabled = routePoints.size >= 2,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AccentGreen,
+                                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
+                                            alpha = 0.5f
+                                        )
+                                    )
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.CheckCircle,
+                                        null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "完成选点",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
                         }
 
-                        // 完成规划
-                        Button(
-                            onClick = onFinishSelecting,
-                            enabled = routePoints.size >= 2,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(50.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = AccentGreen,
-                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                "完成选点",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-                }
+                        RoutePlanStage.READY -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = onRestartSelecting,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Refresh,
+                                        null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(3.dp))
+                                    Text(
+                                        "重选",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.5.sp,
+                                        maxLines = 1
+                                    )
+                                }
 
-                RoutePlanStage.READY -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedButton(
-                            onClick = onRestartSelecting,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(50.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text("重选", fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp, maxLines = 1)
-                        }
+                                OutlinedButton(
+                                    onClick = onSaveRoute,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.BookmarkAdd,
+                                        null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(3.dp))
+                                    Text(
+                                        "收藏",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.5.sp,
+                                        maxLines = 1
+                                    )
+                                }
 
-                        OutlinedButton(
-                            onClick = onSaveRoute,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(50.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Icon(Icons.Rounded.BookmarkAdd, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text("收藏", fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp, maxLines = 1)
-                        }
-
-                        Button(
-                            onClick = onStartPlanning,
-                            modifier = Modifier
-                                .weight(1.35f)
-                                .height(50.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
-                        ) {
-                            Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("开始模拟", fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
-                        }
-                    }
-                }
-
-                RoutePlanStage.RUNNING -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(AccentGreen)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = if (uiState.routeRunMode == RouteRunMode.MANUAL) "手柄操控中" else "巡航中 (${uiState.routeSimMode.speedMs.toInt()} m/s)",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                                Button(
+                                    onClick = onStartPlanning,
+                                    modifier = Modifier
+                                        .weight(1.35f)
+                                        .height(50.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.PlayArrow,
+                                        null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        "开始模拟",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         }
 
-                        Button(
-                            onClick = onStopRoute,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.error
-                            ),
-                            modifier = Modifier.height(46.dp)
-                        ) {
-                            Icon(Icons.Rounded.StopCircle, null, modifier = Modifier.size(19.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("停止模拟", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                        RoutePlanStage.RUNNING -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(start = 6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(AccentGreen)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = if (uiState.routeRunMode == RouteRunMode.MANUAL) "手柄操控中" else "巡航中 (${uiState.routeSimMode.speedMs.toInt()} m/s)",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                Button(
+                                    onClick = onStopRoute,
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    ),
+                                    modifier = Modifier.height(46.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.StopCircle,
+                                        null,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "停止模拟",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.5.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
-}
 }
 
 @Composable
@@ -1195,12 +1274,24 @@ private fun MiuixRouteConfigDialog(
                             Triple(SimMode.RUNNING, "跑步", "3.0m/s"),
                             Triple(SimMode.CYCLING, "骑行", "5.5m/s"),
                             Triple(SimMode.DRIVING, "驾车", "15m/s"),
-                            Triple(SimMode.CUSTOM, "自定义", "${String.format(java.util.Locale.US, "%.1f", uiState.customSpeedMs)}m/s")
+                            Triple(
+                                SimMode.CUSTOM,
+                                "自定义",
+                                "${
+                                    String.format(
+                                        java.util.Locale.US,
+                                        "%.1f",
+                                        uiState.customSpeedMs
+                                    )
+                                }m/s"
+                            )
                         ).forEach { (mode, name, speed) ->
                             val isSelected = uiState.routeSimMode == mode
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
-                                color = if (isSelected) AccentBlue.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                color = if (isSelected) AccentBlue.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(
+                                    alpha = 0.35f
+                                ),
                                 border = if (isSelected) BorderStroke(1.5.dp, AccentBlue) else null,
                                 modifier = Modifier
                                     .weight(1f)
@@ -1219,7 +1310,9 @@ private fun MiuixRouteConfigDialog(
                                     Text(
                                         speed,
                                         fontSize = 10.5.sp,
-                                        color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                        color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = 0.45f
+                                        )
                                     )
                                 }
                             }
@@ -1228,11 +1321,21 @@ private fun MiuixRouteConfigDialog(
 
                     // 自定义速度调节模块
                     if (uiState.routeSimMode == SimMode.CUSTOM) {
-                        var sliderValue by remember(uiState.customSpeedMs) { mutableFloatStateOf(uiState.customSpeedMs.toFloat()) }
+                        var sliderValue by remember(uiState.customSpeedMs) {
+                            mutableFloatStateOf(
+                                uiState.customSpeedMs.toFloat()
+                            )
+                        }
                         val paceSec = if (sliderValue > 0.2f) (1000.0 / sliderValue).toInt() else 0
                         val paceMin = paceSec / 60
                         val paceRem = paceSec % 60
-                        val paceStr = if (paceSec in 60..3599) "${paceMin}'${String.format(java.util.Locale.US, "%02d", paceRem)}\"/km" else "--"
+                        val paceStr = if (paceSec in 60..3599) "${paceMin}'${
+                            String.format(
+                                java.util.Locale.US,
+                                "%02d",
+                                paceRem
+                            )
+                        }\"/km" else "--"
 
                         Surface(
                             shape = RoundedCornerShape(14.dp),
@@ -1264,7 +1367,19 @@ private fun MiuixRouteConfigDialog(
                                         )
                                     }
                                     Text(
-                                        "${String.format(java.util.Locale.US, "%.1f", sliderValue)} m/s (${String.format(java.util.Locale.US, "%.1f", sliderValue * 3.6)} km/h)",
+                                        "${
+                                            String.format(
+                                                java.util.Locale.US,
+                                                "%.1f",
+                                                sliderValue
+                                            )
+                                        } m/s (${
+                                            String.format(
+                                                java.util.Locale.US,
+                                                "%.1f",
+                                                sliderValue * 3.6
+                                            )
+                                        } km/h)",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = AccentBlue
@@ -1294,11 +1409,14 @@ private fun MiuixRouteConfigDialog(
                                     listOf(-1.0f, -0.2f, 0.2f, 1.0f).forEach { step ->
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(
+                                                alpha = 0.6f
+                                            ),
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .clickable {
-                                                    val newVal = (sliderValue + step).coerceIn(0.2f, 45.0f)
+                                                    val newVal =
+                                                        (sliderValue + step).coerceIn(0.2f, 45.0f)
                                                     sliderValue = newVal
                                                     onCustomSpeedChange(newVal.toDouble())
                                                 }
@@ -1366,8 +1484,13 @@ private fun MiuixRouteConfigDialog(
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (uiState.isAutoCadence) AccentBlue.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    border = if (uiState.isAutoCadence) BorderStroke(1.dp, AccentBlue) else null,
+                                    color = if (uiState.isAutoCadence) AccentBlue.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(
+                                        alpha = 0.5f
+                                    ),
+                                    border = if (uiState.isAutoCadence) BorderStroke(
+                                        1.dp,
+                                        AccentBlue
+                                    ) else null,
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable { onIsAutoCadenceChange(true) }
@@ -1384,8 +1507,13 @@ private fun MiuixRouteConfigDialog(
 
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (!uiState.isAutoCadence) AccentBlue.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    border = if (!uiState.isAutoCadence) BorderStroke(1.dp, AccentBlue) else null,
+                                    color = if (!uiState.isAutoCadence) AccentBlue.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(
+                                        alpha = 0.5f
+                                    ),
+                                    border = if (!uiState.isAutoCadence) BorderStroke(
+                                        1.dp,
+                                        AccentBlue
+                                    ) else null,
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable { onIsAutoCadenceChange(false) }
@@ -1402,7 +1530,11 @@ private fun MiuixRouteConfigDialog(
                             }
 
                             if (!uiState.isAutoCadence) {
-                                var cadenceSlider by remember(uiState.stepCadenceSpm) { mutableFloatStateOf(uiState.stepCadenceSpm.toFloat()) }
+                                var cadenceSlider by remember(uiState.stepCadenceSpm) {
+                                    mutableFloatStateOf(
+                                        uiState.stepCadenceSpm.toFloat()
+                                    )
+                                }
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1418,7 +1550,13 @@ private fun MiuixRouteConfigDialog(
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                         )
                                         Text(
-                                            "${cadenceSlider.toInt()} 步/分 (约 ${String.format(java.util.Locale.US, "%.1f", cadenceSlider / 60.0)} 步/秒)",
+                                            "${cadenceSlider.toInt()} 步/分 (约 ${
+                                                String.format(
+                                                    java.util.Locale.US,
+                                                    "%.1f",
+                                                    cadenceSlider / 60.0
+                                                )
+                                            } 步/秒)",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = AccentBlue
@@ -1555,7 +1693,9 @@ private fun MiuixSelectionCard(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) AccentBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        color = if (isSelected) AccentBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(
+            alpha = 0.35f
+        ),
         border = if (isSelected) BorderStroke(1.5.dp, AccentBlue) else null,
         modifier = modifier.height(90.dp)
     ) {
@@ -1568,7 +1708,9 @@ private fun MiuixSelectionCard(
             Icon(
                 icon,
                 contentDescription = null,
-                tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(
+                    alpha = 0.6f
+                ),
                 modifier = Modifier.size(22.dp)
             )
             Spacer(Modifier.height(4.dp))

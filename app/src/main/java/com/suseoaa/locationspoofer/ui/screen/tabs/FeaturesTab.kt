@@ -41,7 +41,7 @@ fun FeaturesTab(
 ) {
     val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
-    
+
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -96,7 +96,7 @@ fun FeaturesTab(
                     )
                 }
             }
-            
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()

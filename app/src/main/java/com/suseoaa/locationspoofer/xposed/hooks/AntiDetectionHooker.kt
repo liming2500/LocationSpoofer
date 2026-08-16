@@ -44,7 +44,7 @@ import io.github.libxposed.api.*
 
 internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
 
-    // ── 1. 堆栈帧过滤 ──
+    // 1. 堆栈帧过滤
     // 反作弊SDK通过getStackTrace()检查调用链,发现Xposed帧即判定为Hook环境
     // 只过滤精确匹配的Xposed类名,不影响正常堆栈
     val xposedClassNames = setOf(
@@ -98,7 +98,7 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
     } catch (_: Throwable) {
     }
 
-    // ── 2. Class.forName 精确匹配 ──
+    // 2. Class.forName 精确匹配
     // 反作弊SDK通过Class.forName()尝试加载Xposed类,成功则判定为Hook环境
     // 使用精确匹配(不是contains),只拦截已知Xposed类名
     try {
@@ -133,7 +133,7 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
         }
     }
 
-    // ── 3. ClassLoader.loadClass 精确匹配 ──
+    // 3. ClassLoader.loadClass 精确匹配
     // 同样使用精确匹配,只拦截已知Xposed类名
     // loadClass被调用频率很高,精确匹配确保零误杀
     try {
@@ -152,7 +152,7 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
     } catch (_: Throwable) {
     }
 
-// ── 4. 拦截 AppOpsManager 的 OP_MOCK_LOCATION (58) ──
+    // 4. 拦截 AppOpsManager 的 OP_MOCK_LOCATION (58)
     // 很多深度定制系统（如 MIUI）和硬核反作弊会检查 AppOps 权限
     try {
         val appOpsClass = XposedHelpers.findClass("android.app.AppOpsManager", classLoader)
@@ -224,7 +224,7 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
         XposedBridge.log(e)
     }
 
-    // ── 5. 拦截 Settings.Secure 的 mock_location 开关查询 ──
+    // 5. 拦截 Settings.Secure 的 mock_location 开关查询
     try {
         try {
             XposedHelpers.hookMethod(

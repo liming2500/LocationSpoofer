@@ -15,7 +15,8 @@ class CombinedBackdrop(
     val second: Backdrop,
 ) : Backdrop {
 
-    override val isCoordinatesDependent: Boolean = first.isCoordinatesDependent || second.isCoordinatesDependent
+    override val isCoordinatesDependent: Boolean =
+        first.isCoordinatesDependent || second.isCoordinatesDependent
 
     override val offsetResidualX: Float get() = first.offsetResidualX
     override val offsetResidualY: Float get() = first.offsetResidualY

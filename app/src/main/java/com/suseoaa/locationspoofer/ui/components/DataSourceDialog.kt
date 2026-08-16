@@ -154,7 +154,9 @@ private fun DataSourceItem(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
-        color = if (isSelected) AccentBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        color = if (isSelected) AccentBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(
+            alpha = 0.35f
+        ),
         border = if (isSelected) BorderStroke(1.5.dp, AccentBlue) else null,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -174,7 +176,9 @@ private fun DataSourceItem(
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(
+                        alpha = 0.7f
+                    ),
                     modifier = Modifier.size(20.dp)
                 )
             }

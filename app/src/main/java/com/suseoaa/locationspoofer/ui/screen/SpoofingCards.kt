@@ -130,7 +130,12 @@ fun CoordinateInputCard(
                     onClick = onCustomClick,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(15.dp), tint = AccentBlue)
+                    Icon(
+                        Icons.Outlined.Edit,
+                        null,
+                        modifier = Modifier.size(15.dp),
+                        tint = AccentBlue
+                    )
                     Spacer(Modifier.width(4.dp))
                     Text(stringResource(R.string.custom), fontSize = 13.sp, color = AccentBlue)
                 }
@@ -139,7 +144,12 @@ fun CoordinateInputCard(
                     onClick = onSaveClick,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Icon(Icons.Rounded.StarBorder, null, modifier = Modifier.size(16.dp), tint = AccentBlue)
+                    Icon(
+                        Icons.Rounded.StarBorder,
+                        null,
+                        modifier = Modifier.size(16.dp),
+                        tint = AccentBlue
+                    )
                     Spacer(Modifier.width(4.dp))
                     Text(stringResource(R.string.save), fontSize = 13.sp, color = AccentBlue)
                 }
@@ -581,7 +591,10 @@ fun ScannerMapCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 val statusText = if (uiState.isContinuousScanning) {
-                    stringResource(R.string.scanning_reference_points, uiState.environmentRecordCount)
+                    stringResource(
+                        R.string.scanning_reference_points,
+                        uiState.environmentRecordCount
+                    )
                 } else {
                     stringResource(R.string.view_heatmap_start_scan)
                 }
@@ -758,7 +771,8 @@ fun SearchModeCard(
 
             val isNetwork = searchMode == com.suseoaa.locationspoofer.data.model.SearchMode.NETWORK
             val activeColor = AccentBlue
-            val inactiveColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
+            val inactiveColor =
+                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
 
             Row(modifier = Modifier.weight(1.3f), horizontalArrangement = Arrangement.End) {
                 Box(
@@ -774,7 +788,9 @@ fun SearchModeCard(
                         "网络检索",
                         fontSize = 12.sp,
                         fontWeight = if (isNetwork) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isNetwork) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        color = if (isNetwork) Color.White else MaterialTheme.colorScheme.onSurface.copy(
+                            alpha = 0.7f
+                        )
                     )
                 }
                 Box(
@@ -790,7 +806,9 @@ fun SearchModeCard(
                         "本地采集",
                         fontSize = 12.sp,
                         fontWeight = if (!isNetwork) FontWeight.Bold else FontWeight.Normal,
-                        color = if (!isNetwork) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        color = if (!isNetwork) Color.White else MaterialTheme.colorScheme.onSurface.copy(
+                            alpha = 0.7f
+                        )
                     )
                 }
             }

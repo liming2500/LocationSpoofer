@@ -66,7 +66,7 @@ fun MainScaffoldScreen(
     val currentSelectedTab by rememberUpdatedState(selectedTab)
     val isDark = isSystemInDarkTheme()
     val updateViewModel: UpdateViewModel = koinViewModel()
-    
+
     val backdrop = rememberLayerBackdrop()
 
     val updateUiState by updateViewModel.uiState.collectAsState()
@@ -86,7 +86,11 @@ fun MainScaffoldScreen(
                 val latestVersion = latestRelease.versionName
                 val currentVersion = BuildConfig.VERSION_NAME
                 val ignoredVersion = viewModel.getIgnoredVersion()
-                if (isNewerVersion(latestVersion, currentVersion) && latestVersion != ignoredVersion) {
+                if (isNewerVersion(
+                        latestVersion,
+                        currentVersion
+                    ) && latestVersion != ignoredVersion
+                ) {
                     showStartupUpdateDialog = true
                 }
             }
@@ -147,14 +151,18 @@ fun MainScaffoldScreen(
                                     Icon(
                                         imageVector = tab.icon,
                                         contentDescription = tab.label,
-                                        tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.65f else 0.70f),
+                                        tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = if (isDark) 0.65f else 0.70f
+                                        ),
                                         modifier = Modifier.size(22.dp)
                                     )
                                     Text(
                                         text = tab.label,
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.65f else 0.70f),
+                                        color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = if (isDark) 0.65f else 0.70f
+                                        ),
                                         maxLines = 1
                                     )
                                 }
@@ -169,92 +177,132 @@ fun MainScaffoldScreen(
                     .fillMaxSize()
                     .layerBackdrop(backdrop)
             ) {
-                AppMapView(
-                    modifier = Modifier.fillMaxSize(),
-                    mapEngine = uiState.mapEngine,
-                    isDomestic = viewModel.isDomesticEnvironment(),
-                    onMapReady = { controller -> 
-                        mapController = controller
-                        controller.disableUiControls()
-                        controller.setMapType(uiState.mapType)
-                        val initLat = uiState.latitudeInput.toDoubleOrNull() ?: 39.9042
-                        val initLng = uiState.longitudeInput.toDoubleOrNull() ?: 116.4074
-                        controller.moveCamera(initLat, initLng, 15f)
+                // 底层地图层（定位与路线 Tab 共享）
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AppMapView(
+                        modifier = Modifier.fillMaxSize(),
+                        mapEngine = uiState.mapEngine,
+                        isDomestic = viewModel.isDomesticEnvironment(),
+                        onMapReady = { controller ->
+                            mapController = controller
+                            controller.disableUiControls()
+                            controller.setMapType(uiState.mapType)
+                            val initLat = uiState.latitudeInput.toDoubleOrNull() ?: 39.9042
+                            val initLng = uiState.longitudeInput.toDoubleOrNull() ?: 116.4074
+                            controller.moveCamera(initLat, initLng, 15f)
 
-                        controller.setOnCameraChangeListener { lat, lng ->
-                            if (currentSelectedTab == BottomTab.Location.ordinal) {
-                                viewModel.handleSpoofingIntent(SpoofingIntent.ConfirmMapPoint(lat, lng))
+                            controller.setOnCameraChangeListener { lat, lng ->
+                                if (currentSelectedTab == BottomTab.Location.ordinal) {
+                                    viewModel.handleSpoofingIntent(
+                                        SpoofingIntent.ConfirmMapPoint(
+                                            lat,
+                                            lng
+                                        )
+                                    )
+                                }
+                            }
+                            controller.setOnCameraMoveListener { lat, lng ->
+                                if (currentSelectedTab == BottomTab.Location.ordinal) {
+                                    viewModel.handleSpoofingIntent(
+                                        SpoofingIntent.MapPointMoved(
+                                            lat,
+                                            lng
+                                        )
+                                    )
+                                }
                             }
                         }
-                        controller.setOnCameraMoveListener { lat, lng ->
-                            if (currentSelectedTab == BottomTab.Location.ordinal) {
-                                viewModel.handleSpoofingIntent(SpoofingIntent.MapPointMoved(lat, lng))
-                            }
-                        }
-                    }
-                )
-
-                // Crosshair for Location Selection (Only show on Location Tab)
-                AnimatedVisibility(
-                    visible = selectedTab == 0,
-                    modifier = Modifier.align(Alignment.Center)
-                ) {
-                    Icon(
-                        Icons.Rounded.AddLocationAlt,
-                        contentDescription = null,
-                        tint = AccentBlue,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .padding(bottom = 16.dp)
                     )
+
+                    // 定位选点十字准心（仅在定位 Tab 显示）
+                    AnimatedVisibility(
+                        visible = selectedTab == 0,
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
+                        Icon(
+                            Icons.Rounded.AddLocationAlt,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .padding(bottom = 16.dp)
+                        )
+                    }
                 }
-            }
-            
-            // 底部 Tab 内容切换（纯左右完整切换，无渐变）
-            AnimatedContent(
-                targetState = selectedTab,
-                transitionSpec = {
-                    val isForward = targetState > initialState
-                    if (isForward) {
-                        slideInHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> width }
-                            .togetherWith(slideOutHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> -width })
-                    } else {
-                        slideInHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> -width }
-                            .togetherWith(slideOutHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> width })
+
+                // 底部 Tab 内容切换（纯左右完整切换，无渐变）
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        val isForward = targetState > initialState
+                        if (isForward) {
+                            slideInHorizontally(
+                                animationSpec = tween(
+                                    300,
+                                    easing = FastOutSlowInEasing
+                                )
+                            ) { width -> width }
+                                .togetherWith(
+                                    slideOutHorizontally(
+                                        animationSpec = tween(
+                                            300,
+                                            easing = FastOutSlowInEasing
+                                        )
+                                    ) { width -> -width })
+                        } else {
+                            slideInHorizontally(
+                                animationSpec = tween(
+                                    300,
+                                    easing = FastOutSlowInEasing
+                                )
+                            ) { width -> -width }
+                                .togetherWith(
+                                    slideOutHorizontally(
+                                        animationSpec = tween(
+                                            300,
+                                            easing = FastOutSlowInEasing
+                                        )
+                                    ) { width -> width })
+                        }
+                    },
+                    label = "main_tabs_transition"
+                ) { targetTab ->
+                    when (targetTab) {
+                        BottomTab.Location.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.LocationTab(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            mapController = mapController,
+                            tabBarHeight = paddingValues.calculateBottomPadding()
+                        )
+
+                        BottomTab.Route.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.RouteTab(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            mapController = mapController,
+                            isActive = true,
+                            bottomBarHeight = paddingValues.calculateBottomPadding()
+                        )
+
+                        BottomTab.Features.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.FeaturesTab(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            tabBarHeight = paddingValues.calculateBottomPadding(),
+                            onNavigateToCoordinate = {
+                                currentSubScreen = MainSubScreen.CoordinateConfig
+                            },
+                            onNavigateToScanner = { currentSubScreen = MainSubScreen.ScannerMap },
+                            onNavigateToManageData = { currentSubScreen = MainSubScreen.ManageData }
+                        )
+
+                        BottomTab.Info.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.InfoTab(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            updateUiState = updateUiState,
+                            tabBarHeight = paddingValues.calculateBottomPadding(),
+                            onNavigateToUpdate = { currentSubScreen = MainSubScreen.Update },
+                            onNavigateToSettings = { currentSubScreen = MainSubScreen.Settings }
+                        )
                     }
-                },
-                label = "main_tabs_transition"
-            ) { targetTab ->
-                when (targetTab) {
-                    BottomTab.Location.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.LocationTab(
-                        viewModel = viewModel,
-                        uiState = uiState,
-                        mapController = mapController,
-                        tabBarHeight = paddingValues.calculateBottomPadding()
-                    )
-                    BottomTab.Route.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.RouteTab(
-                        viewModel = viewModel,
-                        uiState = uiState,
-                        mapController = mapController,
-                        isActive = true,
-                        bottomBarHeight = paddingValues.calculateBottomPadding()
-                    )
-                    BottomTab.Features.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.FeaturesTab(
-                        viewModel = viewModel,
-                        uiState = uiState,
-                        tabBarHeight = paddingValues.calculateBottomPadding(),
-                        onNavigateToCoordinate = { currentSubScreen = MainSubScreen.CoordinateConfig },
-                        onNavigateToScanner = { currentSubScreen = MainSubScreen.ScannerMap },
-                        onNavigateToManageData = { currentSubScreen = MainSubScreen.ManageData }
-                    )
-                    BottomTab.Info.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.InfoTab(
-                        viewModel = viewModel,
-                        uiState = uiState,
-                        updateUiState = updateUiState,
-                        tabBarHeight = paddingValues.calculateBottomPadding(),
-                        onNavigateToUpdate = { currentSubScreen = MainSubScreen.Update },
-                        onNavigateToSettings = { currentSubScreen = MainSubScreen.Settings }
-                    )
                 }
             }
         }
@@ -262,10 +310,16 @@ fun MainScaffoldScreen(
         // 全屏子页面覆盖层（纯左右完整滑入与退出，无内部冲突动画）
         AnimatedVisibility(
             visible = currentSubScreen != MainSubScreen.None,
-            enter = slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { width -> width },
+            enter = slideInHorizontally(
+                tween(
+                    300,
+                    easing = FastOutSlowInEasing
+                )
+            ) { width -> width },
             exit = slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { width -> width }
         ) {
-            val subScreenToRender = if (currentSubScreen != MainSubScreen.None) currentSubScreen else activeSubScreen
+            val subScreenToRender =
+                if (currentSubScreen != MainSubScreen.None) currentSubScreen else activeSubScreen
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -277,30 +331,35 @@ fun MainScaffoldScreen(
                         uiState = uiState,
                         onBack = { currentSubScreen = MainSubScreen.None }
                     )
+
                     MainSubScreen.ScannerMap -> ScannerMapScreen(
                         viewModel = viewModel,
                         uiState = uiState,
                         isDark = isDark,
                         onClose = { currentSubScreen = MainSubScreen.None }
                     )
+
                     MainSubScreen.ManageData -> ManageDataScreen(
                         viewModel = viewModel,
                         uiState = uiState,
                         isDark = isDark,
                         onClose = { currentSubScreen = MainSubScreen.None }
                     )
+
                     MainSubScreen.Update -> UpdateScreen(
                         updateViewModel = updateViewModel,
                         viewModel = viewModel,
                         isDark = isDark,
                         onBack = { currentSubScreen = MainSubScreen.None }
                     )
+
                     MainSubScreen.Settings -> SettingsScreen(
                         viewModel = viewModel,
                         uiState = uiState,
                         isDark = isDark,
                         onClose = { currentSubScreen = MainSubScreen.None }
                     )
+
                     MainSubScreen.None -> Unit
                 }
             }

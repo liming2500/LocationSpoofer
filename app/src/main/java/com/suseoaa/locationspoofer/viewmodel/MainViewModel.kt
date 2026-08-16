@@ -184,39 +184,39 @@ class MainViewModel(
     private suspend fun mergeLegacyRecords() {
         val allComplete = environmentDao.getAllCompleteLocations()
         if (allComplete.isEmpty()) return
-        
-        // Group by approx coordinate (round to 4 decimals, about 11m)
-        val grouped = allComplete.groupBy { 
+
+        // 按近似坐标分组（四舍五入到4位小数，约11米）
+        val grouped = allComplete.groupBy {
             Pair(
                 String.format(java.util.Locale.US, "%.4f", it.location.lat),
                 String.format(java.util.Locale.US, "%.4f", it.location.lng)
             )
         }.filter { it.value.size > 1 }
-        
+
         for ((_, group) in grouped) {
-            // Choose the one with the latest timestamp as primary
+            // 选取时间戳最新的记录作为主记录
             val primary = group.maxByOrNull { it.location.timestamp } ?: continue
             val others = group.filter { it.location.id != primary.location.id }
-            
+
             for (other in others) {
-                // Move connected wifi
+                // 迁移已连接 Wi-Fi
                 other.connectedWifi?.let {
                     environmentDao.insertConnectedWifi(it.copy(locationId = primary.location.id))
                 }
-                // Move wifis
+                // 迁移周围 Wi-Fi 列表
                 other.wifis.forEach { lw ->
                     environmentDao.insertLocationWifi(lw.locationWifi.copy(locationId = primary.location.id))
                 }
-                // Move bluetooths
+                // 迁移周边蓝牙列表
                 other.bluetooths.forEach { lb ->
                     environmentDao.insertLocationBluetooth(lb.locationBluetooth.copy(locationId = primary.location.id))
                 }
-                // Move cells
+                // 迁移基站列表
                 other.cells.forEach { lc ->
                     environmentDao.insertLocationCell(lc.locationCell.copy(locationId = primary.location.id))
                 }
-                
-                // Delete the old separate record
+
+                // 删除旧的独立记录
                 environmentDao.deleteLocation(other.location.id)
             }
         }
@@ -276,7 +276,7 @@ class MainViewModel(
                 val distance =
                     2 * 6378137.0 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
 
-                if (distance <= 150.0) { // 150 meters radius
+                if (distance <= 150.0) { // 150 米聚类半径
                     cluster.count += 1
                     cluster.hasWifi = cluster.hasWifi || hasW
                     cluster.hasBluetooth = cluster.hasBluetooth || hasB
@@ -299,7 +299,7 @@ class MainViewModel(
             if (cluster.hasCell) tags.add("基站")
 
             val tagStr = if (tags.isNotEmpty()) " [${tags.joinToString(", ")}]" else ""
-            
+
             val baseTitle = when {
                 cluster.center.remark.isNotEmpty() -> cluster.center.remark
                 cluster.center.placeName.isNotEmpty() -> cluster.center.placeName
@@ -865,7 +865,12 @@ class MainViewModel(
                         environmentDao.updateMetadata(
                             newestLocation.id,
                             "WiGLE 导入",
-                            "经纬度: (${String.format("%.6f", lat)}, ${String.format("%.6f", lng)})",
+                            "经纬度: (${String.format("%.6f", lat)}, ${
+                                String.format(
+                                    "%.6f",
+                                    lng
+                                )
+                            })",
                             null, null, null
                         )
                     }
@@ -873,7 +878,7 @@ class MainViewModel(
 
                 withContext(Dispatchers.Main) {
                     evaluateMockCapabilities()
-                    // Refresh count
+                    // 刷新记录统计总数
                     viewModelScope.launch(Dispatchers.IO) {
                         val count = environmentDao.getRecordCount()
                         _uiState.update { it.copy(environmentRecordCount = count) }
@@ -930,7 +935,12 @@ class MainViewModel(
                         environmentDao.updateMetadata(
                             newestLocation.id,
                             "OpenCellID 导入",
-                            "经纬度: (${String.format("%.6f", lat)}, ${String.format("%.6f", lng)})",
+                            "经纬度: (${String.format("%.6f", lat)}, ${
+                                String.format(
+                                    "%.6f",
+                                    lng
+                                )
+                            })",
                             null, null, null
                         )
                     }
@@ -938,7 +948,7 @@ class MainViewModel(
 
                 withContext(Dispatchers.Main) {
                     evaluateMockCapabilities()
-                    // Refresh count
+                    // 刷新记录统计总数
                     viewModelScope.launch(Dispatchers.IO) {
                         val count = environmentDao.getRecordCount()
                         _uiState.update { it.copy(environmentRecordCount = count) }
@@ -1428,11 +1438,22 @@ class MainViewModel(
 
         viewModelScope.launch {
             locationRepository.startSpoofing(
-                context, startPoint.lat, startPoint.lng,
+                context,
+                startPoint.lat,
+                startPoint.lng,
                 if (isLoop) _uiState.value.routeSimMode.name else "STILL",
-                0f, now, pointsToRun, isLoop, _uiState.value.appCoordinateSystems,
-                _uiState.value.collectedWifiJson, _uiState.value.collectedCellJson, _uiState.value.collectedBluetoothJson,
-                _uiState.value.mockWifi, _uiState.value.mockCell, _uiState.value.mockBluetooth, _uiState.value.enableJitter,
+                0f,
+                now,
+                pointsToRun,
+                isLoop,
+                _uiState.value.appCoordinateSystems,
+                _uiState.value.collectedWifiJson,
+                _uiState.value.collectedCellJson,
+                _uiState.value.collectedBluetoothJson,
+                _uiState.value.mockWifi,
+                _uiState.value.mockCell,
+                _uiState.value.mockBluetooth,
+                _uiState.value.enableJitter,
                 speedMs = speed,
                 stopAtDestination = _uiState.value.stopAtDestination,
                 enableStepSimulation = _uiState.value.enableStepSimulation,
@@ -1593,7 +1614,8 @@ class MainViewModel(
                             if (_uiState.value.stopAtDestination) {
                                 // 到达终点后停下
                                 val lastPt = points.last()
-                                val prevPt = if (points.size >= 2) points[points.size - 2] else lastPt
+                                val prevPt =
+                                    if (points.size >= 2) points[points.size - 2] else lastPt
                                 val lastBearing = bearingBetween(prevPt, lastPt).toFloat()
                                 updatePosition(lastPt.lat, lastPt.lng, lastBearing)
                                 return@launch
@@ -1670,7 +1692,8 @@ class MainViewModel(
         if (distance > 20.0) {
             lastDbQueryLat = lat
             lastDbQueryLng = lng
-            val isRouteRunning = _uiState.value.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING
+            val isRouteRunning =
+                _uiState.value.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING
             val simModeToUse = if (isRouteRunning) _uiState.value.routeSimMode.name else "STILL"
             val speedToUse = getEffectiveSpeedMs()
 
@@ -1861,7 +1884,13 @@ class MainViewModel(
 
         if (!currentState) {
             // Start scanning
-            _uiState.update { it.copy(scannedWifiCount = 0, scannedCellCount = 0, scannedBluetoothCount = 0) }
+            _uiState.update {
+                it.copy(
+                    scannedWifiCount = 0,
+                    scannedCellCount = 0,
+                    scannedBluetoothCount = 0
+                )
+            }
             continuousScanJob = viewModelScope.launch(Dispatchers.IO) {
                 while (isActive) {
                     val realLoc = fetchRealLocationSilent(context)
@@ -1873,19 +1902,33 @@ class MainViewModel(
                         val cellJson = environmentScanner.scanCell()
                         val bluetoothJson = environmentScanner.scanBluetooth()
 
-                        val wCount = try { org.json.JSONArray(wifiJson).length() } catch (e: Exception) { 0 }
-                        val cCount = try { org.json.JSONArray(cellJson).length() } catch (e: Exception) { 0 }
-                        val bCount = try { org.json.JSONArray(bluetoothJson).length() } catch (e: Exception) { 0 }
+                        val wCount = try {
+                            org.json.JSONArray(wifiJson).length()
+                        } catch (e: Exception) {
+                            0
+                        }
+                        val cCount = try {
+                            org.json.JSONArray(cellJson).length()
+                        } catch (e: Exception) {
+                            0
+                        }
+                        val bCount = try {
+                            org.json.JSONArray(bluetoothJson).length()
+                        } catch (e: Exception) {
+                            0
+                        }
 
                         saveEnvironmentData(lat, lng, wifiJson, cellJson, bluetoothJson)
 
                         val count = environmentDao.getRecordCount()
-                        _uiState.update { it.copy(
-                            environmentRecordCount = count,
-                            scannedWifiCount = it.scannedWifiCount + wCount,
-                            scannedCellCount = it.scannedCellCount + cCount,
-                            scannedBluetoothCount = it.scannedBluetoothCount + bCount
-                        ) }
+                        _uiState.update {
+                            it.copy(
+                                environmentRecordCount = count,
+                                scannedWifiCount = it.scannedWifiCount + wCount,
+                                scannedCellCount = it.scannedCellCount + cCount,
+                                scannedBluetoothCount = it.scannedBluetoothCount + bCount
+                            )
+                        }
                     }
 
                     // 扫描之间延迟 10 秒
@@ -2271,7 +2314,8 @@ class MainViewModel(
 
         val closestRecord = records.firstOrNull()
         val explicitWifiBssid = closestRecord?.location?.selectedWifiBssid
-        val explicitWifi = if (explicitWifiBssid != null) closestRecord.wifis.find { it.device.bssid == explicitWifiBssid } else null
+        val explicitWifi =
+            if (explicitWifiBssid != null) closestRecord.wifis.find { it.device.bssid == explicitWifiBssid } else null
 
         val connectedObj = if (explicitWifi != null) {
             org.json.JSONObject().apply {
@@ -2280,7 +2324,12 @@ class MainViewModel(
                 put("vendor", explicitWifi.device.vendor)
                 put("macAddress", explicitWifi.device.bssid)
                 put("frequency", explicitWifi.device.frequency)
-                put("channel", com.suseoaa.locationspoofer.utils.MacVendorHelper.frequencyToChannel(explicitWifi.device.frequency))
+                put(
+                    "channel",
+                    com.suseoaa.locationspoofer.utils.MacVendorHelper.frequencyToChannel(
+                        explicitWifi.device.frequency
+                    )
+                )
                 put("linkSpeed", 65)
                 put("level", explicitWifi.locationWifi.level)
                 put("capabilities", explicitWifi.device.capabilities)
@@ -2384,7 +2433,8 @@ class MainViewModel(
             obj.put("systemId", rc.device.systemId)
             obj.put("basestationId", rc.device.basestationId)
             obj.put("dbm", interpolatedDbm)
-            val isReg = if (explicitCellKey != null) cellKey == explicitCellKey else rc.locationCell.isRegistered
+            val isReg =
+                if (explicitCellKey != null) cellKey == explicitCellKey else rc.locationCell.isRegistered
             obj.put("isRegistered", isReg)
             cellArr.put(obj)
         }

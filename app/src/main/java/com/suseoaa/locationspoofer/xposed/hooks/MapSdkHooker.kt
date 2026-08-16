@@ -480,7 +480,7 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
         XposedBridge.log("[LocationSpoofer] BDLocation method hook failed: $e")
     }
 
-    // ── 方案2(补充): Hook百度定位回调,在App接收BDLocation前修改其内部字段 ──
+    // 方案2(补充): Hook百度定位回调,在App接收BDLocation前修改其内部字段
     // BDAbstractLocationListener是百度SDK 7.0+推荐的回调基类
     val listenerCandidates = listOf(
         "com.baidu.location.BDAbstractLocationListener",

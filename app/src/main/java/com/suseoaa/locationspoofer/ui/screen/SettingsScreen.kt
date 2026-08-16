@@ -92,7 +92,9 @@ fun SettingsScreen(
                         .background(if (isDark) Color(0xFF22272E) else Color.White)
                         .border(
                             width = 1.dp,
-                            color = if (isDark) Color.White.copy(alpha = 0.14f) else Color(0xFFE5E8EC),
+                            color = if (isDark) Color.White.copy(alpha = 0.14f) else Color(
+                                0xFFE5E8EC
+                            ),
                             shape = CircleShape
                         )
                         .noRippleClickable(onClick = onClose),
@@ -124,7 +126,9 @@ fun SettingsScreen(
             }
 
             // 内容可滚动区域
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Box(modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -146,7 +150,12 @@ fun SettingsScreen(
                                     .background(AccentBlue.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.Language, null, tint = AccentBlue, modifier = Modifier.size(19.dp))
+                                Icon(
+                                    Icons.Rounded.Language,
+                                    null,
+                                    tint = AccentBlue,
+                                    modifier = Modifier.size(19.dp)
+                                )
                             }
                             Spacer(Modifier.width(12.dp))
                             Column {
@@ -180,7 +189,9 @@ fun SettingsScreen(
                                         )
                                         .border(
                                             width = if (isSelected) 1.2.dp else 0.5.dp,
-                                            color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.08f else 0.04f),
+                                            color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.outline.copy(
+                                                alpha = if (isDark) 0.08f else 0.04f
+                                            ),
                                             shape = RoundedCornerShape(12.dp)
                                         )
                                         .noRippleClickable {
@@ -230,7 +241,12 @@ fun SettingsScreen(
                                     .background(AccentGreen.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.Map, null, tint = AccentGreen, modifier = Modifier.size(19.dp))
+                                Icon(
+                                    Icons.Rounded.Map,
+                                    null,
+                                    tint = AccentGreen,
+                                    modifier = Modifier.size(19.dp)
+                                )
                             }
                             Spacer(Modifier.width(12.dp))
                             Column {
@@ -310,6 +326,7 @@ fun SettingsScreen(
                                             isDark = isDark
                                         )
                                     }
+
                                     MapEngine.BAIDU -> {
                                         ModernSettingsInput(
                                             label = stringResource(R.string.custom_baidu_key),
@@ -319,6 +336,7 @@ fun SettingsScreen(
                                             isDark = isDark
                                         )
                                     }
+
                                     MapEngine.GOOGLE -> {
                                         ModernSettingsInput(
                                             label = stringResource(R.string.custom_google_key),
@@ -328,6 +346,7 @@ fun SettingsScreen(
                                             isDark = isDark
                                         )
                                     }
+
                                     else -> Unit
                                 }
                             }
@@ -348,7 +367,12 @@ fun SettingsScreen(
                                     .background(AccentOrange.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.Security, null, tint = AccentOrange, modifier = Modifier.size(19.dp))
+                                Icon(
+                                    Icons.Rounded.Security,
+                                    null,
+                                    tint = AccentOrange,
+                                    modifier = Modifier.size(19.dp)
+                                )
                             }
                             Spacer(Modifier.width(12.dp))
                             Column {
@@ -374,10 +398,18 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                                    .background(
+                                        if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
+                                            alpha = 0.03f
+                                        )
+                                    )
                                     .noRippleClickable {
                                         clipboardManager.setText(AnnotatedString(context.packageName))
-                                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.copied_to_clipboard),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -414,10 +446,18 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                                    .background(
+                                        if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
+                                            alpha = 0.03f
+                                        )
+                                    )
                                     .noRippleClickable {
                                         clipboardManager.setText(AnnotatedString(uiState.appSha1))
-                                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.copied_to_clipboard),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -465,7 +505,12 @@ fun SettingsScreen(
                                     .background(AccentOrange.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.BatteryChargingFull, null, tint = AccentOrange, modifier = Modifier.size(19.dp))
+                                Icon(
+                                    Icons.Rounded.BatteryChargingFull,
+                                    null,
+                                    tint = AccentOrange,
+                                    modifier = Modifier.size(19.dp)
+                                )
                             }
                             Spacer(Modifier.width(12.dp))
                             Column {
@@ -491,20 +536,32 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                                    .background(
+                                        if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
+                                            alpha = 0.03f
+                                        )
+                                    )
                                     .noRippleClickable {
                                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                                             try {
-                                                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                                    data = android.net.Uri.parse("package:${context.packageName}")
-                                                }
+                                                val intent =
+                                                    android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                                                        .apply {
+                                                            data =
+                                                                android.net.Uri.parse("package:${context.packageName}")
+                                                        }
                                                 context.startActivity(intent)
                                             } catch (_: Exception) {
                                                 try {
-                                                    val intent = android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                                    val intent =
+                                                        android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                                     context.startActivity(intent)
                                                 } catch (e: Exception) {
-                                                    Toast.makeText(context, "打开电池优化页面失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(
+                                                        context,
+                                                        "打开电池优化页面失败: ${e.message}",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
                                                 }
                                             }
                                         }
@@ -541,15 +598,26 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                                    .background(
+                                        if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
+                                            alpha = 0.03f
+                                        )
+                                    )
                                     .noRippleClickable {
                                         try {
-                                            val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                data = android.net.Uri.parse("package:${context.packageName}")
-                                            }
+                                            val intent =
+                                                android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                                    .apply {
+                                                        data =
+                                                            android.net.Uri.parse("package:${context.packageName}")
+                                                    }
                                             context.startActivity(intent)
                                         } catch (e: Exception) {
-                                            Toast.makeText(context, "打开应用信息失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                "打开应用信息失败: ${e.message}",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     }
                                     .padding(horizontal = 12.dp, vertical = 12.dp),
@@ -595,7 +663,12 @@ fun SettingsScreen(
                                     .background(AccentBlue.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.VpnKey, null, tint = AccentBlue, modifier = Modifier.size(19.dp))
+                                Icon(
+                                    Icons.Rounded.VpnKey,
+                                    null,
+                                    tint = AccentBlue,
+                                    modifier = Modifier.size(19.dp)
+                                )
                             }
                             Spacer(Modifier.width(12.dp))
                             Column {
@@ -642,7 +715,11 @@ fun SettingsScreen(
                             viewModel.setGoogleApiKey(localGoogleApiKey)
                             viewModel.setWigleApiToken(localWigleToken)
                             viewModel.setOpencellidApiToken(localOpencellidToken)
-                            Toast.makeText(context, context.getString(R.string.restart_required_hint), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.restart_required_hint),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -650,7 +727,11 @@ fun SettingsScreen(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
                     ) {
-                        Text(stringResource(R.string.save), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.save),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     Spacer(Modifier.height(16.dp))

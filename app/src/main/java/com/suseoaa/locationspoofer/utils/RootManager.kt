@@ -15,8 +15,9 @@ class RootManager {
         hasRoot
     }
 
-    suspend fun applyRootBackgroundExemptions(packageName: String = "com.suseoaa.locationspoofer"): Boolean = withContext(Dispatchers.IO) {
-        val cmds = """
+    suspend fun applyRootBackgroundExemptions(packageName: String = "com.suseoaa.locationspoofer"): Boolean =
+        withContext(Dispatchers.IO) {
+            val cmds = """
             chmod 777 /data/local/tmp 2>/dev/null || true
             chmod 755 /data/local 2>/dev/null || true
             dumpsys deviceidle whitelist +$packageName 2>/dev/null || true
@@ -26,9 +27,9 @@ class RootManager {
             cmd appops set $packageName AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore 2>/dev/null || true
             am set-standby-bucket $packageName active 2>/dev/null || true
         """.trimIndent()
-        val result = executeCommand(cmds)
-        result != "ERROR"
-    }
+            val result = executeCommand(cmds)
+            result != "ERROR"
+        }
 
     suspend fun grantMockLocation(): Boolean = withContext(Dispatchers.IO) {
         val result =

@@ -73,6 +73,7 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
             lastGeocodedLng = lng
             try {
                 val geocoder = android.location.Geocoder(context, java.util.Locale.CHINA)
+
                 @Suppress("DEPRECATION")
                 val addresses = geocoder.getFromLocation(lat, lng, 1)
                 if (!addresses.isNullOrEmpty()) {

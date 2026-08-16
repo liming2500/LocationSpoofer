@@ -9,10 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 
-// ==========================================
-// 基础主色调与中性色（完全剔除 MD3 默认紫色）
-// ==========================================
-
+// 基础主色调与中性色
 // 深色调色板
 val DarkBg = Color(0xFF0D1117)
 val SurfaceDark = Color(0xFF161B22)
@@ -43,10 +40,7 @@ val ErrorRedLight = Color(0xFFCF222E)
 val ErrorContainerLight = Color(0xFFFFEBE9)
 val ErrorContainerDark = Color(0xFF4C1817)
 
-// ==========================================
-// 全面定制 MD3 配色方案（覆盖所有容器与文字插槽）
-// ==========================================
-
+// 全局配色方案
 val AppColorSchemeLight = lightColorScheme(
     primary = AccentBlue,
     onPrimary = Color.White,

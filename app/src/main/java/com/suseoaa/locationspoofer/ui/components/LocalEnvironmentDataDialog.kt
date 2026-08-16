@@ -46,10 +46,10 @@ fun LocalEnvironmentDataDialog(
             val query = searchQuery.trim().lowercase()
             dataList.filter { item ->
                 item.location.remark.lowercase().contains(query) ||
-                    item.location.placeName.lowercase().contains(query) ||
-                    item.location.lat.toString().contains(query) ||
-                    item.location.lng.toString().contains(query) ||
-                    "${item.location.lat},${item.location.lng}".contains(query)
+                        item.location.placeName.lowercase().contains(query) ||
+                        item.location.lat.toString().contains(query) ||
+                        item.location.lng.toString().contains(query) ||
+                        "${item.location.lat},${item.location.lng}".contains(query)
             }
         }
     }
@@ -326,7 +326,13 @@ private fun LocalDataItem(
     val primaryTitle = when {
         hasRemark -> item.location.remark
         hasPlaceName -> item.location.placeName
-        else -> "${String.format(Locale.US, "%.6f", item.location.lat)}, ${String.format(Locale.US, "%.6f", item.location.lng)}"
+        else -> "${String.format(Locale.US, "%.6f", item.location.lat)}, ${
+            String.format(
+                Locale.US,
+                "%.6f",
+                item.location.lng
+            )
+        }"
     }
     val showCoordSubtitle = hasRemark || hasPlaceName
 
@@ -371,7 +377,13 @@ private fun LocalDataItem(
                 if (showCoordSubtitle) {
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "${String.format(Locale.US, "%.6f", item.location.lat)}, ${String.format(Locale.US, "%.6f", item.location.lng)}",
+                        text = "${
+                            String.format(
+                                Locale.US,
+                                "%.6f",
+                                item.location.lat
+                            )
+                        }, ${String.format(Locale.US, "%.6f", item.location.lng)}",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                     )

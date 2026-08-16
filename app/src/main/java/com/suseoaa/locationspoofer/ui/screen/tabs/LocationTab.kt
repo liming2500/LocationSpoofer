@@ -121,8 +121,8 @@ fun LocationTab(
         val now = System.currentTimeMillis()
         val hasRecentSearchCache =
             spoofingUiState.searchResults.isNotEmpty() &&
-                spoofingUiState.cachedSearchQuery == spoofingUiState.searchQuery &&
-                now - spoofingUiState.cachedSearchAt <= searchCacheDurationMs
+                    spoofingUiState.cachedSearchQuery == spoofingUiState.searchQuery &&
+                    now - spoofingUiState.cachedSearchAt <= searchCacheDurationMs
 
         if (hasRecentSearchCache) {
             onIntent(
@@ -194,14 +194,16 @@ fun LocationTab(
             targetState = isSearching,
             transitionSpec = {
                 androidx.compose.animation.EnterTransition.None togetherWith
-                    androidx.compose.animation.ExitTransition.None
+                        androidx.compose.animation.ExitTransition.None
             },
             label = "location_search_transition"
         ) content@{ searchActive ->
-            val searchModifier = Modifier.sharedElement(
-                rememberSharedContentState(key = "location_search_bar"),
-                this@content
-            ).onGloballyPositioned { searchBounds = it.boundsInRoot() }
+            val searchModifier = Modifier
+                .sharedElement(
+                    rememberSharedContentState(key = "location_search_bar"),
+                    this@content
+                )
+                .onGloballyPositioned { searchBounds = it.boundsInRoot() }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 // 悬浮功能按钮（主动避让底部面板，在面板高度变化时平滑跟随）
@@ -335,7 +337,11 @@ fun LocationTab(
                                                 .noRippleClickable {
                                                     viewModel.updateLatitude(poi.lat.toString())
                                                     viewModel.updateLongitude(poi.lng.toString())
-                                                    mapController?.animateCamera(poi.lat, poi.lng, 17.5f)
+                                                    mapController?.animateCamera(
+                                                        poi.lat,
+                                                        poi.lng,
+                                                        17.5f
+                                                    )
                                                     onIntent(SpoofingIntent.HideSearchResults)
                                                     onIntent(SpoofingIntent.SetSearchActive(false))
                                                 }
@@ -367,7 +373,9 @@ fun LocationTab(
                                                 Text(
                                                     poi.snippet,
                                                     fontSize = 11.5.sp,
-                                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                                                    color = MaterialTheme.colorScheme.onBackground.copy(
+                                                        alpha = 0.6f
+                                                    )
                                                 )
                                             }
                                         }
@@ -394,7 +402,13 @@ fun LocationTab(
                 val label = when {
                     item.location.remark.isNotBlank() -> item.location.remark
                     item.location.placeName.isNotBlank() -> item.location.placeName
-                    else -> "(${String.format(Locale.US, "%.5f", lat)}, ${String.format(Locale.US, "%.5f", lng)})"
+                    else -> "(${String.format(Locale.US, "%.5f", lat)}, ${
+                        String.format(
+                            Locale.US,
+                            "%.5f",
+                            lng
+                        )
+                    })"
                 }
                 Toast.makeText(
                     context,

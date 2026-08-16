@@ -114,7 +114,8 @@ private class InnerShadowNode(
         layer.alpha = shadow.alpha
         layer.blendMode = shadow.blendMode
         if (prevRadius != radius) {
-            layer.renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
+            layer.renderEffect =
+                if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
             prevRadius = radius
         }
 

@@ -127,7 +127,8 @@ class SpoofingService : Service() {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
             }
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) {
+        }
         wakeLock = null
     }
 
@@ -140,17 +141,20 @@ class SpoofingService : Service() {
     }
 
     private fun cleanupLegacyTestProviders() {
-        val providers = mutableListOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        val providers =
+            mutableListOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             providers.add(LocationManager.FUSED_PROVIDER)
         }
         for (provider in providers) {
             try {
                 locationManager.setTestProviderEnabled(provider, false)
-            } catch (_: Throwable) {}
+            } catch (_: Throwable) {
+            }
             try {
                 locationManager.removeTestProvider(provider)
-            } catch (_: Throwable) {}
+            } catch (_: Throwable) {
+            }
         }
     }
 

@@ -182,7 +182,7 @@ fun AndroidFloatingBottomBar(
     val pillShape = remember { CircleShape }
     val accentColor = AccentBlue
     val surfaceContainer = MaterialTheme.colorScheme.surface
-    
+
     val containerColor = if (isBlurEnabled && backdrop != null) {
         if (isInDark) Color(0xFF151515).copy(alpha = 0.52f) else Color.White.copy(alpha = 0.58f)
     } else {
@@ -322,7 +322,9 @@ fun AndroidFloatingBottomBar(
                 .shadow(
                     elevation = 14.dp,
                     shape = pillShape,
-                    spotColor = if (isInDark) Color.Black.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.16f)
+                    spotColor = if (isInDark) Color.Black.copy(alpha = 0.5f) else Color.Black.copy(
+                        alpha = 0.16f
+                    )
                 )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -345,7 +347,11 @@ fun AndroidFloatingBottomBar(
                             highlight = { baseHighlight.copy(alpha = 0.75f) },
                             layerBlock = {
                                 val width = size.width.coerceAtLeast(1f)
-                                val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
+                                val s = lerp(
+                                    1f,
+                                    1f + 16.dp.toPx() / width,
+                                    dampedDragAnimation.pressProgress
+                                )
                                 scaleX = s
                                 scaleY = s
                             },
@@ -405,7 +411,8 @@ fun AndroidFloatingBottomBar(
                         .padding(horizontal = 4.dp)
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
-                            translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                            translationX =
+                                if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
                         }
                         .then(interactiveHighlight.gestureModifier)
                         .then(dampedDragAnimation.modifier)
@@ -432,7 +439,9 @@ fun AndroidFloatingBottomBar(
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
                                 drawRect(
-                                    color = if (!isInDark) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f),
+                                    color = if (!isInDark) Color.Black.copy(alpha = 0.08f) else Color.White.copy(
+                                        alpha = 0.12f
+                                    ),
                                     alpha = 1f - progress,
                                 )
                                 drawRect(Color.Black.copy(alpha = 0.03f * progress))
@@ -454,11 +463,15 @@ fun AndroidFloatingBottomBar(
                         .padding(horizontal = 4.dp)
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
-                            translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                            translationX =
+                                if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
                         }
                         .then(dampedDragAnimation.modifier)
                         .clip(pillShape)
-                        .background(accentColor.copy(alpha = if (isInDark) 0.25f else 0.16f), pillShape)
+                        .background(
+                            accentColor.copy(alpha = if (isInDark) 0.25f else 0.16f),
+                            pillShape
+                        )
                         .height(56.dp)
                         .width(tabWidthDp)
                 )

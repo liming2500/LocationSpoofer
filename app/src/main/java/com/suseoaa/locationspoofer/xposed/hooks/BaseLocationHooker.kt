@@ -641,7 +641,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             XposedBridge.log("[LocationSpoofer] Failed to hook getLastKnownLocation: $e")
         }
 
-        // ── 高德SDK专属Hook(含抖动,与原生Location保持同步) ──
+        // 高德SDK专属Hook(含抖动,与原生Location保持同步)
         // 使用findClassIfExists安全探测: 微信小程序子进程(:appbrand0等)不加载高德SDK,
         // 直接findAndHookMethod会抛出ClassNotFoundError,中断整个hookLocationAPIs执行流。
         // findClassIfExists在类不存在时返回null而非抛异常,可安全跳过。
@@ -1030,7 +1030,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
         XposedBridge.log(e)
     }
 
-    // ── 第三方地图SDK深度Hook(腾讯/百度) ──
+    // 第三方地图SDK深度Hook(腾讯/百度)
     hookTencentSDK(classLoader)
     hookBaiduSDK(classLoader)
 }

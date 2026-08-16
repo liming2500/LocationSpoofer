@@ -48,7 +48,7 @@ internal fun LocationHooker.hookCellEnvironment(
 ) {
     XposedBridge.logOpenCellId("Installing cell hooks classLoader=$classLoader")
 
-    // ── 1. 基站信息伪造（CellLocation / AllCellInfo / NeighboringCellInfo）──
+    // 1. 基站信息伪造（CellLocation / AllCellInfo / NeighboringCellInfo）
     fun handleCellMethod(chain: XposedInterface.Chain, method: java.lang.reflect.Executable): Any? {
         val methodName = method.name
         val config = readConfig()
@@ -160,7 +160,7 @@ internal fun LocationHooker.hookCellEnvironment(
         XposedBridge.logOpenCellId("Install basic TelephonyManager cell hooks failed: $e")
     }
 
-    // ── 2. TelephonyManager 元数据 Hook ──
+    // 2. TelephonyManager 元数据 Hook
     // 防止 MCC/MNC/运营商名称/网络类型泄漏真实地理位置
     // 高德用 getNetworkOperator() 验证基站数据是否与 GPS 位置地理一致
     fun handleTelephonyMeta(
@@ -281,7 +281,7 @@ internal fun LocationHooker.hookCellEnvironment(
         }
     }
 
-    // ── 3. PhoneStateListener 回调拦截 ──
+    // 3. PhoneStateListener 回调拦截
     // 防止应用通过 TelephonyManager.listen() 的 LISTEN_CELL_INFO 回调
     // 绕过 getAllCellInfo() 的 Hook 获取真实基站数据
     try {
@@ -441,7 +441,7 @@ internal fun LocationHooker.hookCellEnvironment(
         XposedBridge.logOpenCellId("Install TelephonyManager.listen hook failed: $e")
     }
 
-// ── 4. TelephonyManager.requestCellInfoUpdate 异步刷新拦截 (Android 10+) ──
+    // 4. TelephonyManager.requestCellInfoUpdate 异步刷新拦截 (Android 10+)
     try {
         XposedHelpers.hookAllMethods(
             XposedHelpers.findClass("android.telephony.TelephonyManager", classLoader),
@@ -499,7 +499,7 @@ internal fun LocationHooker.hookCellEnvironment(
         XposedBridge.logOpenCellId("Install TelephonyManager.requestCellInfoUpdate hook failed: $e")
     }
 
-    // ── 5. TelephonyCallback 拦截 (Android 12+ / API 31+) ──
+    // 5. TelephonyCallback 拦截 (Android 12+ / API 31+)
     // registerTelephonyCallback 替代了旧版 listen()，
     // 通过 TelephonyCallback.CellInfoListener 接收基站变化。
     // 需要 hook 注册过程，对每个 callback 实例的 onCellInfoChanged 进行拦截。
@@ -1416,7 +1416,7 @@ internal fun LocationHooker.constructCellIdentityByType(
         ?.runCatching { newInstance(*args) }
         ?.getOrNull()
 
-    // ── 阶段一：尝试各版本有参构造器 ──
+    // 阶段一：尝试各版本有参构造器
     val identity: Any? = when (type) {
         "LTE" -> {
             // Android 9 / API 28: (int mcc, int mnc, int ci, int pci, int tac) — 5 参数
@@ -1505,7 +1505,7 @@ internal fun LocationHooker.constructCellIdentityByType(
 
     if (identity != null) return identity
 
-    // ── 阶段二：Unsafe.allocateInstance + 反射写字段 ──
+    // 阶段二：Unsafe.allocateInstance + 反射写字段
     // 字段初始值为 0（非 MAX_VALUE），避免 JIT 内联问题
     try {
         val unsafeClass = Class.forName("sun.misc.Unsafe")
@@ -1620,7 +1620,7 @@ internal fun LocationHooker.constructCellIdentityByType(
         XposedBridge.log("[LocationSpoofer][CellMock] Unsafe failed for $type: $e")
     }
 
-    // ── 阶段三：最小参数构造器 + 安全默认值填充（绝对保底）──
+    // 阶段三：最小参数构造器 + 安全默认值填充（绝对保底）
     val minCtor = ctors.minByOrNull { it.parameterCount }
         ?: throw IllegalStateException("No constructors for ${clazz.name}")
     val safeArgs = minCtor.parameterTypes.map { t ->

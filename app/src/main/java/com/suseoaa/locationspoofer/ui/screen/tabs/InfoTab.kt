@@ -115,7 +115,8 @@ fun InfoTab(
                                 android.widget.ImageView(ctx).apply {
                                     scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
                                     try {
-                                        val icon = ctx.packageManager.getApplicationIcon(ctx.packageName)
+                                        val icon =
+                                            ctx.packageManager.getApplicationIcon(ctx.packageName)
                                         setImageDrawable(icon)
                                     } catch (e: Exception) {
                                         // fallback

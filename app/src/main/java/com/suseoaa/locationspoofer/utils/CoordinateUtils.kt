@@ -87,7 +87,7 @@ object CoordinateUtils {
         return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271
     }
 
-    // ── GCJ-02 → BD-09 转换常量 ──
+    // GCJ-02 转 BD-09 转换常量
     private const val BD_PI = PI * 3000.0 / 180.0
 
     /**

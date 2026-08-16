@@ -70,6 +70,7 @@ interface AppMapController {
     ) {
         fitBounds(points, maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom))
     }
+
     fun moveCamera(lat: Double, lng: Double, zoom: Float? = null)
     val cameraTargetLat: Double?
     val cameraTargetLng: Double?
@@ -80,15 +81,16 @@ interface AppMapController {
     fun setDarkMode(isDark: Boolean, context: android.content.Context)
 }
 
-// ── 坐标系转换工具 ──
+// 坐标系转换工具
 // config 中统一存储 GCJ-02；各地图 SDK 的原生坐标在此处统一转换
 
 private fun wgs84ToGcj02(wgsLat: Double, wgsLng: Double): Pair<Double, Double> {
-    val a = 6378245.0; val ee = 0.00669342162296594323
+    val a = 6378245.0;
+    val ee = 0.00669342162296594323
     if (wgsLng < 72.004 || wgsLng > 137.8347 || wgsLat < 0.8293 || wgsLat > 55.8271)
         return Pair(wgsLat, wgsLng)
     var dLat = transformLat(wgsLng - 105.0, wgsLat - 35.0)
-    var dLon  = transformLon(wgsLng - 105.0, wgsLat - 35.0)
+    var dLon = transformLon(wgsLng - 105.0, wgsLat - 35.0)
     val radLat = wgsLat / 180.0 * Math.PI
     var magic = Math.sin(radLat); magic = 1 - ee * magic * magic
     val sqrtM = Math.sqrt(magic)
@@ -100,7 +102,8 @@ private fun wgs84ToGcj02(wgsLat: Double, wgsLng: Double): Pair<Double, Double> {
 private val X_PI = Math.PI * 3000.0 / 180.0
 
 private fun bd09ToGcj02(bdLat: Double, bdLng: Double): Pair<Double, Double> {
-    val x = bdLng - 0.0065; val y = bdLat - 0.006
+    val x = bdLng - 0.0065;
+    val y = bdLat - 0.006
     val z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * X_PI)
     val theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * X_PI)
     return Pair(z * Math.sin(theta), z * Math.cos(theta))
@@ -113,7 +116,8 @@ private fun gcj02ToBd09(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {
 }
 
 private fun gcj02ToWgs84(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {
-    val a = 6378245.0; val ee = 0.00669342162296594323
+    val a = 6378245.0;
+    val ee = 0.00669342162296594323
     if (gcjLng < 72.004 || gcjLng > 137.8347 || gcjLat < 0.8293 || gcjLat > 55.8271)
         return Pair(gcjLat, gcjLng)
     var dLat = transformLat(gcjLng - 105.0, gcjLat - 35.0)
@@ -183,7 +187,7 @@ object GaodeMarkerHelper {
         )
         canvas.drawOval(shadowRect, shadowPaint)
 
-        // 2. 高德经典水滴图钉主体路径 (Pin Body)
+        // 2. 高德经典水滴图钉主体路径
         val headRadius = width * 0.44f
         val headCenterX = width / 2f
         val headCenterY = headRadius + 2 * density
@@ -348,7 +352,12 @@ class AMapControllerImpl(
                     )
                 )
             } catch (t: Throwable) {
-                map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom)))
+                map.animateCamera(
+                    CameraUpdateFactory.newLatLngBounds(
+                        bounds,
+                        maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom)
+                    )
+                )
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -376,6 +385,7 @@ class AMapControllerImpl(
             override fun onCameraChange(p0: CameraPosition?) {
                 p0?.target?.let { cameraMoveListener?.invoke(it.latitude, it.longitude) }
             }
+
             override fun onCameraChangeFinish(p0: CameraPosition?) {
                 p0?.target?.let { cameraFinishListener?.invoke(it.latitude, it.longitude) }
             }
@@ -556,7 +566,12 @@ class GMapControllerImpl(
                 map.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom)
                 map.animateCamera(GCameraUpdateFactory.newLatLngBounds(bounds, 0))
             } catch (t: Throwable) {
-                map.animateCamera(GCameraUpdateFactory.newLatLngBounds(bounds, maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom)))
+                map.animateCamera(
+                    GCameraUpdateFactory.newLatLngBounds(
+                        bounds,
+                        maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom)
+                    )
+                )
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -574,14 +589,16 @@ class GMapControllerImpl(
         else map.moveCamera(GCameraUpdateFactory.newLatLng(GLatLng(wgs.first, wgs.second)))
     }
 
-    override val cameraTargetLat: Double? get() {
-        val target = map.cameraPosition?.target ?: return null
-        return wgs84ToGcj02(target.latitude, target.longitude).first
-    }
-    override val cameraTargetLng: Double? get() {
-        val target = map.cameraPosition?.target ?: return null
-        return wgs84ToGcj02(target.latitude, target.longitude).second
-    }
+    override val cameraTargetLat: Double?
+        get() {
+            val target = map.cameraPosition?.target ?: return null
+            return wgs84ToGcj02(target.latitude, target.longitude).first
+        }
+    override val cameraTargetLng: Double?
+        get() {
+            val target = map.cameraPosition?.target ?: return null
+            return wgs84ToGcj02(target.latitude, target.longitude).second
+        }
 
     private var cameraFinishListener: ((Double, Double) -> Unit)? = null
     private var cameraMoveListener: ((Double, Double) -> Unit)? = null
@@ -784,7 +801,8 @@ class BaiduMapControllerImpl(
                 if (it.second > maxLng) maxLng = it.second
             }
             val verticalDiff = maxLat - minLat
-            val centerLat = (minLat + maxLat) / 2 - (if (paddingBottom > paddingTop) verticalDiff * 0.15 else 0.0)
+            val centerLat =
+                (minLat + maxLat) / 2 - (if (paddingBottom > paddingTop) verticalDiff * 0.15 else 0.0)
             val centerLng = (minLng + maxLng) / 2
 
             val results = FloatArray(1)
@@ -824,14 +842,16 @@ class BaiduMapControllerImpl(
         map.setMapStatus(update)
     }
 
-    override val cameraTargetLat: Double? get() {
-        val target = map.mapStatus?.target ?: return null
-        return target.latitude
-    }
-    override val cameraTargetLng: Double? get() {
-        val target = map.mapStatus?.target ?: return null
-        return target.longitude
-    }
+    override val cameraTargetLat: Double?
+        get() {
+            val target = map.mapStatus?.target ?: return null
+            return target.latitude
+        }
+    override val cameraTargetLng: Double?
+        get() {
+            val target = map.mapStatus?.target ?: return null
+            return target.longitude
+        }
 
     private var cameraFinishListener: ((Double, Double) -> Unit)? = null
     private var cameraMoveListener: ((Double, Double) -> Unit)? = null
@@ -852,6 +872,7 @@ class BaiduMapControllerImpl(
                     }
                 }
             }
+
             override fun onMapStatusChangeFinish(p0: com.baidu.mapapi.map.MapStatus?) {
                 if (lastReason == BaiduMap.OnMapStatusChangeListener.REASON_GESTURE) {
                     p0?.target?.let {

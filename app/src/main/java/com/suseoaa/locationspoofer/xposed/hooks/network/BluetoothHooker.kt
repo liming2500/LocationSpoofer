@@ -41,7 +41,7 @@ internal fun LocationHooker.hookBluetoothLE(
     isCoreSystemProcess: Boolean = false
 ) {
 
-    // ── BLE 扫描结果伪造的核心逻辑（复用于不同 startScan 重载）──
+    // BLE 扫描结果伪造的核心逻辑（复用于不同 startScan 重载）
     val buildAndDeliverBleResults = fun(config: JSONObject, callbackObj: Any, cl: ClassLoader) {
         if (!config.optBoolean("mock_bluetooth", true)) return
         try {
@@ -129,7 +129,7 @@ internal fun LocationHooker.hookBluetoothLE(
         Unit
     }
 
-    // ── 1. startScan(List<ScanFilter>, ScanSettings, ScanCallback) — 3参数重载 ──
+    // 1. startScan(List<ScanFilter>, ScanSettings, ScanCallback) — 3参数重载
     try {
         XposedHelpers.hookMethod(
             "android.bluetooth.le.BluetoothLeScanner", classLoader, "startScan",
@@ -151,7 +151,7 @@ internal fun LocationHooker.hookBluetoothLE(
         XposedBridge.log(e)
     }
 
-    // ── 2. startScan(ScanCallback) — 1参数重载 ──
+    // 2. startScan(ScanCallback) — 1参数重载
     // 部分 App（如微信）使用无 filter 的简化版 startScan
     try {
         XposedHelpers.hookMethod(
@@ -205,7 +205,7 @@ internal fun LocationHooker.hookBluetoothLE(
     } catch (e: Throwable) { /* 忽略 */
     }
 
-    // ── 3. BluetoothAdapter.getBondedDevices() → 空集合 ──
+    // 3. BluetoothAdapter.getBondedDevices() → 空集合
     // 防止通过已配对蓝牙设备列表进行指纹识别
     try {
         XposedHelpers.hookMethod(
@@ -243,7 +243,7 @@ internal fun LocationHooker.hookBluetoothLE(
     } catch (e: Throwable) { /* 忽略 */
     }
 
-    // ── 4. BluetoothAdapter.startDiscovery() → false ──
+    // 4. BluetoothAdapter.startDiscovery() → false
     // 阻止经典蓝牙扫描发现周围真实设备
     try {
         XposedHelpers.hookMethod(
@@ -260,7 +260,7 @@ internal fun LocationHooker.hookBluetoothLE(
     } catch (e: Throwable) { /* 忽略 */
     }
 
-    // ── 5. 老接口 BluetoothAdapter.startLeScan（Android 4.x）──
+    // 5. 老接口 BluetoothAdapter.startLeScan（Android 4.x）
     try {
         XposedHelpers.hookMethod(
             "android.bluetooth.BluetoothAdapter", classLoader, "startLeScan",

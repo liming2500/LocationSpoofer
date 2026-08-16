@@ -219,9 +219,9 @@ fun UpdateDialog(
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 if (release.downloadUrl != null || release.downloadUrl32Bit != null) {
-                                    val isDownloadingThis = uiState.activeDownloadId != null && 
-                                        (uiState.activeDownloadUrl == release.downloadUrl || uiState.activeDownloadUrl == release.downloadUrl32Bit)
-                                        
+                                    val isDownloadingThis = uiState.activeDownloadId != null &&
+                                            (uiState.activeDownloadUrl == release.downloadUrl || uiState.activeDownloadUrl == release.downloadUrl32Bit)
+
                                     if (isDownloadingThis) {
                                         if (uiState.downloadStatus == android.app.DownloadManager.STATUS_SUCCESSFUL) {
                                             Button(
@@ -279,17 +279,19 @@ fun UpdateDialog(
                                                         )
                                                     },
                                                     shape = RoundedCornerShape(12.dp),
-                                                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = AccentBlue
+                                                    )
                                                 ) {
                                                     Text(
-                                                        if (release.downloadUrl32Bit != null) 
-                                                            stringResource(R.string.download) + " (64位/默认)" 
-                                                        else 
+                                                        if (release.downloadUrl32Bit != null)
+                                                            stringResource(R.string.download) + " (64位/默认)"
+                                                        else
                                                             stringResource(R.string.download)
                                                     )
                                                 }
                                             }
-                                            
+
                                             if (release.downloadUrl32Bit != null) {
                                                 TextButton(
                                                     onClick = {
@@ -493,7 +495,19 @@ fun SavedLocationsDialog(
                                         )
                                         Spacer(Modifier.height(2.dp))
                                         Text(
-                                            text = "${String.format(java.util.Locale.US, "%.6f", loc.lat)}, ${String.format(java.util.Locale.US, "%.6f", loc.lng)}",
+                                            text = "${
+                                                String.format(
+                                                    java.util.Locale.US,
+                                                    "%.6f",
+                                                    loc.lat
+                                                )
+                                            }, ${
+                                                String.format(
+                                                    java.util.Locale.US,
+                                                    "%.6f",
+                                                    loc.lng
+                                                )
+                                            }",
                                             fontSize = 12.sp,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                                         )
@@ -527,7 +541,11 @@ fun SavedLocationsDialog(
                         .fillMaxWidth()
                         .height(44.dp)
                 ) {
-                    Text(stringResource(R.string.close), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        stringResource(R.string.close),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
