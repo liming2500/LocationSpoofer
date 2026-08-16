@@ -46,6 +46,7 @@ import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentGreen
 import com.suseoaa.locationspoofer.ui.theme.AccentOrange
 import com.suseoaa.locationspoofer.ui.theme.AppColors
+import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.Button as MiuixButton
@@ -300,13 +301,21 @@ fun ActionButtons(
 }
 
 @Composable
-fun UpdateCheckCard(isDark: Boolean, onCheckClick: () -> Unit) {
+fun UpdateCheckCard(
+    isDark: Boolean,
+    hasNewVersion: Boolean = false,
+    newVersionName: String? = null,
+    onCheckClick: () -> Unit
+) {
     val textSecondary = AppColors.textSecondary(isDark)
+    val cleanNewVersion = remember(newVersionName) {
+        newVersionName?.trim()?.removePrefix("v")?.removePrefix("V")
+    }
 
     MiuixCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckClick() },
+            .noRippleClickable { onCheckClick() },
         cornerRadius = 16.dp,
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
     ) {
@@ -318,30 +327,72 @@ fun UpdateCheckCard(isDark: Boolean, onCheckClick: () -> Unit) {
                 modifier = Modifier
                     .size(38.dp)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(AccentBlue.copy(alpha = 0.12f)),
+                    .background(
+                        if (hasNewVersion) Color(0xFFE53935).copy(alpha = 0.12f)
+                        else AccentBlue.copy(alpha = 0.12f)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Rounded.SystemUpdateAlt,
                     null,
-                    tint = AccentBlue,
+                    tint = if (hasNewVersion) Color(0xFFE53935) else AccentBlue,
                     modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.check_updates),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.check_updates),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    // 发现新版本时的醒目红点指示
+                    if (hasNewVersion) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE53935))
+                        )
+                    }
+                }
                 Spacer(Modifier.height(2.dp))
-                Text(
-                    stringResource(R.string.check_updates_desc),
-                    color = textSecondary,
-                    fontSize = 12.sp
-                )
+                if (hasNewVersion && cleanNewVersion != null) {
+                    Text(
+                        text = "发现新版本 v$cleanNewVersion 可用",
+                        color = Color(0xFFE53935),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.check_updates_desc),
+                        color = textSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+            if (hasNewVersion && cleanNewVersion != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFE53935).copy(alpha = 0.12f))
+                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "v$cleanNewVersion",
+                        color = Color(0xFFE53935),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
             }
             Icon(
                 Icons.Outlined.ChevronRight,
@@ -447,7 +498,7 @@ fun AppCoordinateConfigCard(isDark: Boolean, onClick: () -> Unit) {
     MiuixCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .noRippleClickable { onClick() },
         cornerRadius = 16.dp,
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
     ) {
@@ -503,7 +554,7 @@ fun ScannerMapCard(
     MiuixCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .noRippleClickable { onClick() },
         cornerRadius = 16.dp,
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
     ) {
@@ -560,7 +611,7 @@ fun ManageDataCard(isDark: Boolean, onClick: () -> Unit) {
     MiuixCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .noRippleClickable { onClick() },
         cornerRadius = 16.dp,
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
     ) {
@@ -763,7 +814,7 @@ fun FooterLinks(isDark: Boolean) {
             modifier = Modifier
                 .clip(RoundedCornerShape(22.dp))
                 .background(if (isDark) Color(0xFF24292E) else Color(0xFF24292E))
-                .clickable { uriHandler.openUri("https://github.com/HuangZhuoRui/LocationSpoofer") }
+                .noRippleClickable { uriHandler.openUri("https://github.com/HuangZhuoRui/LocationSpoofer") }
                 .padding(horizontal = 16.dp, vertical = 9.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -790,7 +841,7 @@ fun FooterLinks(isDark: Boolean) {
             modifier = Modifier
                 .clip(RoundedCornerShape(22.dp))
                 .background(if (isDark) Color(0xFF24A1DE).copy(alpha = 0.22f) else Color(0xFFE8F4FA))
-                .clickable { uriHandler.openUri("https://t.me/+CsxZGItXdW40ZWVl") }
+                .noRippleClickable { uriHandler.openUri("https://t.me/+CsxZGItXdW40ZWVl") }
                 .padding(horizontal = 16.dp, vertical = 9.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

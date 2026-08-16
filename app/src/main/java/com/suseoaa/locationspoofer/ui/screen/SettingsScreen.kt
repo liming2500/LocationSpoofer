@@ -33,6 +33,7 @@ import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.data.model.MapEngine
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AppColors
+import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
@@ -94,7 +95,7 @@ fun SettingsScreen(
                             else if (isDark) Color.White.copy(alpha = 0.05f)
                             else Color.Black.copy(alpha = 0.03f)
                         )
-                        .clickable {
+                        .noRippleClickable {
                             viewModel.selectLanguage(lang.code)
                             AppCompatDelegate.setApplicationLocales(
                                 LocaleListCompat.forLanguageTags(lang.code)
@@ -234,7 +235,7 @@ fun SettingsScreen(
                                 color = if (isSelected) AccentBlue else Color.Transparent,
                                 shape = RoundedCornerShape(10.dp)
                             )
-                            .clickable { viewModel.setMapEngine(engine) }
+                            .noRippleClickable { viewModel.setMapEngine(engine) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {

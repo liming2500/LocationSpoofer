@@ -1,91 +1,40 @@
 package com.suseoaa.locationspoofer.ui.screen
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.widget.Toast
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
+import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
-import com.amap.api.maps.AMap
-import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.model.LatLng
-import com.amap.api.maps.model.MarkerOptions
-import com.amap.api.services.core.PoiItem
-import com.amap.api.services.poisearch.PoiSearch
-import androidx.compose.ui.res.stringResource
 import com.suseoaa.locationspoofer.R
-import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.data.model.GithubRelease
-import com.suseoaa.locationspoofer.data.model.SavedLocation
-import com.suseoaa.locationspoofer.data.model.WifiLoadStatus
-import com.suseoaa.locationspoofer.ui.components.AppMapView
-import com.suseoaa.locationspoofer.ui.components.AppMapController
-import com.suseoaa.locationspoofer.data.model.AppMapType
-import com.suseoaa.locationspoofer.ui.components.MapTypeDialog
-import androidx.compose.material.icons.rounded.Layers
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentGreen
 import com.suseoaa.locationspoofer.ui.theme.AccentOrange
-import com.suseoaa.locationspoofer.ui.theme.AppColors
-import com.suseoaa.locationspoofer.viewmodel.MainViewModel
-import com.suseoaa.locationspoofer.BuildConfig
-import androidx.compose.runtime.Composable
-import com.suseoaa.locationspoofer.ui.theme.*
+
+sealed class MarkdownBlock {
+    data class Header(val level: Int, val text: String, val category: String) : MarkdownBlock()
+    data class ListItem(val text: String, val bulletType: String = "bullet") : MarkdownBlock()
+    data class Paragraph(val text: String) : MarkdownBlock()
+    data class Blockquote(val text: String) : MarkdownBlock()
+    data class CodeBlock(val code: String, val language: String = "") : MarkdownBlock()
+}
 
 data class GroupedReleaseNotes(
     val features: List<String>,
@@ -108,17 +57,15 @@ fun parseAndCategorizeReleaseNotes(releases: List<GithubRelease>): GroupedReleas
     )
 
     for (release in releases) {
-        val lines = release.body.split("\n")
-        var currentSection = "other" // "feature", "fix", "other"
+        val lines = release.body.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        var currentSection = "other"
 
-        for (line in lines) {
-            val cleanLine = line.trim()
+        for (rawLine in lines) {
+            val cleanLine = rawLine.trim()
             if (cleanLine.isEmpty()) continue
 
             if (cleanLine.startsWith("#")) {
                 val headingText = cleanLine.replace(Regex("^#+\\s*"), "").lowercase()
-
-                // 根据标题关键字确定部分
                 if (featureHeaderKeywords.any { headingText.contains(it) }) {
                     currentSection = "feature"
                 } else if (fixHeaderKeywords.any { headingText.contains(it) }) {
@@ -129,22 +76,15 @@ fun parseAndCategorizeReleaseNotes(releases: List<GithubRelease>): GroupedReleas
                 continue
             }
 
-            // 检查它是否为列表项
-            val isListItem =
-                cleanLine.startsWith("- ") || cleanLine.startsWith("* ") || cleanLine.startsWith("+ ") || cleanLine.matches(
-                    Regex("""^\d+\.\s+.*""")
-                )
+            val isListItem = cleanLine.startsWith("- ") || cleanLine.startsWith("* ") ||
+                cleanLine.startsWith("+ ") || cleanLine.startsWith("• ") ||
+                cleanLine.matches(Regex("""^\d+[\.\)]\s+.*"""))
 
             if (isListItem) {
-                // 移除列表前缀
-                var itemContent = cleanLine
-                if (cleanLine.startsWith("- ") || cleanLine.startsWith("* ") || cleanLine.startsWith(
-                        "+ "
-                    )
-                ) {
-                    itemContent = cleanLine.substring(2).trim()
-                } else {
-                    itemContent = cleanLine.replace(Regex("""^\d+\.\s*"""), "").trim()
+                val itemContent = when {
+                    cleanLine.startsWith("- ") || cleanLine.startsWith("* ") ||
+                        cleanLine.startsWith("+ ") || cleanLine.startsWith("• ") -> cleanLine.substring(2).trim()
+                    else -> cleanLine.replace(Regex("""^\d+[\.\)]\s*"""), "").trim()
                 }
 
                 if (itemContent.isEmpty()) continue
@@ -181,13 +121,13 @@ fun parseAndCategorizeReleaseNotes(releases: List<GithubRelease>): GroupedReleas
 }
 
 fun generateMergedMarkdown(
-    context: android.content.Context,
+    context: Context,
     grouped: GroupedReleaseNotes
 ): String {
-    val sb = java.lang.StringBuilder()
+    val sb = StringBuilder()
 
     if (grouped.features.isNotEmpty()) {
-        sb.append("### 🌟 ").append(context.getString(R.string.features_header)).append("\n")
+        sb.append("## ").append(context.getString(R.string.features_header)).append("\n")
         grouped.features.forEach { item ->
             sb.append("- ").append(item).append("\n")
         }
@@ -195,7 +135,7 @@ fun generateMergedMarkdown(
     }
 
     if (grouped.fixes.isNotEmpty()) {
-        sb.append("### 🛠 ").append(context.getString(R.string.fixes_header)).append("\n")
+        sb.append("## ").append(context.getString(R.string.fixes_header)).append("\n")
         grouped.fixes.forEach { item ->
             sb.append("- ").append(item).append("\n")
         }
@@ -203,9 +143,9 @@ fun generateMergedMarkdown(
     }
 
     if (grouped.others.isNotEmpty()) {
-        sb.append("### 📝 ").append(context.getString(R.string.others_header)).append("\n")
+        sb.append("## ").append(context.getString(R.string.others_header)).append("\n")
         grouped.others.forEach { item ->
-            if (item.length < 100) {
+            if (item.length < 120) {
                 sb.append("- ").append(item).append("\n")
             } else {
                 sb.append(item).append("\n\n")
@@ -233,221 +173,277 @@ fun isNewerVersion(versionStr: String, currentStr: String): Boolean {
     return false
 }
 
+fun parseMarkdownBlocks(rawText: String): List<MarkdownBlock> {
+    if (rawText.isBlank()) return emptyList()
+    val blocks = mutableListOf<MarkdownBlock>()
+    val lines = rawText.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    var inCodeBlock = false
+    val codeLines = mutableListOf<String>()
+
+    for (rawLine in lines) {
+        val line = rawLine.trim()
+
+        if (line.startsWith("```")) {
+            if (inCodeBlock) {
+                blocks.add(MarkdownBlock.CodeBlock(codeLines.joinToString("\n")))
+                codeLines.clear()
+                inCodeBlock = false
+            } else {
+                inCodeBlock = true
+            }
+            continue
+        }
+
+        if (inCodeBlock) {
+            codeLines.add(rawLine)
+            continue
+        }
+
+        if (line.isEmpty()) continue
+
+        val headerMatch = Regex("""^(#{1,6})\s+(.*)""").matchEntire(line)
+        if (headerMatch != null) {
+            val level = headerMatch.groupValues[1].length
+            val headerText = headerMatch.groupValues[2].trim()
+            val lower = headerText.lowercase()
+            val category = when {
+                lower.contains("功能") || lower.contains("feature") || lower.contains("新增") || lower.contains("优化") -> "feature"
+                lower.contains("修复") || lower.contains("fix") || lower.contains("bug") || lower.contains("解决") -> "fix"
+                else -> "other"
+            }
+            if (headerText.isNotEmpty()) {
+                blocks.add(MarkdownBlock.Header(level, headerText, category))
+            }
+            continue
+        }
+
+        if (line.startsWith(">")) {
+            val quoteText = line.removePrefix(">").trim()
+            if (quoteText.isNotEmpty()) {
+                blocks.add(MarkdownBlock.Blockquote(quoteText))
+            }
+            continue
+        }
+
+        val isBullet = line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ") || line.startsWith("• ")
+        val isNumbered = line.matches(Regex("""^\d+[\.\)]\s+.*"""))
+
+        if (isBullet) {
+            val itemText = line.substring(2).trim()
+            if (itemText.isNotEmpty()) {
+                blocks.add(MarkdownBlock.ListItem(itemText, "bullet"))
+            }
+            continue
+        }
+
+        if (isNumbered) {
+            val itemText = line.replace(Regex("""^\d+[\.\)]\s*"""), "").trim()
+            if (itemText.isNotEmpty()) {
+                blocks.add(MarkdownBlock.ListItem(itemText, "number"))
+            }
+            continue
+        }
+
+        // 普通文本段落
+        blocks.add(MarkdownBlock.Paragraph(line))
+    }
+
+    if (inCodeBlock && codeLines.isNotEmpty()) {
+        blocks.add(MarkdownBlock.CodeBlock(codeLines.joinToString("\n")))
+    }
+
+    return blocks
+}
 
 @Composable
-fun parseMarkdown(text: String): androidx.compose.ui.text.AnnotatedString {
-    return buildAnnotatedString {
-        val lines = text.split("\n")
-        var isInCodeBlock = false
+fun RenderMarkdownContent(
+    markdown: String,
+    modifier: Modifier = Modifier
+) {
+    val blocks = remember(markdown) { parseMarkdownBlocks(markdown) }
 
-        lines.forEachIndexed { index, line ->
-            val cleanLine = line.trim()
-
-            // 检查代码块边界
-            if (cleanLine.startsWith("```")) {
-                isInCodeBlock = !isInCodeBlock
-                return@forEachIndexed
-            }
-
-            if (isInCodeBlock) {
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = FontFamily.Monospace,
-                        background = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                        color = AccentBlue
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        blocks.forEach { block ->
+            when (block) {
+                is MarkdownBlock.Header -> {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = block.text.replace(Regex("""^[#🌟🛠📝\s]+"""), "").trim(),
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                ) {
-                    append("    ")
-                    append(line)
                 }
-            } else {
-                val headerMatch = Regex("""^(#{1,6})\s+(.*)""").matchEntire(cleanLine)
-                if (headerMatch != null) {
-                    val hashCount = headerMatch.groupValues[1].length
-                    val rest = headerMatch.groupValues[2]
-                    val fontSize = when (hashCount) {
-                        1 -> 18.sp
-                        2 -> 16.sp
-                        3 -> 14.sp
-                        4 -> 13.sp
-                        else -> 12.sp
-                    }
-                    val fontWeight = FontWeight.Bold
-                    val fontStyle = if (hashCount >= 6) FontStyle.Italic else FontStyle.Normal
 
-                    withStyle(
-                        style = SpanStyle(
-                            fontWeight = fontWeight,
-                            fontStyle = fontStyle,
-                            fontSize = fontSize,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                is MarkdownBlock.ListItem -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, top = 2.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        parseInlineFormatting(rest)
-                    }
-                } else if (cleanLine.startsWith(">")) {
-                    val rest =
-                        if (cleanLine.startsWith("> ")) cleanLine.substring(2) else cleanLine.substring(
-                            1
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 7.dp, end = 8.dp)
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(AccentBlue)
                         )
-                    withStyle(
-                        style = SpanStyle(
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        Text(
+                            text = parseInlineMarkdownString(block.text),
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
                         )
-                    ) {
-                        append("▎ ")
-                        parseInlineFormatting(rest)
                     }
-                } else if (cleanLine.startsWith("- ") || cleanLine.startsWith("* ") || cleanLine.startsWith(
-                        "+ "
+                }
+
+                is MarkdownBlock.Paragraph -> {
+                    Text(
+                        text = parseInlineMarkdownString(block.text),
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(vertical = 2.dp)
                     )
-                ) {
-                    append("  • ")
-                    val rest = cleanLine.substring(2).trim()
-                    parseInlineFormatting(rest)
-                } else if (cleanLine.matches(Regex("""^\d+\.\s+.*"""))) {
-                    val matchResult = Regex("""^(\d+\.\s+)(.*)""").find(cleanLine)
-                    if (matchResult != null) {
-                        val prefix = matchResult.groupValues[1]
-                        val rest = matchResult.groupValues[2]
-                        append("  $prefix")
-                        parseInlineFormatting(rest)
-                    } else {
-                        parseInlineFormatting(cleanLine)
-                    }
-                } else {
-                    parseInlineFormatting(cleanLine)
                 }
-            }
 
-            if (index < lines.lastIndex) {
-                append("\n")
+                is MarkdownBlock.Blockquote -> {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(18.dp)
+                                    .background(AccentBlue, RoundedCornerShape(2.dp))
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = parseInlineMarkdownString(block.text),
+                                fontSize = 12.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                            )
+                        }
+                    }
+                }
+
+                is MarkdownBlock.CodeBlock -> {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = block.code,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            color = AccentBlue,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-@Composable
-private fun androidx.compose.ui.text.AnnotatedString.Builder.parseInlineFormatting(text: String) {
-    var i = 0
-    while (i < text.length) {
-        var tokenType = ""
-        var minIdx = Int.MAX_VALUE
+fun parseInlineMarkdownString(text: String): androidx.compose.ui.text.AnnotatedString {
+    return buildAnnotatedString {
+        var i = 0
+        while (i < text.length) {
+            val bold1 = text.indexOf("**", i)
+            val bold2 = text.indexOf("__", i)
+            val code = text.indexOf("`", i)
+            val link = text.indexOf("[", i)
+            val italic = text.indexOf("*", i)
 
-        val bold1 = text.indexOf("**", i)
-        val bold2 = text.indexOf("__", i)
-        val italic1 = text.indexOf("*", i)
-        val italic2 = text.indexOf("_", i)
-        val code = text.indexOf("`", i)
-        val strike = text.indexOf("~~", i)
-        val link = text.indexOf("[", i)
+            var minIdx = Int.MAX_VALUE
+            var tokenType = ""
 
-        if (bold1 in i until minIdx) {
-            minIdx = bold1; tokenType = "bold1"
-        }
-        if (bold2 in i until minIdx) {
-            minIdx = bold2; tokenType = "bold2"
-        }
-        if (italic1 in i until minIdx && bold1 != italic1) {
-            minIdx = italic1; tokenType = "italic1"
-        }
-        if (italic2 in i until minIdx && bold2 != italic2) {
-            minIdx = italic2; tokenType = "italic2"
-        }
-        if (code in i until minIdx) {
-            minIdx = code; tokenType = "code"
-        }
-        if (strike in i until minIdx) {
-            minIdx = strike; tokenType = "strike"
-        }
-        if (link in i until minIdx) {
-            minIdx = link; tokenType = "link"
-        }
+            if (bold1 in i until minIdx) { minIdx = bold1; tokenType = "bold1" }
+            if (bold2 in i until minIdx) { minIdx = bold2; tokenType = "bold2" }
+            if (code in i until minIdx) { minIdx = code; tokenType = "code" }
+            if (link in i until minIdx) { minIdx = link; tokenType = "link" }
+            if (italic in i until minIdx && italic != bold1) { minIdx = italic; tokenType = "italic" }
 
-        if (minIdx == Int.MAX_VALUE) {
-            append(text.substring(i))
-            break
-        }
-
-        if (minIdx > i) {
-            append(text.substring(i, minIdx))
-        }
-
-        i = minIdx
-        var parsed = false
-
-        when (tokenType) {
-            "bold1", "bold2" -> {
-                val delim = if (tokenType == "bold1") "**" else "__"
-                val end = text.indexOf(delim, i + 2)
-                if (end != -1) {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        parseInlineFormatting(text.substring(i + 2, end))
-                    }
-                    i = end + 2
-                    parsed = true
-                }
+            if (minIdx == Int.MAX_VALUE) {
+                append(text.substring(i))
+                break
             }
 
-            "italic1", "italic2" -> {
-                val delim = if (tokenType == "italic1") "*" else "_"
-                val end = text.indexOf(delim, i + 1)
-                if (end != -1) {
-                    withStyle(style = SpanStyle(fontStyle = FontStyle.Italic)) {
-                        parseInlineFormatting(text.substring(i + 1, end))
-                    }
-                    i = end + 1
-                    parsed = true
-                }
+            if (minIdx > i) {
+                append(text.substring(i, minIdx))
             }
 
-            "code" -> {
-                val end = text.indexOf("`", i + 1)
-                if (end != -1) {
-                    withStyle(
-                        style = SpanStyle(
-                            fontFamily = FontFamily.Monospace,
-                            background = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                            color = AccentBlue
-                        )
-                    ) {
-                        append(text.substring(i + 1, end))
-                    }
-                    i = end + 1
-                    parsed = true
-                }
-            }
+            i = minIdx
+            var parsed = false
 
-            "strike" -> {
-                val end = text.indexOf("~~", i + 2)
-                if (end != -1) {
-                    withStyle(style = SpanStyle(textDecoration = TextDecoration.LineThrough)) {
-                        parseInlineFormatting(text.substring(i + 2, end))
+            when (tokenType) {
+                "bold1", "bold2" -> {
+                    val delim = if (tokenType == "bold1") "**" else "__"
+                    val end = text.indexOf(delim, i + 2)
+                    if (end != -1) {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(text.substring(i + 2, end))
+                        }
+                        i = end + 2
+                        parsed = true
                     }
-                    i = end + 2
-                    parsed = true
                 }
-            }
-
-            "link" -> {
-                val closeBracket = text.indexOf("]", i + 1)
-                if (closeBracket != -1) {
-                    val openParen = closeBracket + 1
-                    if (openParen < text.length && text[openParen] == '(') {
-                        val closeParen = text.indexOf(")", openParen + 1)
+                "italic" -> {
+                    val end = text.indexOf("*", i + 1)
+                    if (end != -1) {
+                        withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                            append(text.substring(i + 1, end))
+                        }
+                        i = end + 1
+                        parsed = true
+                    }
+                }
+                "code" -> {
+                    val end = text.indexOf("`", i + 1)
+                    if (end != -1) {
+                        withStyle(
+                            SpanStyle(
+                                fontFamily = FontFamily.Monospace,
+                                color = AccentBlue
+                            )
+                        ) {
+                            append(text.substring(i + 1, end))
+                        }
+                        i = end + 1
+                        parsed = true
+                    }
+                }
+                "link" -> {
+                    val closeBracket = text.indexOf("]", i + 1)
+                    if (closeBracket != -1 && closeBracket + 1 < text.length && text[closeBracket + 1] == '(') {
+                        val closeParen = text.indexOf(")", closeBracket + 2)
                         if (closeParen != -1) {
                             val linkText = text.substring(i + 1, closeBracket)
-                            val linkUrl = text.substring(openParen + 1, closeParen)
-
+                            val linkUrl = text.substring(closeBracket + 2, closeParen)
                             withStyle(
-                                style = SpanStyle(
+                                SpanStyle(
                                     color = AccentBlue,
                                     textDecoration = TextDecoration.Underline
                                 )
                             ) {
                                 pushStringAnnotation(tag = "URL", annotation = linkUrl)
-                                parseInlineFormatting(linkText)
+                                append(linkText)
                                 pop()
                             }
                             i = closeParen + 1
@@ -456,11 +452,16 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.parseInlineFormatti
                     }
                 }
             }
-        }
 
-        if (!parsed) {
-            append(text[i])
-            i++
+            if (!parsed) {
+                append(text[i])
+                i++
+            }
         }
     }
+}
+
+@Composable
+fun parseMarkdown(text: String): androidx.compose.ui.text.AnnotatedString {
+    return parseInlineMarkdownString(text)
 }

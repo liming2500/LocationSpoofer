@@ -30,6 +30,7 @@ import com.suseoaa.locationspoofer.data.model.AppInfoItem
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AppColors
+import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
@@ -179,7 +180,7 @@ fun AppItemCard(
     MiuixCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         cornerRadius = 14.dp,
         insideMargin = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
     ) {
@@ -307,7 +308,7 @@ fun CoordinateSelectionDialog(
                                 else if (isDark) Color.White.copy(alpha = 0.05f)
                                 else Color.Black.copy(alpha = 0.04f)
                             )
-                            .clickable { onSelect(sys) }
+                            .noRippleClickable { onSelect(sys) }
                             .padding(12.dp)
                     ) {
                         Row(

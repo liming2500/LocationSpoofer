@@ -72,6 +72,7 @@ import com.suseoaa.locationspoofer.ui.components.LocalEnvironmentDataDialog
 import com.suseoaa.locationspoofer.ui.screen.*
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
+import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import com.suseoaa.locationspoofer.viewmodel.UpdateViewModel
 import kotlinx.coroutines.launch
@@ -238,7 +239,6 @@ fun LocationTab(
                         )
                         MapControlButton(
                             icon = Icons.Rounded.Storage,
-                            isActive = showLocalDataDialog,
                             onClick = {
                                 viewModel.loadManageData()
                                 showLocalDataDialog = true
@@ -338,7 +338,7 @@ fun LocationTab(
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .clickable {
+                                                .noRippleClickable {
                                                     viewModel.updateLatitude(poi.lat.toString())
                                                     viewModel.updateLongitude(poi.lng.toString())
                                                     mapController?.animateCamera(poi.lat, poi.lng, 16f)
@@ -391,13 +391,20 @@ fun LocationTab(
         LocalEnvironmentDataDialog(
             dataList = uiState.manageDataList,
             isLoading = uiState.manageDataIsLoading,
-            onSelectPoint = { lat, lng ->
+            onSelectPoint = { item ->
+                val lat = item.location.lat
+                val lng = item.location.lng
                 viewModel.updateLatitude(lat.toString())
                 viewModel.updateLongitude(lng.toString())
                 mapController?.animateCamera(lat, lng, 16f)
+                val label = when {
+                    item.location.remark.isNotBlank() -> item.location.remark
+                    item.location.placeName.isNotBlank() -> item.location.placeName
+                    else -> "(${String.format(Locale.US, "%.5f", lat)}, ${String.format(Locale.US, "%.5f", lng)})"
+                }
                 Toast.makeText(
                     context,
-                    "已定位至采集点 (${String.format(Locale.US, "%.5f", lat)}, ${String.format(Locale.US, "%.5f", lng)})",
+                    "已定位至「$label」",
                     Toast.LENGTH_SHORT
                 ).show()
             },
@@ -414,7 +421,13 @@ fun LocationTab(
             onDismiss = { onIntent(SpoofingIntent.SetSavedLocationsVisible(false)) },
             onSelect = { location ->
                 viewModel.loadSavedLocation(location)
+                mapController?.animateCamera(location.lat, location.lng, 16f)
                 onIntent(SpoofingIntent.SetSavedLocationsVisible(false))
+                Toast.makeText(
+                    context,
+                    "已定位至收藏点「${location.name}」",
+                    Toast.LENGTH_SHORT
+                ).show()
             },
             onDelete = viewModel::removeSavedLocation
         )
@@ -482,7 +495,6 @@ fun LocationTab(
 @Composable
 private fun MapControlButton(
     icon: ImageVector,
-    isActive: Boolean = false,
     onClick: () -> Unit
 ) {
     Box(
@@ -490,18 +502,11 @@ private fun MapControlButton(
             .size(46.dp)
             .shadow(4.dp, RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
-            .background(
-                if (isActive) AccentBlue.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-            )
-            .clickable(onClick = onClick),
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = if (isActive) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-            modifier = Modifier.size(22.dp)
-        )
+        Icon(icon, null, tint = AccentBlue, modifier = Modifier.size(22.dp))
     }
 }
 

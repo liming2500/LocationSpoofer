@@ -2,6 +2,7 @@ package com.suseoaa.locationspoofer.ui.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.suseoaa.locationspoofer.BuildConfig
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.ui.components.AppMapController
 import com.suseoaa.locationspoofer.ui.components.AppMapView
@@ -30,6 +32,8 @@ import com.suseoaa.locationspoofer.ui.liquid.FloatingBottomBarItem
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
+import com.suseoaa.locationspoofer.viewmodel.UpdateViewModel
+import org.koin.androidx.compose.koinViewModel
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
@@ -44,7 +48,8 @@ enum class MainSubScreen {
     None,
     CoordinateConfig,
     ScannerMap,
-    ManageData
+    ManageData,
+    Update
 }
 
 @Composable
@@ -55,11 +60,44 @@ fun MainScaffoldScreen(
     val pageCount = BottomTab.values().size
     var selectedTab by remember { mutableIntStateOf(BottomTab.Location.ordinal) }
     var currentSubScreen by remember { mutableStateOf(MainSubScreen.None) }
+    var activeSubScreen by remember { mutableStateOf(MainSubScreen.None) }
     var mapController by remember { mutableStateOf<AppMapController?>(null) }
     val currentSelectedTab by rememberUpdatedState(selectedTab)
     val isDark = isSystemInDarkTheme()
+    val updateViewModel: UpdateViewModel = koinViewModel()
     
     val backdrop = rememberLayerBackdrop()
+
+    val updateUiState by updateViewModel.uiState.collectAsState()
+    var hasAutoCheckedUpdates by remember { mutableStateOf(false) }
+    var showStartupUpdateDialog by remember { mutableStateOf(false) }
+    val latestRelease = updateUiState.releases.firstOrNull()
+
+    // 软件启动进入主界面时，立即在后台检索是否有新版本发布
+    LaunchedEffect(Unit) {
+        updateViewModel.fetchReleases()
+    }
+
+    // 检测到未被忽略的新版本时弹出启动更新提示框
+    LaunchedEffect(updateUiState.releases, updateUiState.isLoading) {
+        if (!hasAutoCheckedUpdates && !updateUiState.isLoading && updateUiState.releases.isNotEmpty()) {
+            if (latestRelease != null) {
+                val latestVersion = latestRelease.versionName
+                val currentVersion = BuildConfig.VERSION_NAME
+                val ignoredVersion = viewModel.getIgnoredVersion()
+                if (isNewerVersion(latestVersion, currentVersion) && latestVersion != ignoredVersion) {
+                    showStartupUpdateDialog = true
+                }
+            }
+            hasAutoCheckedUpdates = true
+        }
+    }
+
+    LaunchedEffect(currentSubScreen) {
+        if (currentSubScreen != MainSubScreen.None) {
+            activeSubScreen = currentSubScreen
+        }
+    }
 
     // 针对非首页 Tab（路线/功能/信息）的系统返回拦截：返回到定位首页
     BackHandler(enabled = currentSubScreen == MainSubScreen.None && selectedTab != BottomTab.Location.ordinal) {
@@ -171,48 +209,67 @@ fun MainScaffoldScreen(
                 }
             }
             
-            when (selectedTab) {
-                BottomTab.Location.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.LocationTab(
-                    viewModel = viewModel,
-                    uiState = uiState,
-                    mapController = mapController,
-                    tabBarHeight = paddingValues.calculateBottomPadding()
-                )
-                BottomTab.Route.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.RouteTab(
-                    viewModel = viewModel,
-                    uiState = uiState,
-                    mapController = mapController,
-                    isActive = true,
-                    bottomBarHeight = paddingValues.calculateBottomPadding()
-                )
-                BottomTab.Features.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.FeaturesTab(
-                    viewModel = viewModel,
-                    uiState = uiState,
-                    tabBarHeight = paddingValues.calculateBottomPadding(),
-                    onNavigateToCoordinate = { currentSubScreen = MainSubScreen.CoordinateConfig },
-                    onNavigateToScanner = { currentSubScreen = MainSubScreen.ScannerMap },
-                    onNavigateToManageData = { currentSubScreen = MainSubScreen.ManageData }
-                )
-                BottomTab.Info.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.InfoTab(
-                    viewModel = viewModel,
-                    uiState = uiState,
-                    tabBarHeight = paddingValues.calculateBottomPadding()
-                )
+            // 底部 Tab 内容切换（纯左右完整切换，无渐变）
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    val isForward = targetState > initialState
+                    if (isForward) {
+                        slideInHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> width }
+                            .togetherWith(slideOutHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> -width })
+                    } else {
+                        slideInHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> -width }
+                            .togetherWith(slideOutHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) { width -> width })
+                    }
+                },
+                label = "main_tabs_transition"
+            ) { targetTab ->
+                when (targetTab) {
+                    BottomTab.Location.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.LocationTab(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        mapController = mapController,
+                        tabBarHeight = paddingValues.calculateBottomPadding()
+                    )
+                    BottomTab.Route.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.RouteTab(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        mapController = mapController,
+                        isActive = true,
+                        bottomBarHeight = paddingValues.calculateBottomPadding()
+                    )
+                    BottomTab.Features.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.FeaturesTab(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        tabBarHeight = paddingValues.calculateBottomPadding(),
+                        onNavigateToCoordinate = { currentSubScreen = MainSubScreen.CoordinateConfig },
+                        onNavigateToScanner = { currentSubScreen = MainSubScreen.ScannerMap },
+                        onNavigateToManageData = { currentSubScreen = MainSubScreen.ManageData }
+                    )
+                    BottomTab.Info.ordinal -> com.suseoaa.locationspoofer.ui.screen.tabs.InfoTab(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        updateUiState = updateUiState,
+                        tabBarHeight = paddingValues.calculateBottomPadding(),
+                        onNavigateToUpdate = { currentSubScreen = MainSubScreen.Update }
+                    )
+                }
             }
         }
 
-        // 全屏子页面覆盖层（隐藏底部栏，拥有独立的完整全屏视口）
+        // 全屏子页面覆盖层（纯左右完整滑入与退出，无内部冲突动画）
         AnimatedVisibility(
             visible = currentSubScreen != MainSubScreen.None,
-            enter = slideInVertically(tween(300)) { it } + fadeIn(tween(200)),
-            exit = slideOutVertically(tween(260)) { it } + fadeOut(tween(180))
+            enter = slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { width -> width },
+            exit = slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { width -> width }
         ) {
+            val subScreenToRender = if (currentSubScreen != MainSubScreen.None) currentSubScreen else activeSubScreen
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
             ) {
-                when (currentSubScreen) {
+                when (subScreenToRender) {
                     MainSubScreen.CoordinateConfig -> AppCoordinateScreen(
                         viewModel = viewModel,
                         uiState = uiState,
@@ -230,9 +287,31 @@ fun MainScaffoldScreen(
                         isDark = isDark,
                         onClose = { currentSubScreen = MainSubScreen.None }
                     )
+                    MainSubScreen.Update -> UpdateScreen(
+                        updateViewModel = updateViewModel,
+                        viewModel = viewModel,
+                        isDark = isDark,
+                        onBack = { currentSubScreen = MainSubScreen.None }
+                    )
                     MainSubScreen.None -> Unit
                 }
             }
+        }
+
+        // 启动时若检测到新版本，弹出更新弹窗（支持忽略此版本、前往更新）
+        if (showStartupUpdateDialog && latestRelease != null) {
+            StartupUpdateDialog(
+                latestRelease = latestRelease,
+                onDismiss = { showStartupUpdateDialog = false },
+                onNavigateToUpdate = {
+                    showStartupUpdateDialog = false
+                    currentSubScreen = MainSubScreen.Update
+                },
+                onIgnore = { version ->
+                    viewModel.setIgnoredVersion(version)
+                    showStartupUpdateDialog = false
+                }
+            )
         }
     }
 }

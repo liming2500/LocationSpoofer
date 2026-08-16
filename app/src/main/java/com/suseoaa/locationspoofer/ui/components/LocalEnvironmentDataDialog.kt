@@ -1,8 +1,5 @@
 package com.suseoaa.locationspoofer.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,8 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -19,11 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -39,7 +32,7 @@ import java.util.Locale
 fun LocalEnvironmentDataDialog(
     dataList: List<CompleteLocation>,
     isLoading: Boolean,
-    onSelectPoint: (lat: Double, lng: Double) -> Unit,
+    onSelectPoint: (item: CompleteLocation) -> Unit,
     onImportClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -52,7 +45,9 @@ fun LocalEnvironmentDataDialog(
         } else {
             val query = searchQuery.trim().lowercase()
             dataList.filter { item ->
-                item.location.lat.toString().contains(query) ||
+                item.location.remark.lowercase().contains(query) ||
+                    item.location.placeName.lowercase().contains(query) ||
+                    item.location.lat.toString().contains(query) ||
                     item.location.lng.toString().contains(query) ||
                     "${item.location.lat},${item.location.lng}".contains(query)
             }
@@ -68,7 +63,7 @@ fun LocalEnvironmentDataDialog(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .padding(vertical = 24.dp),
+                .padding(vertical = 20.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {
             Column(
@@ -163,7 +158,7 @@ fun LocalEnvironmentDataDialog(
                                 decorationBox = { innerTextField ->
                                     if (searchQuery.isEmpty()) {
                                         Text(
-                                            "搜索经纬度坐标...",
+                                            "搜索备注、地点或经纬度坐标...",
                                             fontSize = 13.5.sp,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                                         )
@@ -269,7 +264,7 @@ fun LocalEnvironmentDataDialog(
                                 item = item,
                                 timeStr = timeFormat.format(Date(item.location.timestamp)),
                                 onClick = {
-                                    onSelectPoint(item.location.lat, item.location.lng)
+                                    onSelectPoint(item)
                                     onDismiss()
                                 }
                             )
@@ -326,6 +321,15 @@ private fun LocalDataItem(
     timeStr: String,
     onClick: () -> Unit
 ) {
+    val hasRemark = item.location.remark.isNotBlank()
+    val hasPlaceName = item.location.placeName.isNotBlank()
+    val primaryTitle = when {
+        hasRemark -> item.location.remark
+        hasPlaceName -> item.location.placeName
+        else -> "${String.format(Locale.US, "%.6f", item.location.lat)}, ${String.format(Locale.US, "%.6f", item.location.lng)}"
+    }
+    val showCoordSubtitle = hasRemark || hasPlaceName
+
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
@@ -357,11 +361,21 @@ private fun LocalDataItem(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${String.format(Locale.US, "%.6f", item.location.lat)}, ${String.format(Locale.US, "%.6f", item.location.lng)}",
-                    fontSize = 14.sp,
+                    text = primaryTitle,
+                    fontSize = 14.5.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
                 )
+
+                if (showCoordSubtitle) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "${String.format(Locale.US, "%.6f", item.location.lat)}, ${String.format(Locale.US, "%.6f", item.location.lng)}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                }
 
                 Spacer(Modifier.height(4.dp))
 

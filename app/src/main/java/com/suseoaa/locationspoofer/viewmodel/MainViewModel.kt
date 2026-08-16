@@ -1479,8 +1479,8 @@ class MainViewModel(
         }
         _uiState.update {
             it.copy(
-                latitudeInput = String.format("%.6f", loc.lat),
-                longitudeInput = String.format("%.6f", loc.lng),
+                latitudeInput = String.format(java.util.Locale.US, "%.6f", loc.lat),
+                longitudeInput = String.format(java.util.Locale.US, "%.6f", loc.lng),
                 collectedWifiJson = loc.wifiJson,
                 collectedCellJson = loc.cellJson,
                 wifiApCount = wifiCount,
