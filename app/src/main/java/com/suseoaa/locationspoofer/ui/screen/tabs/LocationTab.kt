@@ -1,15 +1,24 @@
 package com.suseoaa.locationspoofer.ui.screen.tabs
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
@@ -27,6 +36,8 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StopCircle
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -57,6 +68,7 @@ import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.data.model.SearchMode
 import com.suseoaa.locationspoofer.ui.components.AppMapController
+import com.suseoaa.locationspoofer.ui.components.LocalEnvironmentDataDialog
 import com.suseoaa.locationspoofer.ui.screen.*
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
@@ -64,6 +76,7 @@ import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import com.suseoaa.locationspoofer.viewmodel.UpdateViewModel
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -88,6 +101,18 @@ fun LocationTab(
     var searchBounds by remember { mutableStateOf(Rect.Zero) }
     var searchResultBounds by remember { mutableStateOf(Rect.Zero) }
     var controlPanelHeightPx by remember { mutableIntStateOf(0) }
+    var showLocalDataDialog by remember { mutableStateOf(false) }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            viewModel.importEnvironmentData(it) {
+                viewModel.loadManageData()
+                Toast.makeText(context, "数据源导入合并成功", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val submitSearch: () -> Unit = {
         focusManager.clearFocus()
@@ -154,8 +179,12 @@ fun LocationTab(
         targetValue = if (controlPanelHeightDp > 0.dp) {
             controlPanelHeightDp + 14.dp
         } else {
-            tabBarHeight + 280.dp
+            tabBarHeight + (if (uiState.isSpoofingActive) 76.dp else 280.dp)
         },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
         label = "location_fab_bottom_padding"
     )
 
@@ -174,7 +203,7 @@ fun LocationTab(
             ).onGloballyPositioned { searchBounds = it.boundsInRoot() }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                // 悬浮功能按钮（主动避让底部面板与搜索状态，搜索激活时平滑隐退避免遮挡）
+                // 悬浮功能按钮（主动避让底部面板与搜索状态，搜索激活时平滑隐退，面板下沉时平滑跟随下落）
                 AnimatedVisibility(
                     visible = !searchActive,
                     enter = fadeIn(tween(180)),
@@ -187,17 +216,34 @@ fun LocationTab(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         horizontalAlignment = Alignment.End
                     ) {
-                        MapControlButton(Icons.Rounded.MyLocation) {
-                            viewModel.fetchCurrentLocation(context) { lat, lng ->
-                                mapController?.animateCamera(lat, lng, 16f)
+                        MapControlButton(
+                            icon = Icons.Rounded.MyLocation,
+                            onClick = {
+                                viewModel.fetchCurrentLocation(context) { lat, lng ->
+                                    mapController?.animateCamera(lat, lng, 16f)
+                                }
                             }
-                        }
-                        MapControlButton(Icons.Rounded.Layers) {
-                            onIntent(SpoofingIntent.SetMapTypeDialogVisible(true))
-                        }
-                        MapControlButton(Icons.Rounded.Star) {
-                            onIntent(SpoofingIntent.SetSavedLocationsVisible(true))
-                        }
+                        )
+                        MapControlButton(
+                            icon = Icons.Rounded.Layers,
+                            onClick = {
+                                onIntent(SpoofingIntent.SetMapTypeDialogVisible(true))
+                            }
+                        )
+                        MapControlButton(
+                            icon = Icons.Rounded.Star,
+                            onClick = {
+                                onIntent(SpoofingIntent.SetSavedLocationsVisible(true))
+                            }
+                        )
+                        MapControlButton(
+                            icon = Icons.Rounded.Storage,
+                            isActive = showLocalDataDialog,
+                            onClick = {
+                                viewModel.loadManageData()
+                                showLocalDataDialog = true
+                            }
+                        )
                     }
                 }
 
@@ -214,8 +260,9 @@ fun LocationTab(
                     onStartFixedSpoofing = {
                         onIntent(SpoofingIntent.SetStartSpoofingDialogVisible(true))
                     },
+                    onStopSpoofing = { viewModel.stopSpoofing() },
                     searchBar = if (!searchActive) {
-                        {
+                        { barModifier ->
                             HomeSearchBar(
                                 query = spoofingUiState.searchQuery,
                                 searchMode = uiState.searchMode,
@@ -223,7 +270,7 @@ fun LocationTab(
                                 onQueryChange = { onIntent(SpoofingIntent.UpdateSearchQuery(it)) },
                                 onSearch = submitSearch,
                                 onFocus = { onIntent(SpoofingIntent.SetSearchActive(true)) },
-                                modifier = searchModifier,
+                                modifier = searchModifier.then(barModifier),
                                 focusRequester = searchFocusRequester
                             )
                         }
@@ -266,7 +313,9 @@ fun LocationTab(
                             onQueryChange = { onIntent(SpoofingIntent.UpdateSearchQuery(it)) },
                             onSearch = submitSearch,
                             onFocus = { onIntent(SpoofingIntent.SetSearchActive(true)) },
-                            modifier = searchModifier,
+                            modifier = searchModifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp),
                             focusRequester = searchFocusRequester
                         )
 
@@ -336,6 +385,27 @@ fun LocationTab(
                 }
             }
         }
+    }
+
+    if (showLocalDataDialog) {
+        LocalEnvironmentDataDialog(
+            dataList = uiState.manageDataList,
+            isLoading = uiState.manageDataIsLoading,
+            onSelectPoint = { lat, lng ->
+                viewModel.updateLatitude(lat.toString())
+                viewModel.updateLongitude(lng.toString())
+                mapController?.animateCamera(lat, lng, 16f)
+                Toast.makeText(
+                    context,
+                    "已定位至采集点 (${String.format(Locale.US, "%.5f", lat)}, ${String.format(Locale.US, "%.5f", lng)})",
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            onImportClick = {
+                importLauncher.launch(arrayOf("application/json", "*/*"))
+            },
+            onDismiss = { showLocalDataDialog = false }
+        )
     }
 
     if (spoofingUiState.showSavedLocationsDialog) {
@@ -412,6 +482,7 @@ fun LocationTab(
 @Composable
 private fun MapControlButton(
     icon: ImageVector,
+    isActive: Boolean = false,
     onClick: () -> Unit
 ) {
     Box(
@@ -419,11 +490,18 @@ private fun MapControlButton(
             .size(46.dp)
             .shadow(4.dp, RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+            .background(
+                if (isActive) AccentBlue.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, null, tint = AccentBlue, modifier = Modifier.size(22.dp))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (isActive) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
@@ -437,52 +515,126 @@ private fun LocationControlPanel(
     onSaveClick: () -> Unit,
     onCustomClick: () -> Unit,
     onStartFixedSpoofing: () -> Unit,
-    searchBar: (@Composable () -> Unit)?
+    onStopSpoofing: () -> Unit,
+    searchBar: (@Composable (Modifier) -> Unit)?
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 14.dp)
             .padding(bottom = tabBarHeight + 12.dp)
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            searchBar?.invoke()
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 8.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
+            // 顶部搜索栏与停止模拟操作行
+            if (searchBar != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    CoordinateInputCard(
-                        viewModel = viewModel,
-                        uiState = uiState,
-                        isDark = isDark,
-                        onSaveClick = onSaveClick,
-                        onCustomClick = onCustomClick
+                    // 搜索框（模拟中自动缩窄以容纳停止按钮，非模拟时充满整行）
+                    searchBar(
+                        Modifier
+                            .weight(1f)
+                            .animateContentSize()
                     )
 
-                    if (uiState.isSpoofingActive) {
-                        Spacer(Modifier.height(10.dp))
-                        WifiStatusCard(uiState)
+                    // 停止模拟按钮（模拟开启时流畅展开滑入，非模拟时自动收起）
+                    AnimatedVisibility(
+                        visible = uiState.isSpoofingActive,
+                        enter = fadeIn(tween(220)) + expandHorizontally(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        ),
+                        exit = fadeOut(tween(180)) + shrinkHorizontally(
+                            animationSpec = tween(220, easing = FastOutSlowInEasing)
+                        )
+                    ) {
+                        Surface(
+                            onClick = onStopSpoofing,
+                            shape = RoundedCornerShape(26.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f),
+                            shadowElevation = 6.dp,
+                            modifier = Modifier.height(52.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    Icons.Rounded.StopCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    stringResource(R.string.stop_simulation),
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     }
+                }
+            }
 
-                    Spacer(Modifier.height(12.dp))
-
-                    ActionButtons(
-                        viewModel = viewModel,
-                        uiState = uiState,
-                        onOpenMap = {},
-                        onStartFixedSpoofing = onStartFixedSpoofing
+            // 目标坐标及操作卡片（未开始模拟时保持显示，开始模拟后顺畅下沉折叠）
+            AnimatedVisibility(
+                visible = !uiState.isSpoofingActive,
+                enter = fadeIn(tween(250)) + expandVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMediumLow
                     )
+                ),
+                exit = fadeOut(tween(180)) + shrinkVertically(
+                    animationSpec = tween(260, easing = FastOutSlowInEasing)
+                )
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                    ) {
+                        CoordinateInputCard(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            isDark = isDark,
+                            onSaveClick = onSaveClick,
+                            onCustomClick = onCustomClick
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        ActionButtons(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            onOpenMap = {},
+                            onStartFixedSpoofing = onStartFixedSpoofing
+                        )
+                    }
                 }
             }
         }

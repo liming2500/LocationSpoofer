@@ -26,7 +26,6 @@ import com.suseoaa.locationspoofer.ui.screen.FooterLinks
 import com.suseoaa.locationspoofer.ui.screen.ImportExportDataCard
 import com.suseoaa.locationspoofer.ui.screen.ManageDataCard
 import com.suseoaa.locationspoofer.ui.screen.ScannerMapCard
-import com.suseoaa.locationspoofer.ui.screen.SearchModeCard
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
@@ -136,14 +135,6 @@ fun FeaturesTab(
                         onExportClick = {
                             exportLauncher.launch("environment_data.json")
                         }
-                    )
-                }
-
-                item {
-                    SearchModeCard(
-                        isDark = isDark,
-                        searchMode = uiState.searchMode,
-                        onSearchModeChange = viewModel::setSearchMode
                     )
                 }
 

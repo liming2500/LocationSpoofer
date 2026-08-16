@@ -118,8 +118,6 @@ fun HomeSearchBar(
 ) {
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
             .height(52.dp)
             .shadow(
                 elevation = 6.dp,
