@@ -1,25 +1,16 @@
 package com.suseoaa.locationspoofer.ui.screen
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.widget.Toast
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -29,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,70 +27,19 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
-import com.suseoaa.locationspoofer.data.model.SavedLocation
-import com.suseoaa.locationspoofer.data.model.WifiLoadStatus
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentGreen
 import com.suseoaa.locationspoofer.ui.theme.AccentOrange
 import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
-import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.Button as MiuixButton
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-private data class StatusStyle(
-    val bgColor: Color, val tint: Color, val text: String, val icon: ImageVector
-)
-
-@Composable
-fun WifiStatusCard(uiState: AppState) {
-    val style = when (uiState.wifiLoadStatus) {
-        WifiLoadStatus.LOADING -> StatusStyle(
-            AccentOrange.copy(alpha = 0.12f), AccentOrange,
-            stringResource(R.string.fetching_wifi), Icons.Outlined.CloudDownload
-        )
-
-        WifiLoadStatus.DONE -> StatusStyle(
-            AccentGreen.copy(alpha = 0.12f), AccentGreen,
-            stringResource(R.string.wifi_ready, uiState.wifiApCount), Icons.Outlined.Wifi
-        )
-
-        else -> StatusStyle(
-            AccentBlue.copy(alpha = 0.12f), AccentBlue,
-            stringResource(R.string.gps_taken_over), Icons.Outlined.GpsFixed
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(style.bgColor)
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (uiState.wifiLoadStatus == WifiLoadStatus.LOADING) {
-                CircularProgressIndicator(
-                    color = style.tint,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(18.dp)
-                )
-            } else {
-                Icon(style.icon, null, tint = style.tint, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.width(10.dp))
-            Text(style.text, color = style.tint, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        }
-    }
-}
 
 // 坐标输入卡片 (Miuix 风格)
 @Composable
@@ -431,79 +370,6 @@ fun SectionHeader(icon: ImageVector, title: String, isDark: Boolean) {
 }
 
 @Composable
-fun SavedLocationsCard(
-    savedLocations: List<SavedLocation>,
-    onSelect: (SavedLocation) -> Unit,
-    onDelete: (SavedLocation) -> Unit
-) {
-    MiuixCard(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 16.dp,
-        insideMargin = PaddingValues(0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 260.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            savedLocations.forEachIndexed { index, loc ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSelect(loc) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(AccentBlue.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Rounded.Place,
-                            null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            loc.name,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            "${loc.lat}, ${loc.lng}",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-                    IconButton(onClick = { onDelete(loc) }, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            Icons.Rounded.DeleteOutline,
-                            stringResource(R.string.delete),
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                if (index < savedLocations.lastIndex) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun AppCoordinateConfigCard(isDark: Boolean, onClick: () -> Unit) {
     MiuixCard(
         modifier = Modifier
@@ -723,93 +589,6 @@ fun ImportExportDataCard(isDark: Boolean, onImportClick: () -> Unit, onExportCli
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(stringResource(R.string.export_data), color = AccentBlue, fontSize = 13.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SearchModeCard(
-    isDark: Boolean,
-    searchMode: com.suseoaa.locationspoofer.data.model.SearchMode,
-    onSearchModeChange: (com.suseoaa.locationspoofer.data.model.SearchMode) -> Unit
-) {
-    MiuixCard(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 16.dp,
-        insideMargin = PaddingValues(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(AccentBlue.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Rounded.Search, null, tint = AccentBlue, modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "搜索源",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "选择地理信息检索方式",
-                    color = AppColors.textSecondary(isDark),
-                    fontSize = 12.sp
-                )
-            }
-
-            val isNetwork = searchMode == com.suseoaa.locationspoofer.data.model.SearchMode.NETWORK
-            val activeColor = AccentBlue
-            val inactiveColor =
-                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
-
-            Row(modifier = Modifier.weight(1.3f), horizontalArrangement = Arrangement.End) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(34.dp)
-                        .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
-                        .background(if (isNetwork) activeColor else inactiveColor)
-                        .clickable { onSearchModeChange(com.suseoaa.locationspoofer.data.model.SearchMode.NETWORK) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "网络检索",
-                        fontSize = 12.sp,
-                        fontWeight = if (isNetwork) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isNetwork) Color.White else MaterialTheme.colorScheme.onSurface.copy(
-                            alpha = 0.7f
-                        )
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(34.dp)
-                        .clip(RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
-                        .background(if (!isNetwork) activeColor else inactiveColor)
-                        .clickable { onSearchModeChange(com.suseoaa.locationspoofer.data.model.SearchMode.LOCAL) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "本地采集",
-                        fontSize = 12.sp,
-                        fontWeight = if (!isNetwork) FontWeight.Bold else FontWeight.Normal,
-                        color = if (!isNetwork) Color.White else MaterialTheme.colorScheme.onSurface.copy(
-                            alpha = 0.7f
-                        )
-                    )
                 }
             }
         }

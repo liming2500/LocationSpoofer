@@ -126,7 +126,6 @@ internal fun LocationHooker.hookBluetoothLE(
         } catch (e: Throwable) {
             XposedBridge.log(e)
         }
-        Unit
     }
 
     // 1. startScan(List<ScanFilter>, ScanSettings, ScanCallback) — 3参数重载

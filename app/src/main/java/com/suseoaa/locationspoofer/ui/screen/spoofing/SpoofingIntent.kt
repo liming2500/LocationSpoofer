@@ -8,7 +8,6 @@ sealed class SpoofingIntent {
     // 导航 / 弹窗
     data class SetSaveDialogVisible(val visible: Boolean) : SpoofingIntent()
     data class SetSavedLocationsVisible(val visible: Boolean) : SpoofingIntent()
-    data class SetUpdateDialogVisible(val visible: Boolean) : SpoofingIntent()
     data class SetMapTypeDialogVisible(val visible: Boolean) : SpoofingIntent()
     data class SetCustomCoordDialogVisible(val visible: Boolean) : SpoofingIntent()
     data class SetStartSpoofingDialogVisible(val visible: Boolean) : SpoofingIntent()

@@ -591,12 +591,12 @@ class GMapControllerImpl(
 
     override val cameraTargetLat: Double?
         get() {
-            val target = map.cameraPosition?.target ?: return null
+            val target = map.cameraPosition.target
             return wgs84ToGcj02(target.latitude, target.longitude).first
         }
     override val cameraTargetLng: Double?
         get() {
-            val target = map.cameraPosition?.target ?: return null
+            val target = map.cameraPosition.target
             return wgs84ToGcj02(target.latitude, target.longitude).second
         }
 

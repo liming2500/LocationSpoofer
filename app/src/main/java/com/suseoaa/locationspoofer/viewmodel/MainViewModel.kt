@@ -2337,7 +2337,7 @@ class MainViewModel(
                 put("wifiStandard", 6)
             }
         } else if (closestRecord?.connectedWifi != null) {
-            val cw = closestRecord.connectedWifi!!
+            val cw = closestRecord.connectedWifi
             org.json.JSONObject().apply {
                 put("ssid", cw.ssid)
                 put("bssid", cw.bssid)
@@ -2545,12 +2545,6 @@ class MainViewModel(
             is SpoofingIntent.SetSavedLocationsVisible -> _spoofingUiState.update {
                 it.copy(
                     showSavedLocationsDialog = intent.visible
-                )
-            }
-
-            is SpoofingIntent.SetUpdateDialogVisible -> _spoofingUiState.update {
-                it.copy(
-                    showUpdateDialog = intent.visible
                 )
             }
 

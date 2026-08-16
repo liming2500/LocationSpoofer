@@ -1,35 +1,8 @@
-@file:Suppress(
-    "UNUSED_PARAMETER",
-    "UNUSED_VARIABLE",
-    "UNNECESSARY_NOT_NULL_ASSERTION",
-    "DEPRECATION",
-    "NAME_SHADOWING",
-    "FunctionName",
-    "PrivatePropertyName",
-    "SpellCheckingInspection",
-    "RedundantUnitReturnType",
-    "RemoveRedundantQualifierName",
-    "OPT_IN_USAGE",
-    "unused",
-    "UnusedImport"
-)
-
 package com.suseoaa.locationspoofer.ui.screen
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.widget.Toast
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,10 +13,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
+import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -51,298 +21,34 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
-import com.amap.api.maps.AMap
-import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.model.LatLng
-import com.amap.api.maps.model.MarkerOptions
-import com.amap.api.services.core.PoiItem
-import com.amap.api.services.poisearch.PoiSearch
-import androidx.compose.ui.res.stringResource
+import kotlin.math.atan2
+import kotlin.math.sqrt
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
-import com.suseoaa.locationspoofer.data.model.GithubRelease
 import com.suseoaa.locationspoofer.data.model.SavedLocation
-import com.suseoaa.locationspoofer.data.model.WifiLoadStatus
-import com.suseoaa.locationspoofer.ui.components.AppMapView
-import com.suseoaa.locationspoofer.ui.components.AppMapController
-import com.suseoaa.locationspoofer.data.model.AppMapType
-import com.suseoaa.locationspoofer.ui.components.MapTypeDialog
-import androidx.compose.material.icons.rounded.Layers
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentGreen
 import com.suseoaa.locationspoofer.ui.theme.AccentOrange
 import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
-import com.suseoaa.locationspoofer.BuildConfig
-import androidx.compose.runtime.Composable
-import com.suseoaa.locationspoofer.ui.theme.*
+import top.yukonga.miuix.kmp.basic.Button as MiuixButton
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
+import top.yukonga.miuix.kmp.basic.Slider as MiuixSlider
+import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
 
-@Composable
-fun UpdateDialog(
-    uiState: com.suseoaa.locationspoofer.viewmodel.UpdateUiState,
-    onDismiss: () -> Unit,
-    onDownload: (String, String) -> Unit,
-    onCancel: () -> Unit,
-    onInstall: () -> Unit,
-    onIgnore: (String) -> Unit
-) {
-    val context = LocalContext.current
-    val currentVersion = BuildConfig.VERSION_NAME
 
-    // 查找遗漏的版本（比当前版本更新）
-    val missed = remember(uiState.releases) {
-        uiState.releases.filter { isNewerVersion(it.versionName, currentVersion) }
-    }
 
-    val displayList = remember(uiState.releases, missed) {
-        if (missed.size > 1) {
-            val latest = missed.first()
-            val grouped = parseAndCategorizeReleaseNotes(missed)
-            val mergedBody = generateMergedMarkdown(context, grouped)
-            val mergedRelease = latest.copy(body = mergedBody)
-            val historical = uiState.releases.filter { it !in missed }
-            listOf(mergedRelease) + historical
-        } else {
-            uiState.releases
-        }
-    }
-
-    LocalizedDialog(onDismissRequest = onDismiss) {
-        top.yukonga.miuix.kmp.basic.Card(
-            cornerRadius = 18.dp,
-            insideMargin = PaddingValues(20.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                Text(
-                    stringResource(R.string.update_dialog_title),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(Modifier.height(12.dp))
-
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                } else if (uiState.error != null) {
-                    Text(uiState.error, color = MaterialTheme.colorScheme.error)
-                } else if (uiState.releases.isEmpty()) {
-                    Text(stringResource(R.string.no_updates_available))
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                        items(displayList) { release ->
-                            val isCurrentVersion =
-                                release.versionName.contains(BuildConfig.VERSION_NAME) ||
-                                        BuildConfig.VERSION_NAME.contains(release.versionName)
-                            val isMergedRelease = missed.size > 1 && release == displayList.first()
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        stringResource(R.string.version, release.versionName),
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                    if (isCurrentVersion) {
-                                        Spacer(Modifier.width(8.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(AccentGreen.copy(alpha = 0.2f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                stringResource(R.string.current_version),
-                                                fontSize = 10.sp,
-                                                color = AccentGreen,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                    if (isMergedRelease) {
-                                        Spacer(Modifier.width(8.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(AccentBlue.copy(alpha = 0.2f))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                stringResource(
-                                                    R.string.merged_updates_badge,
-                                                    missed.size
-                                                ),
-                                                fontSize = 10.sp,
-                                                color = AccentBlue,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = parseMarkdown(release.body),
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                if (release.downloadUrl != null || release.downloadUrl32Bit != null) {
-                                    val isDownloadingThis = uiState.activeDownloadId != null &&
-                                            (uiState.activeDownloadUrl == release.downloadUrl || uiState.activeDownloadUrl == release.downloadUrl32Bit)
-
-                                    if (isDownloadingThis) {
-                                        if (uiState.downloadStatus == android.app.DownloadManager.STATUS_SUCCESSFUL) {
-                                            Button(
-                                                onClick = onInstall,
-                                                shape = RoundedCornerShape(12.dp),
-                                                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen)
-                                            ) {
-                                                Text(stringResource(R.string.install))
-                                            }
-                                        } else {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        stringResource(
-                                                            R.string.downloading,
-                                                            uiState.downloadProgress
-                                                        ),
-                                                        color = MaterialTheme.colorScheme.onBackground,
-                                                        fontSize = 12.sp
-                                                    )
-                                                    Spacer(Modifier.height(4.dp))
-                                                    LinearProgressIndicator(
-                                                        progress = { uiState.downloadProgress / 100f },
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        color = AccentBlue
-                                                    )
-                                                }
-                                                Spacer(Modifier.width(12.dp))
-                                                IconButton(
-                                                    onClick = onCancel,
-                                                    modifier = Modifier.size(32.dp)
-                                                ) {
-                                                    Icon(
-                                                        Icons.Rounded.Cancel,
-                                                        stringResource(R.string.cancel),
-                                                        tint = MaterialTheme.colorScheme.error
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    } else if (uiState.activeDownloadId == null) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            if (release.downloadUrl != null) {
-                                                Button(
-                                                    onClick = {
-                                                        onDownload(
-                                                            release.downloadUrl,
-                                                            release.versionName
-                                                        )
-                                                    },
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    colors = ButtonDefaults.buttonColors(
-                                                        containerColor = AccentBlue
-                                                    )
-                                                ) {
-                                                    Text(
-                                                        if (release.downloadUrl32Bit != null)
-                                                            stringResource(R.string.download) + " (64位/默认)"
-                                                        else
-                                                            stringResource(R.string.download)
-                                                    )
-                                                }
-                                            }
-
-                                            if (release.downloadUrl32Bit != null) {
-                                                TextButton(
-                                                    onClick = {
-                                                        onDownload(
-                                                            release.downloadUrl32Bit,
-                                                            release.versionName + "_32bit"
-                                                        )
-                                                    }
-                                                ) {
-                                                    Text("下载 32位版本", color = AccentBlue)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val latestRelease = uiState.releases.firstOrNull()
-                    if (latestRelease != null) {
-                        val isCurrentVersion =
-                            latestRelease.versionName.contains(BuildConfig.VERSION_NAME) ||
-                                    BuildConfig.VERSION_NAME.contains(latestRelease.versionName)
-                        if (!isCurrentVersion) {
-                            TextButton(
-                                onClick = { onIgnore(latestRelease.versionName) }
-                            ) {
-                                Text(
-                                    stringResource(R.string.ignore_this_version),
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                        }
-                    }
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.close), color = AccentBlue)
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun SavedLocationsDialog(
@@ -921,3 +627,92 @@ fun StartSpoofingDialog(
         }
     }
 }
+
+// 摇杆控制面板
+@Composable
+fun JoystickPanel(viewModel: MainViewModel, maxSpeedMs: Float = 10f) {
+    var thumbOffset by remember { mutableStateOf(Offset.Zero) }
+    val maxRadius = 120f
+    var joystickState by remember { mutableStateOf(Pair(0.0, 0f)) }
+
+    LaunchedEffect(joystickState) {
+        val (angle, intensity) = joystickState
+        if (intensity > 0) {
+            while (true) {
+                val bearing = (Math.toDegrees(angle) + 90 + 360) % 360
+                viewModel.moveByJoystick(bearing, intensity, maxSpeedMs)
+                kotlinx.coroutines.delay(100)
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .size(160.dp)
+            .background(
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+                CircleShape
+            )
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = {
+                        thumbOffset = Offset.Zero
+                        joystickState = Pair(0.0, 0f)
+                    },
+                    onDragCancel = {
+                        thumbOffset = Offset.Zero
+                        joystickState = Pair(0.0, 0f)
+                    }
+                ) { change, dragAmount ->
+                    change.consume()
+                    val raw = thumbOffset + dragAmount
+                    val dist = sqrt(raw.x * raw.x + raw.y * raw.y)
+                    thumbOffset = if (dist <= maxRadius) raw else raw * (maxRadius / dist)
+                    val angle = atan2(thumbOffset.y.toDouble(), thumbOffset.x.toDouble())
+                    val intensity =
+                        (sqrt(thumbOffset.x * thumbOffset.x + thumbOffset.y * thumbOffset.y) / maxRadius).coerceIn(
+                            0f,
+                            1f
+                        )
+                    joystickState = Pair(angle, intensity)
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(thumbOffset.x.toInt(), thumbOffset.y.toInt()) }
+                .size(52.dp)
+                .background(AccentOrange, CircleShape)
+        )
+    }
+}
+
+// 保存名称对话框
+@Composable
+fun SaveNameDialog(title: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.name)) },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { if (name.isNotBlank()) onConfirm(name) }) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+

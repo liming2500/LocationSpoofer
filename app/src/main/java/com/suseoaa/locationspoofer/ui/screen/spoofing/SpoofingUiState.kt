@@ -10,7 +10,6 @@ data class SpoofingUiState(
     // Dialog Toggles
     val showSaveDialog: Boolean = false,
     val showSavedLocationsDialog: Boolean = false,
-    val showUpdateDialog: Boolean = false,
     val showMapTypeDialog: Boolean = false,
     val showCustomCoordDialog: Boolean = false,
     val showStartSpoofingDialog: Boolean = false,

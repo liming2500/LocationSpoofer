@@ -88,7 +88,7 @@ internal fun LocationHooker.hookConnectivityLayer(
             if (config.optBoolean("mock_wifi", true)) {
                 val wifiObj = config.optJSONObject("wifi_json")
                 val isConnected = wifiObj?.optBoolean("isConnected", false) ?: false
-                val hasWifiData = isConnected && wifiObj?.optJSONObject("connectedWifi") != null
+                val hasWifiData = isConnected && wifiObj!!.optJSONObject("connectedWifi") != null
                 if (hasWifiData) {
                     val currentInfo = result
                     if (currentInfo != null) {
@@ -170,7 +170,7 @@ internal fun LocationHooker.hookConnectivityLayer(
             if (config.optBoolean("mock_wifi", true)) {
                 val wifiObj = config.optJSONObject("wifi_json")
                 val isConnected = wifiObj?.optBoolean("isConnected", false) ?: false
-                val hasWifiData = isConnected && wifiObj?.optJSONObject("connectedWifi") != null
+                val hasWifiData = isConnected && wifiObj!!.optJSONObject("connectedWifi") != null
                 if (hasWifiData) {
                     val currentInfo = result
                     if (currentInfo != null) {
@@ -256,7 +256,7 @@ internal fun LocationHooker.hookConnectivityLayer(
                 val wifiObj = config.optJSONObject("wifi_json")
                 val isConnected = wifiObj?.optBoolean("isConnected", false) ?: false
                 val firstWifi =
-                    if (isConnected) wifiObj?.optJSONObject("connectedWifi") else null
+                    if (isConnected) wifiObj!!.optJSONObject("connectedWifi") else null
                 if (firstWifi != null) {
                     val currentInfo = try {
                         XposedHelpers.getObjectField(nc, "mTransportInfo")

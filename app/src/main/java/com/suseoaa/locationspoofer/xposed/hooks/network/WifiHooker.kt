@@ -68,7 +68,7 @@ internal fun LocationHooker.hookWifiEnvironment(
                     val wifiObj = if (mockWifi) config.optJSONObject("wifi_json") else null
                     val isConnected = wifiObj?.optBoolean("isConnected", false) ?: false
                     val connectedWifi =
-                        if (isConnected) wifiObj?.optJSONObject("connectedWifi") else null
+                        if (isConnected) wifiObj!!.optJSONObject("connectedWifi") else null
 
                     when (method.name) {
                         "getBSSID" -> return@hookMethod connectedWifi?.optString("bssid")
@@ -296,7 +296,7 @@ internal fun LocationHooker.hookWifiEnvironment(
             val wifiObj = if (mockWifi) config.optJSONObject("wifi_json") else null
             val isConnected = wifiObj?.optBoolean("isConnected", false) ?: false
             val connectedWifi =
-                if (isConnected) wifiObj?.optJSONObject("connectedWifi") else null
+                if (isConnected) wifiObj!!.optJSONObject("connectedWifi") else null
 
             val currentResult = chain.proceed(chain.args.toTypedArray())
             if (isConnected && connectedWifi != null) {
@@ -608,7 +608,7 @@ internal fun LocationHooker.hookWifiEnvironment(
             val wifiObj = if (mockWifi) config.optJSONObject("wifi_json") else null
             val isConnected = wifiObj?.optBoolean("isConnected", false) ?: false
             val connectedWifi =
-                if (isConnected) wifiObj?.optJSONObject("connectedWifi") else null
+                if (isConnected) wifiObj!!.optJSONObject("connectedWifi") else null
             if (connectedWifi != null) {
                 return@hookMethod "\"${connectedWifi.optString("ssid", "HOME_WIFI")}\""
             } else {
