@@ -10,7 +10,7 @@ interface EnvironmentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConnectedWifi(wifi: LocationConnectedWifi)
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWifiDevice(device: WifiDevice)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -59,6 +59,10 @@ interface EnvironmentDao {
         limit: Int = 10
     ): List<CompleteLocation>
 
+    @Transaction
+    @Query("SELECT * FROM location_records WHERE id = :id LIMIT 1")
+    suspend fun getCompleteLocationById(id: Long): CompleteLocation?
+
     @Query("SELECT * FROM location_records WHERE abs(lat - :lat) < :tolerance AND abs(lng - :lng) < :tolerance ORDER BY timestamp DESC LIMIT 1")
     suspend fun findLocationByCoordinates(lat: Double, lng: Double, tolerance: Double = 0.0001): LocationRecord?
 
@@ -80,6 +84,15 @@ interface EnvironmentDao {
 
     @Query("DELETE FROM location_records WHERE id IN (:ids)")
     suspend fun deleteLocations(ids: List<Long>)
+
+    @Query("DELETE FROM location_wifi WHERE locationId = :locationId AND bssid = :bssid")
+    suspend fun deleteLocationWifi(locationId: Long, bssid: String)
+
+    @Query("DELETE FROM location_connected_wifi WHERE locationId = :locationId")
+    suspend fun deleteConnectedWifi(locationId: Long)
+
+    @Query("UPDATE location_records SET selectedWifiBssid = :selectedWifiBssid WHERE id = :id")
+    suspend fun updateSelectedWifi(id: Long, selectedWifiBssid: String?)
 
     @Query("UPDATE location_records SET placeName = :placeName, remark = :remark, selectedWifiBssid = :selectedWifiBssid, selectedBluetoothAddress = :selectedBluetoothAddress, selectedCellKey = :selectedCellKey WHERE id = :id")
     suspend fun updateMetadata(id: Long, placeName: String, remark: String, selectedWifiBssid: String?, selectedBluetoothAddress: String?, selectedCellKey: String?)

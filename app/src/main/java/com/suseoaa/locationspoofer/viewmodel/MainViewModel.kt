@@ -1,6 +1,7 @@
 package com.suseoaa.locationspoofer.viewmodel
 
 import android.content.Context
+import java.util.Locale
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.amap.api.location.AMapLocationClient
@@ -654,6 +655,44 @@ class MainViewModel(
         }
     }
 
+    private var pinnedLocationRecordId: Long? = null
+
+    fun selectCollectedLocation(locationId: Long) {
+        viewModelScope.launch {
+            val record = withContext(Dispatchers.IO) {
+                environmentDao.getCompleteLocationById(locationId)
+            }
+            if (record != null) {
+                pinnedLocationRecordId = locationId
+                val name = when {
+                    record.location.remark.isNotBlank() -> record.location.remark
+                    record.location.placeName.isNotBlank() -> record.location.placeName
+                    else -> String.format(Locale.US, "(%.5f, %.5f)", record.location.lat, record.location.lng)
+                }
+                _uiState.update {
+                    it.copy(
+                        latitudeInput = record.location.lat.toString(),
+                        longitudeInput = record.location.lng.toString(),
+                        pinnedCollectedLocationId = locationId,
+                        pinnedLocationName = name
+                    )
+                }
+                evaluateMockCapabilitiesSuspend(record.location.lat, record.location.lng)
+            }
+        }
+    }
+
+    fun clearPinnedCollectedLocation() {
+        pinnedLocationRecordId = null
+        _uiState.update {
+            it.copy(
+                pinnedCollectedLocationId = null,
+                pinnedLocationName = null
+            )
+        }
+        evaluateMockCapabilities()
+    }
+
     private fun calculateDistanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         val dLat = Math.toRadians(lat2 - lat1)
         val dLng = Math.toRadians(lng2 - lng1)
@@ -665,6 +704,42 @@ class MainViewModel(
     }
 
     private suspend fun evaluateMockCapabilitiesSuspend(lat: Double, lng: Double) {
+        val currentPinnedId = pinnedLocationRecordId
+        var pinnedRecord: com.suseoaa.locationspoofer.data.db.CompleteLocation? = null
+
+        if (currentPinnedId != null) {
+            val pinned = withContext(Dispatchers.IO) {
+                environmentDao.getCompleteLocationById(currentPinnedId)
+            }
+            if (pinned != null) {
+                val distToPinned = calculateDistanceMeters(lat, lng, pinned.location.lat, pinned.location.lng)
+                if (distToPinned <= 50.0) {
+                    pinnedRecord = pinned
+                } else {
+                    // 超出 50 米有效范围，自动解除锁定
+                    pinnedLocationRecordId = null
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(
+                                pinnedCollectedLocationId = null,
+                                pinnedLocationName = null
+                            )
+                        }
+                    }
+                }
+            } else {
+                pinnedLocationRecordId = null
+                withContext(Dispatchers.Main) {
+                    _uiState.update {
+                        it.copy(
+                            pinnedCollectedLocationId = null,
+                            pinnedLocationName = null
+                        )
+                    }
+                }
+            }
+        }
+
         val radLat = Math.toRadians(lat)
         val degLat = 65.0 / 111320.0
         val degLng = 65.0 / (111320.0 * maxOf(0.1, kotlin.math.cos(radLat)))
@@ -685,6 +760,15 @@ class MainViewModel(
             if (dist <= 50.0) {
                 validRecords.add(record)
             }
+        }
+
+        // 按与目标点距离从近到远排序
+        validRecords.sortBy { calculateDistanceMeters(lat, lng, it.location.lat, it.location.lng) }
+
+        // 若用户当前明确锁定了某个 50m 内的采集点，则将其置于首位最高优先级
+        if (pinnedRecord != null) {
+            validRecords.removeAll { it.location.id == pinnedRecord.location.id }
+            validRecords.add(0, pinnedRecord)
         }
 
         withContext(Dispatchers.Main) {
@@ -2027,6 +2111,80 @@ class MainViewModel(
         }
     }
 
+    fun saveOrUpdateLocationWifi(
+        locationId: Long,
+        bssid: String,
+        ssid: String,
+        frequency: Int,
+        level: Int,
+        capabilities: String,
+        vendor: String = "",
+        isConnected: Boolean = false,
+        isDesignatedSimulation: Boolean = false
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val device = com.suseoaa.locationspoofer.data.db.WifiDevice(
+                bssid = bssid.uppercase().trim(),
+                ssid = ssid.trim(),
+                frequency = frequency,
+                capabilities = capabilities.ifBlank { "[WPA2-PSK-CCMP][RSN]" },
+                vendor = vendor
+            )
+            environmentDao.insertWifiDevice(device)
+            environmentDao.insertLocationWifi(
+                com.suseoaa.locationspoofer.data.db.LocationWifi(
+                    locationId = locationId,
+                    bssid = bssid.uppercase().trim(),
+                    level = level
+                )
+            )
+
+            if (isConnected) {
+                val conn = com.suseoaa.locationspoofer.data.db.LocationConnectedWifi(
+                    locationId = locationId,
+                    bssid = bssid.uppercase().trim(),
+                    ssid = ssid.trim(),
+                    vendor = vendor,
+                    macAddress = bssid.uppercase().trim(),
+                    frequency = frequency,
+                    linkSpeed = 65,
+                    level = level,
+                    capabilities = capabilities.ifBlank { "[WPA2-PSK-CCMP][RSN]" },
+                    networkId = 1,
+                    wifiStandard = 6
+                )
+                environmentDao.insertConnectedWifi(conn)
+            }
+
+            if (isDesignatedSimulation) {
+                environmentDao.updateSelectedWifi(locationId, bssid.uppercase().trim())
+            }
+
+            loadManageData()
+        }
+    }
+
+    fun deleteLocationWifi(locationId: Long, bssid: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            environmentDao.deleteLocationWifi(locationId, bssid)
+            val target = _uiState.value.manageDataList.find { it.location.id == locationId }
+            if (target?.connectedWifi?.bssid.equals(bssid, ignoreCase = true)) {
+                environmentDao.deleteConnectedWifi(locationId)
+            }
+            if (target?.location?.selectedWifiBssid.equals(bssid, ignoreCase = true)) {
+                environmentDao.updateSelectedWifi(locationId, null)
+            }
+            loadManageData()
+        }
+    }
+
+    fun updateSelectedWifiBssid(locationId: Long, selectedBssid: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            environmentDao.updateSelectedWifi(locationId, selectedBssid)
+            loadManageData()
+        }
+    }
+
     fun clearAllManageData() {
         viewModelScope.launch(Dispatchers.IO) {
             environmentDao.clearAll()
@@ -2325,25 +2483,33 @@ class MainViewModel(
     ): Triple<String, String, String> {
         if (records.isEmpty()) return Triple("{}", "[]", "[]")
 
-        val weights = records.map {
-            val rLat = Math.toRadians(it.location.lat - targetLat)
-            val rLng = Math.toRadians(it.location.lng - targetLng)
-            val rA = kotlin.math.sin(rLat / 2).let { v -> v * v } + kotlin.math.cos(
-                Math.toRadians(targetLat)
-            ) * kotlin.math.cos(Math.toRadians(it.location.lat)) * kotlin.math.sin(rLng / 2)
-                .let { v -> v * v }
-            val dist =
-                2 * 6378137.0 * kotlin.math.atan2(kotlin.math.sqrt(rA), kotlin.math.sqrt(1 - rA))
-            val safeDist = kotlin.math.max(dist, 1.0)
-            1.0 / (safeDist * safeDist)
+        val weights = records.mapIndexed { i, it ->
+            if (i == 0 && (it.location.id == pinnedLocationRecordId || it.location.selectedWifiBssid != null)) {
+                1000.0
+            } else {
+                val rLat = Math.toRadians(it.location.lat - targetLat)
+                val rLng = Math.toRadians(it.location.lng - targetLng)
+                val rA = kotlin.math.sin(rLat / 2).let { v -> v * v } + kotlin.math.cos(
+                    Math.toRadians(targetLat)
+                ) * kotlin.math.cos(Math.toRadians(it.location.lat)) * kotlin.math.sin(rLng / 2)
+                    .let { v -> v * v }
+                val dist =
+                    2 * 6378137.0 * kotlin.math.atan2(kotlin.math.sqrt(rA), kotlin.math.sqrt(1 - rA))
+                val safeDist = kotlin.math.max(dist, 1.0)
+                1.0 / (safeDist * safeDist)
+            }
         }
 
         val closestRecord = records.firstOrNull()
         val explicitWifiBssid = closestRecord?.location?.selectedWifiBssid
         val explicitWifi =
-            if (explicitWifiBssid != null) closestRecord.wifis.find { it.device.bssid == explicitWifiBssid } else null
+            if (explicitWifiBssid != null && explicitWifiBssid != "__NONE__") {
+                closestRecord.wifis.find { it.device.bssid.equals(explicitWifiBssid, ignoreCase = true) }
+            } else null
 
-        val connectedObj = if (explicitWifi != null) {
+        val connectedObj = if (explicitWifiBssid == "__NONE__") {
+            null
+        } else if (explicitWifi != null) {
             org.json.JSONObject().apply {
                 put("ssid", explicitWifi.device.ssid)
                 put("bssid", explicitWifi.device.bssid)
@@ -2362,7 +2528,7 @@ class MainViewModel(
                 put("networkId", 1)
                 put("wifiStandard", 6)
             }
-        } else if (closestRecord?.connectedWifi != null) {
+        } else if (closestRecord?.connectedWifi != null && (explicitWifiBssid == null || explicitWifiBssid.equals(closestRecord.connectedWifi.bssid, ignoreCase = true))) {
             val cw = closestRecord.connectedWifi
             org.json.JSONObject().apply {
                 put("ssid", cw.ssid)

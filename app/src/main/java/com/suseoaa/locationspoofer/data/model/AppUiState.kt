@@ -124,7 +124,11 @@ data class AppState(
     // 数据管理
     val isManageDataScreen: Boolean = false,
     val manageDataList: List<com.suseoaa.locationspoofer.data.db.CompleteLocation> = emptyList(),
-    val manageDataIsLoading: Boolean = false
+    val manageDataIsLoading: Boolean = false,
+
+    // 锁定选中的本地采集点位
+    val pinnedCollectedLocationId: Long? = null,
+    val pinnedLocationName: String? = null
 )
 
 data class AppInfoItem(

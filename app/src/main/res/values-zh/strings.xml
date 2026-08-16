@@ -374,4 +374,29 @@
     <string name="delete_saved_location_short">删除</string>
 
     <string name="swipe_up_to_view_saved">上滑查看收藏地点</string>
+
+    <string name="manage_wifi_list_title">模拟 Wi-Fi 列表与配置</string>
+    <string name="designated_wifi_tip">点击可指定模拟连接的主 Wi-Fi，支持修改或新增 Wi-Fi 详细参数并保存至数据库</string>
+    <string name="add_wifi_btn">+ 添加 Wi-Fi</string>
+    <string name="edit_wifi_title">编辑 Wi-Fi 数据</string>
+    <string name="new_wifi_title">新增 Wi-Fi 数据</string>
+    <string name="wifi_ssid_label">Wi-Fi 名称 (SSID)</string>
+    <string name="wifi_ssid_hint">例如: MyHome_5G</string>
+    <string name="wifi_bssid_label">MAC 物理地址 (BSSID)</string>
+    <string name="wifi_bssid_hint">例如: AA:BB:CC:11:22:33</string>
+    <string name="wifi_level_label">信号强度 (RSSI: %1$d dBm)</string>
+    <string name="wifi_freq_label">工作频率 (Frequency)</string>
+    <string name="wifi_capabilities_label">加密属性 (Capabilities)</string>
+    <string name="wifi_is_connected_label">设为当前已连接 Wi-Fi</string>
+    <string name="designated_simulation_badge">模拟首选</string>
+    <string name="connected_wifi_badge">已连接</string>
+    <string name="nearby_wifi_badge">周边扫描</string>
+    <string name="no_designated_wifi">自动默认 (跟随采集)</string>
+    <string name="no_wifi_data_in_record">该记录暂无 Wi-Fi 数据，点击右上角「+ 添加 Wi-Fi」创建</string>
+    <string name="delete_wifi_confirm">确定要删除 Wi-Fi \"%1$s\" 吗？</string>
+    <string name="save_wifi">保存 Wi-Fi</string>
+
+    <string name="pinned_collected_location_badge">已锁定采集点: %1$s</string>
+    <string name="pinned_collected_location_toast">已锁定「%1$s」采集环境数据 (50米范围内有效)</string>
+    <string name="unpin_collected_location">解除锁定</string>
 </resources>

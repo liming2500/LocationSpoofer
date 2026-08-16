@@ -25,6 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.border
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.suseoaa.locationspoofer.R
@@ -149,6 +151,58 @@ fun CoordinateInputCard(
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1
                         )
+                    }
+                }
+            }
+
+            if (uiState.pinnedCollectedLocationId != null) {
+                Spacer(Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AccentBlue.copy(alpha = 0.10f))
+                        .border(0.8.dp, AccentBlue.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.PinDrop,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.pinned_collected_location_badge,
+                                uiState.pinnedLocationName ?: ""
+                            ),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentBlue,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(AccentBlue.copy(alpha = 0.15f))
+                                .noRippleClickable { viewModel.clearPinnedCollectedLocation() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.unpin_collected_location),
+                                tint = AccentBlue,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
                 }
             }

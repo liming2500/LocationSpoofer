@@ -374,4 +374,29 @@
     <string name="delete_saved_location_short">حذف</string>
 
     <string name="swipe_up_to_view_saved">اسحب لأعلى لعرض المواقع المحفوظة</string>
+
+    <string name="manage_wifi_list_title">قائمة وتكوين شبكات Wi-Fi المحاكاة</string>
+    <string name="designated_wifi_tip">انقر لتعيين شبكة Wi-Fi الأساسية للمحاكاة. يمكنك تعديل المعلمات وحفظها في قاعدة البيانات مباشرة.</string>
+    <string name="add_wifi_btn">+ إضافة Wi-Fi</string>
+    <string name="edit_wifi_title">تعديل بيانات Wi-Fi</string>
+    <string name="new_wifi_title">إضافة شبكة Wi-Fi جديدة</string>
+    <string name="wifi_ssid_label">اسم الشبكة (SSID)</string>
+    <string name="wifi_ssid_hint">مثال: MyHome_5G</string>
+    <string name="wifi_bssid_label">عنوان MAC الفيزيائي (BSSID)</string>
+    <string name="wifi_bssid_hint">مثال: AA:BB:CC:11:22:33</string>
+    <string name="wifi_level_label">قوة الإشارة (RSSI: %1$d dBm)</string>
+    <string name="wifi_freq_label">تردد التشغيل (Frequency)</string>
+    <string name="wifi_capabilities_label">خصائص التشفير (Capabilities)</string>
+    <string name="wifi_is_connected_label">تعيين كشبكة Wi-Fi المتصلة حالياً</string>
+    <string name="designated_simulation_badge">مفضل للمحاكاة</string>
+    <string name="connected_wifi_badge">متصل</string>
+    <string name="nearby_wifi_badge">ممسوح قريب</string>
+    <string name="no_designated_wifi">تلقائي افتراضي (وفقاً للبيانات المجمعة)</string>
+    <string name="no_wifi_data_in_record">لا توجد شبكات Wi-Fi في هذا السجل، انقر على \"+ إضافة Wi-Fi\" في الأعلى للإنشاء</string>
+    <string name="delete_wifi_confirm">هل أنت متأكد من حذف شبكة Wi-Fi \"%1$s\"؟</string>
+    <string name="save_wifi">حفظ Wi-Fi</string>
+
+    <string name="pinned_collected_location_badge">تم قفل النقطة المجمعة: %1$s</string>
+    <string name="pinned_collected_location_toast">تم قفل بيانات البيئة لـ \"%1$s\" (صالح ضمن نطاق 50 متراً)</string>
+    <string name="unpin_collected_location">إلغاء القفل</string>
 </resources>

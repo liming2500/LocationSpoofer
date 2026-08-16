@@ -485,8 +485,7 @@ fun LocationTab(
             onSelectPoint = { item ->
                 val lat = item.location.lat
                 val lng = item.location.lng
-                viewModel.updateLatitude(lat.toString())
-                viewModel.updateLongitude(lng.toString())
+                viewModel.selectCollectedLocation(item.location.id)
                 mapController?.animateCamera(lat, lng, 17.5f)
                 val label = when {
                     item.location.remark.isNotBlank() -> item.location.remark
@@ -501,7 +500,7 @@ fun LocationTab(
                 }
                 Toast.makeText(
                     context,
-                    context.getString(R.string.located_to_location, label),
+                    context.getString(R.string.pinned_collected_location_toast, label),
                     Toast.LENGTH_SHORT
                 ).show()
             },

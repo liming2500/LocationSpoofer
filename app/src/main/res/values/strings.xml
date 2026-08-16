@@ -374,4 +374,29 @@ Error details: %s</string>
     <string name="delete_saved_location_short">Delete</string>
 
     <string name="swipe_up_to_view_saved">Swipe up for saved locations</string>
+
+    <string name="manage_wifi_list_title">Simulated Wi-Fi List &amp; Config</string>
+    <string name="designated_wifi_tip">Tap to designate primary simulated Wi-Fi. Modify parameters directly and save to database.</string>
+    <string name="add_wifi_btn">+ Add Wi-Fi</string>
+    <string name="edit_wifi_title">Edit Wi-Fi Data</string>
+    <string name="new_wifi_title">New Wi-Fi Data</string>
+    <string name="wifi_ssid_label">Wi-Fi Name (SSID)</string>
+    <string name="wifi_ssid_hint">e.g. MyHome_5G</string>
+    <string name="wifi_bssid_label">MAC Address (BSSID)</string>
+    <string name="wifi_bssid_hint">e.g. AA:BB:CC:11:22:33</string>
+    <string name="wifi_level_label">Signal Strength (RSSI: %1$d dBm)</string>
+    <string name="wifi_freq_label">Frequency</string>
+    <string name="wifi_capabilities_label">Capabilities</string>
+    <string name="wifi_is_connected_label">Set as Connected Wi-Fi</string>
+    <string name="designated_simulation_badge">Primary Mock</string>
+    <string name="connected_wifi_badge">Connected</string>
+    <string name="nearby_wifi_badge">Nearby</string>
+    <string name="no_designated_wifi">Auto (Default from capture)</string>
+    <string name="no_wifi_data_in_record">No Wi-Fi in this record. Tap \"+ Add Wi-Fi\" to create one.</string>
+    <string name="delete_wifi_confirm">Are you sure you want to delete Wi-Fi \"%1$s\"?</string>
+    <string name="save_wifi">Save Wi-Fi</string>
+
+    <string name="pinned_collected_location_badge">Locked Point: %1$s</string>
+    <string name="pinned_collected_location_toast">Locked environment data for \"%1$s\" (valid within 50m)</string>
+    <string name="unpin_collected_location">Unlock</string>
 </resources>
