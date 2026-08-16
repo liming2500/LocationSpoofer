@@ -78,9 +78,17 @@ data class AppState(
     /** 循环模式使用的速度 */
     val routeSimMode: SimMode = SimMode.WALKING,
     /** 自定义速度 (m/s)，仅当 routeSimMode == CUSTOM 时使用 */
-    val customSpeedMs: Double = 1.5,
+    val customSpeedMs: Double = 3.0,
+    /** 是否开启步频模拟 */
+    val enableStepSimulation: Boolean = true,
+    /** 步频设定 (SPM, 步/分钟) */
+    val stepCadenceSpm: Int = 165,
+    /** 是否根据速度自动计算最佳步频 */
+    val isAutoCadence: Boolean = true,
     /** 是否使用真实路线规划 */
     val useRealRoute: Boolean = false,
+    /** 到达终点后是否停下 */
+    val stopAtDestination: Boolean = false,
     /** 是否正在向地图API请求真实路线 */
     val isFetchingRoute: Boolean = false,
     /** 首页地图已确认的选点（点击地图后出现确认按钮，确认后填充坐标） */

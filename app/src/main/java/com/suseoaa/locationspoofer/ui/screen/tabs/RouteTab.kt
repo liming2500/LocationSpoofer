@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -540,7 +541,11 @@ fun RouteTab(
             onRunModeChange = viewModel::setRouteRunMode,
             onSpeedChange = viewModel::setRouteSimMode,
             onCustomSpeedChange = viewModel::setCustomSpeedMs,
-            onUseRealRouteChange = viewModel::setUseRealRoute
+            onUseRealRouteChange = viewModel::setUseRealRoute,
+            onStopAtDestinationChange = viewModel::setStopAtDestination,
+            onEnableStepSimulationChange = viewModel::setEnableStepSimulation,
+            onStepCadenceChange = viewModel::setStepCadenceSpm,
+            onIsAutoCadenceChange = viewModel::setIsAutoCadence
         )
     }
 
@@ -1092,7 +1097,11 @@ private fun MiuixRouteConfigDialog(
     onRunModeChange: (RouteRunMode) -> Unit,
     onSpeedChange: (SimMode) -> Unit,
     onCustomSpeedChange: (Double) -> Unit = {},
-    onUseRealRouteChange: (Boolean) -> Unit = {}
+    onUseRealRouteChange: (Boolean) -> Unit = {},
+    onStopAtDestinationChange: (Boolean) -> Unit = {},
+    onEnableStepSimulationChange: (Boolean) -> Unit = {},
+    onStepCadenceChange: (Int) -> Unit = {},
+    onIsAutoCadenceChange: (Boolean) -> Unit = {}
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -1109,6 +1118,7 @@ private fun MiuixRouteConfigDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -1118,134 +1128,363 @@ private fun MiuixRouteConfigDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(AccentBlue.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Rounded.Route,
-                                contentDescription = null,
-                                tint = AccentBlue,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                "路线模拟配置",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "配置运行方式与巡航速度",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
-
+                    Text(
+                        "路线模拟设置",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             Icons.Rounded.Close,
-                            contentDescription = stringResource(R.string.close),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            contentDescription = "关闭",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
 
-                // 模式选择
+                // 运行模式选择 (手动 / 循环)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "运行控制模式",
-                        fontSize = 13.5.sp,
+                        "运行模式",
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         MiuixSelectionCard(
-                            title = "摇杆手柄操控",
-                            subtitle = "屏幕虚拟摇杆灵活移动",
+                            title = "循环自动巡航",
+                            subtitle = "沿路线自动移动",
+                            icon = Icons.Rounded.Autorenew,
+                            isSelected = uiState.routeRunMode == RouteRunMode.LOOP,
+                            onClick = { onRunModeChange(RouteRunMode.LOOP) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        MiuixSelectionCard(
+                            title = "摇杆手动控制",
+                            subtitle = "摇杆引导沿路线",
                             icon = Icons.Rounded.SportsEsports,
                             isSelected = uiState.routeRunMode == RouteRunMode.MANUAL,
                             onClick = { onRunModeChange(RouteRunMode.MANUAL) },
                             modifier = Modifier.weight(1f)
                         )
-
-                        MiuixSelectionCard(
-                            title = "循环自动巡航",
-                            subtitle = "沿路点往返平滑移动",
-                            icon = Icons.Rounded.Loop,
-                            isSelected = uiState.routeRunMode == RouteRunMode.LOOP,
-                            onClick = { onRunModeChange(RouteRunMode.LOOP) },
-                            modifier = Modifier.weight(1f)
-                        )
                     }
                 }
 
-                // 速度选择（仅在循环巡航模式下展开）
-                AnimatedVisibility(visible = uiState.routeRunMode == RouteRunMode.LOOP) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "巡航移动速度",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                        ) {
-                            listOf(
-                                SimMode.WALKING to ("步行" to "1.4 m/s"),
-                                SimMode.RUNNING to ("跑步" to "3.5 m/s"),
-                                SimMode.CYCLING to ("骑行" to "6.0 m/s"),
-                                SimMode.DRIVING to ("驾车" to "12.0 m/s")
-                            ).forEach { (mode, pair) ->
-                                val (title, speedStr) = pair
-                                val isSelected = uiState.routeSimMode == mode
-                                Surface(
-                                    onClick = { onSpeedChange(mode) },
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = if (isSelected) AccentBlue.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                    border = if (isSelected) BorderStroke(1.5.dp, AccentBlue) else null,
-                                    modifier = Modifier.width(80.dp).height(64.dp)
+                // 速度选择
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "巡航速度",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Triple(SimMode.WALKING, "步行", "1.4m/s"),
+                            Triple(SimMode.RUNNING, "跑步", "3.0m/s"),
+                            Triple(SimMode.CYCLING, "骑行", "5.5m/s"),
+                            Triple(SimMode.DRIVING, "驾车", "15m/s"),
+                            Triple(SimMode.CUSTOM, "自定义", "${String.format(java.util.Locale.US, "%.1f", uiState.customSpeedMs)}m/s")
+                        ).forEach { (mode, name, speed) ->
+                            val isSelected = uiState.routeSimMode == mode
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (isSelected) AccentBlue.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                border = if (isSelected) BorderStroke(1.5.dp, AccentBlue) else null,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onSpeedChange(mode) }
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(6.dp),
-                                        verticalArrangement = Arrangement.Center,
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
+                                    Text(
+                                        name,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        speed,
+                                        fontSize = 10.5.sp,
+                                        color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 自定义速度调节模块
+                    if (uiState.routeSimMode == SimMode.CUSTOM) {
+                        var sliderValue by remember(uiState.customSpeedMs) { mutableFloatStateOf(uiState.customSpeedMs.toFloat()) }
+                        val paceSec = if (sliderValue > 0.2f) (1000.0 / sliderValue).toInt() else 0
+                        val paceMin = paceSec / 60
+                        val paceRem = paceSec % 60
+                        val paceStr = if (paceSec in 60..3599) "${paceMin}'${String.format(java.util.Locale.US, "%02d", paceRem)}\"/km" else "--"
+
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
                                         Text(
-                                            title,
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface
+                                            "自定义速度",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            speedStr,
-                                            fontSize = 10.5.sp,
-                                            color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                            "配速: $paceStr",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                         )
+                                    }
+                                    Text(
+                                        "${String.format(java.util.Locale.US, "%.1f", sliderValue)} m/s (${String.format(java.util.Locale.US, "%.1f", sliderValue * 3.6)} km/h)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentBlue
+                                    )
+                                }
+
+                                Slider(
+                                    value = sliderValue,
+                                    onValueChange = {
+                                        sliderValue = it
+                                        onCustomSpeedChange(it.toDouble())
+                                    },
+                                    valueRange = 0.2f..45.0f,
+                                    steps = 447,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = AccentBlue,
+                                        activeTrackColor = AccentBlue,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                )
+
+                                // 微调步进按钮
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    listOf(-1.0f, -0.2f, 0.2f, 1.0f).forEach { step ->
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable {
+                                                    val newVal = (sliderValue + step).coerceIn(0.2f, 45.0f)
+                                                    sliderValue = newVal
+                                                    onCustomSpeedChange(newVal.toDouble())
+                                                }
+                                        ) {
+                                            Text(
+                                                if (step > 0) "+${step}m/s" else "${step}m/s",
+                                                fontSize = 10.5.sp,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 4.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+                    }
+                }
+
+                // 步频与计步模拟卡片
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "步频与计步模拟",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "为运动软件注入实时计步与生理步频数据",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                )
+                            }
+                            Switch(
+                                checked = uiState.enableStepSimulation,
+                                onCheckedChange = onEnableStepSimulationChange,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = AccentBlue
+                                )
+                            )
+                        }
+
+                        if (uiState.enableStepSimulation) {
+                            // 步频模式切换：自适应 vs 固定步频
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (uiState.isAutoCadence) AccentBlue.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    border = if (uiState.isAutoCadence) BorderStroke(1.dp, AccentBlue) else null,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onIsAutoCadenceChange(true) }
+                                ) {
+                                    Text(
+                                        "智能自适应步频",
+                                        fontSize = 12.sp,
+                                        fontWeight = if (uiState.isAutoCadence) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (uiState.isAutoCadence) AccentBlue else MaterialTheme.colorScheme.onSurface,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 6.dp)
+                                    )
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (!uiState.isAutoCadence) AccentBlue.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    border = if (!uiState.isAutoCadence) BorderStroke(1.dp, AccentBlue) else null,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onIsAutoCadenceChange(false) }
+                                ) {
+                                    Text(
+                                        "自定义固定步频",
+                                        fontSize = 12.sp,
+                                        fontWeight = if (!uiState.isAutoCadence) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (!uiState.isAutoCadence) AccentBlue else MaterialTheme.colorScheme.onSurface,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 6.dp)
+                                    )
+                                }
+                            }
+
+                            if (!uiState.isAutoCadence) {
+                                var cadenceSlider by remember(uiState.stepCadenceSpm) { mutableFloatStateOf(uiState.stepCadenceSpm.toFloat()) }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 2.dp, vertical = 2.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            "设定步频",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                        Text(
+                                            "${cadenceSlider.toInt()} 步/分 (约 ${String.format(java.util.Locale.US, "%.1f", cadenceSlider / 60.0)} 步/秒)",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AccentBlue
+                                        )
+                                    }
+                                    Slider(
+                                        value = cadenceSlider,
+                                        onValueChange = {
+                                            cadenceSlider = it
+                                            onStepCadenceChange(it.toInt())
+                                        },
+                                        valueRange = 60f..240f,
+                                        steps = 179,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = AccentBlue,
+                                            activeTrackColor = AccentBlue,
+                                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                                        )
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    "步频将根据移动速度实时动态智能匹配（90~200 SPM）",
+                                    fontSize = 11.sp,
+                                    color = AccentBlue.copy(alpha = 0.85f),
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 到达终点后停下开关
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "到达终点后停下",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                if (uiState.stopAtDestination) "到达终点后停止模拟并停留在终点" else "到达终点后自动循环巡航（闭环正向，开放折返）",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                            )
+                        }
+                        Switch(
+                            checked = uiState.stopAtDestination,
+                            onCheckedChange = onStopAtDestinationChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = AccentBlue
+                            )
+                        )
                     }
                 }
 

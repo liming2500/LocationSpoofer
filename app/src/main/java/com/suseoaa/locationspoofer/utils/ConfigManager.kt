@@ -42,7 +42,11 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
         enableJitter: Boolean = true,
         altitude: Double = 0.0,
         satelliteCount: Int = 20,
-        speedMs: Double = 0.0
+        speedMs: Double = 0.0,
+        stopAtDestination: Boolean = false,
+        enableStepSimulation: Boolean = true,
+        stepCadenceSpm: Int = 165,
+        isAutoCadence: Boolean = true
     ) = withContext(Dispatchers.IO) {
         val routeArray = JSONArray()
         routePoints.forEach { p ->
@@ -112,6 +116,7 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
             put("start_timestamp", startTimestamp)
             put("route_points", routeArray)
             put("is_route_mode", isRouteMode)
+            put("stop_at_destination", stopAtDestination)
             val wifiObj = try {
                 JSONObject(wifiJson)
             } catch (e: Exception) {
@@ -130,6 +135,9 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
             put("enable_jitter", enableJitter)
             put("altitude", altitude)
             put("satellite_count", satelliteCount)
+            put("enable_step_simulation", enableStepSimulation)
+            put("step_cadence_spm", stepCadenceSpm)
+            put("is_auto_cadence", isAutoCadence)
 
             val coordSysObj = JSONObject()
             appCoordinateSystems.forEach { (pkg, sys) -> coordSysObj.put(pkg, sys) }

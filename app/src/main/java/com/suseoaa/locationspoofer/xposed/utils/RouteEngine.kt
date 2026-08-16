@@ -95,16 +95,38 @@ object RouteEngine {
             return SpoofedMotion(baseLat, baseLng, baseBearing, 0f)
         }
 
+        val stopAtDestination = config.optBoolean("stop_at_destination", false)
+        val isClosedLoop = if (points.size >= 2) {
+            haversine(points.first(), points.last()) <= 5.0
+        } else false
+
         val speed = config.optDouble("speed_m_s", 3.0).coerceAtLeast(0.1)
         val rawStartTime = config.optLong("start_timestamp", 0L)
         val startTime = if (rawStartTime > 0L) rawStartTime else now
         val elapsedSec = ((now - startTime).coerceAtLeast(0L)) / 1000.0
         val distTraveled = elapsedSec * speed
 
-        val cycleDist = totalDist * 2.0
-        val distInCycle = distTraveled % cycleDist
-        val forward = distInCycle <= totalDist
-        val targetDist = if (forward) distInCycle else cycleDist - distInCycle
+        if (stopAtDestination && distTraveled >= totalDist) {
+            val lastPt = points.last()
+            val prevPt = points[points.size - 2]
+            val lastBearing = calculateBearing(prevPt, lastPt)
+            return SpoofedMotion(lastPt.lat, lastPt.lng, lastBearing, 0f)
+        }
+
+        val forward: Boolean
+        val targetDist: Double
+
+        if (isClosedLoop) {
+            val cycleDist = totalDist
+            val distInCycle = if (cycleDist > 0.0) distTraveled % cycleDist else 0.0
+            forward = true
+            targetDist = distInCycle
+        } else {
+            val cycleDist = totalDist * 2.0
+            val distInCycle = if (cycleDist > 0.0) distTraveled % cycleDist else 0.0
+            forward = distInCycle <= totalDist
+            targetDist = if (forward) distInCycle else cycleDist - distInCycle
+        }
 
         val cum = cachedCumulativeDistances
         var segIndex = 0

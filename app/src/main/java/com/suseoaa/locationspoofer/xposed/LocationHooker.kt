@@ -169,6 +169,7 @@ class LocationHooker : XposedModule() {
         hookCellEnvironment(classLoader, isCoreSystemProcess)
         hookConnectivityLayer(classLoader, isCoreSystemProcess)
         hookBluetoothLE(classLoader, isCoreSystemProcess)
+        SensorStepHooker.hookSensorStepSimulation(classLoader)
 
         // ★ 关键: 在注入完成后立即预启动 ConfigPoller 守护线程
         // 之前只在 readConfig() 被 hook 调用时才启动，但如果目标 App 从不调用被 hook 的方法
@@ -648,6 +649,11 @@ class LocationHooker : XposedModule() {
                                             }
                                         } catch (_: Throwable) {
                                         }
+                                    }
+
+                                    // 5. Sensor Step Simulation
+                                    if (cl != null) {
+                                        SensorStepHooker.dispatchStepEvents(newConfig, cl)
                                     }
                                 }
 

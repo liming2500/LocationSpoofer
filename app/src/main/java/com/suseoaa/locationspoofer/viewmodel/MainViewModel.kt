@@ -1266,6 +1266,22 @@ class MainViewModel(
         _uiState.update { it.copy(useRealRoute = use) }
     }
 
+    fun setStopAtDestination(stop: Boolean) {
+        _uiState.update { it.copy(stopAtDestination = stop) }
+    }
+
+    fun setEnableStepSimulation(enable: Boolean) {
+        _uiState.update { it.copy(enableStepSimulation = enable) }
+    }
+
+    fun setStepCadenceSpm(spm: Int) {
+        _uiState.update { it.copy(stepCadenceSpm = spm) }
+    }
+
+    fun setIsAutoCadence(auto: Boolean) {
+        _uiState.update { it.copy(isAutoCadence = auto) }
+    }
+
     /**
      * 开始路线模拟。
      * - 手动模式：启动 spoofing（STILL），由摇杆驱动 moveByJoystick 实时更新坐标。
@@ -1417,7 +1433,11 @@ class MainViewModel(
                 0f, now, pointsToRun, isLoop, _uiState.value.appCoordinateSystems,
                 _uiState.value.collectedWifiJson, _uiState.value.collectedCellJson, _uiState.value.collectedBluetoothJson,
                 _uiState.value.mockWifi, _uiState.value.mockCell, _uiState.value.mockBluetooth, _uiState.value.enableJitter,
-                speedMs = speed
+                speedMs = speed,
+                stopAtDestination = _uiState.value.stopAtDestination,
+                enableStepSimulation = _uiState.value.enableStepSimulation,
+                stepCadenceSpm = _uiState.value.stepCadenceSpm,
+                isAutoCadence = _uiState.value.isAutoCadence
             )
             _uiState.update {
                 it.copy(isSpoofingActive = true)
@@ -1543,6 +1563,8 @@ class MainViewModel(
             val points = _uiState.value.routePoints
             if (points.size < 2) return@launch
 
+            val isClosedLoop = haversineMeters(points.first(), points.last()) <= 5.0
+
             val speedMs = getEffectiveSpeedMs()
             if (speedMs <= 0.0) return@launch
 
@@ -1568,10 +1590,24 @@ class MainViewModel(
                     if (forward) {
                         segmentIndex++
                         if (segmentIndex >= points.lastIndex) {
-                            // 到达终点，反向
-                            forward = false
-                            segmentIndex = points.lastIndex - 1
-                            progress = 0.0
+                            if (_uiState.value.stopAtDestination) {
+                                // 到达终点后停下
+                                val lastPt = points.last()
+                                val prevPt = if (points.size >= 2) points[points.size - 2] else lastPt
+                                val lastBearing = bearingBetween(prevPt, lastPt).toFloat()
+                                updatePosition(lastPt.lat, lastPt.lng, lastBearing)
+                                return@launch
+                            } else if (isClosedLoop) {
+                                // 闭环路线（起点与终点小于5m）：到达终点后不折返，从起点继续往终点正向循环
+                                forward = true
+                                segmentIndex = 0
+                                progress = 0.0
+                            } else {
+                                // 开放路线：到达终点，反向折返
+                                forward = false
+                                segmentIndex = points.lastIndex - 1
+                                progress = 0.0
+                            }
                         }
                     } else {
                         segmentIndex--
@@ -1584,7 +1620,13 @@ class MainViewModel(
                     }
                     // 重新获取段信息并继续
                     val newFrom = if (forward) points[segmentIndex] else points[segmentIndex + 1]
-                    updatePosition(newFrom.lat, newFrom.lng, 0f)
+                    val bearing = if (forward) {
+                        val nextIdx = (segmentIndex + 1).coerceAtMost(points.lastIndex)
+                        bearingBetween(newFrom, points[nextIdx]).toFloat()
+                    } else {
+                        bearingBetween(newFrom, points[segmentIndex]).toFloat()
+                    }
+                    updatePosition(newFrom.lat, newFrom.lng, bearing)
                 } else {
                     // 在段中间插值
                     val ratio = if (segLen > 0) progress / segLen else 0.0
@@ -1664,7 +1706,11 @@ class MainViewModel(
                             wifiJson = jsons.first,
                             cellJson = jsons.second,
                             bluetoothJson = jsons.third,
-                            speedMs = speedToUse
+                            speedMs = speedToUse,
+                            stopAtDestination = _uiState.value.stopAtDestination,
+                            enableStepSimulation = _uiState.value.enableStepSimulation,
+                            stepCadenceSpm = _uiState.value.stepCadenceSpm,
+                            isAutoCadence = _uiState.value.isAutoCadence
                         )
                     } else {
                         // 回退到随机基站生成
@@ -1681,7 +1727,11 @@ class MainViewModel(
                             wifiJson = "[]",
                             cellJson = "[]",
                             bluetoothJson = "[]",
-                            speedMs = speedToUse
+                            speedMs = speedToUse,
+                            stopAtDestination = _uiState.value.stopAtDestination,
+                            enableStepSimulation = _uiState.value.enableStepSimulation,
+                            stepCadenceSpm = _uiState.value.stepCadenceSpm,
+                            isAutoCadence = _uiState.value.isAutoCadence
                         )
                     }
                 } else {
@@ -1698,7 +1748,11 @@ class MainViewModel(
                         wifiJson = "[]",
                         cellJson = "[]",
                         bluetoothJson = "[]",
-                        speedMs = speedToUse
+                        speedMs = speedToUse,
+                        stopAtDestination = _uiState.value.stopAtDestination,
+                        enableStepSimulation = _uiState.value.enableStepSimulation,
+                        stepCadenceSpm = _uiState.value.stepCadenceSpm,
+                        isAutoCadence = _uiState.value.isAutoCadence
                     )
                 }
             }

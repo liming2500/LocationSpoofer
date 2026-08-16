@@ -44,7 +44,11 @@ class LocationRepository(
         mockCell: Boolean = true,
         mockBluetooth: Boolean = true,
         enableJitter: Boolean = true,
-        speedMs: Double = 0.0
+        speedMs: Double = 0.0,
+        stopAtDestination: Boolean = false,
+        enableStepSimulation: Boolean = true,
+        stepCadenceSpm: Int = 165,
+        isAutoCadence: Boolean = true
     ) {
         SpooferProvider.isActive = true
         SpooferProvider.latitude = lat
@@ -80,7 +84,11 @@ class LocationRepository(
             enableJitter,
             alt,
             satCount,
-            speedMs
+            speedMs,
+            stopAtDestination,
+            enableStepSimulation,
+            stepCadenceSpm,
+            isAutoCadence
         )
 
         context.startForegroundService(
@@ -156,7 +164,11 @@ class LocationRepository(
         mockCell: Boolean = true,
         mockBluetooth: Boolean = true,
         enableJitter: Boolean = true,
-        speedMs: Double = 0.0
+        speedMs: Double = 0.0,
+        stopAtDestination: Boolean = false,
+        enableStepSimulation: Boolean = true,
+        stepCadenceSpm: Int = 165,
+        isAutoCadence: Boolean = true
     ) {
         SpooferProvider.latitude = lat
         SpooferProvider.longitude = lng
@@ -190,7 +202,11 @@ class LocationRepository(
             enableJitter,
             alt,
             satCount,
-            speedMs
+            speedMs,
+            stopAtDestination,
+            enableStepSimulation,
+            stepCadenceSpm,
+            isAutoCadence
         )
     }
 
