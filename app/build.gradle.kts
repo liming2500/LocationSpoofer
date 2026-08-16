@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.compose)
-    kotlin("kapt")
+    alias(libs.plugins.ksp)
     alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
@@ -32,7 +32,7 @@ android {
     defaultConfig {
         applicationId = "com.suseoaa.locationspoofer"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 20000
         versionName = "2.0.0"
 
@@ -131,11 +131,10 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
 
-    // Room
+    // Room (KSP)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
-    kapt(libs.room.compiler)
-    kapt(libs.kotlin.metadata.jvm)
+    ksp(libs.room.compiler)
 
     implementation(libs.miuix.ui)
     implementation(libs.miuix.blur)
