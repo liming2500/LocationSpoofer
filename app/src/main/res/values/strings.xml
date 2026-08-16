@@ -367,4 +367,11 @@ Error details: %s</string>
     <string name="amap_search_failed_quota">AMap Search API call failed (quota might be exhausted), please check console or update Key!</string>
     <string name="amap_search_failed_code_format">AMap search failed (error code: %d)</string>
     <string name="amap_search_exception_format">AMap search exception (quota might be exhausted): %s</string>
+
+    <string name="no_saved_locations_card_hint">No saved locations. Tap "Save" above to bookmark.</string>
+    <string name="saved_locations_card_title">Saved Locations</string>
+    <string name="expand_more_saved_hint">Swipe up to view all %d saved locations</string>
+    <string name="delete_saved_location_short">Delete</string>
+
+    <string name="swipe_up_to_view_saved">Swipe up for saved locations</string>
 </resources>

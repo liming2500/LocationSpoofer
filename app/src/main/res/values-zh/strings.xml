@@ -367,4 +367,11 @@
     <string name="amap_search_failed_quota">高德搜索API调用失败(可能是额度耗尽)，请检查控制台或更换Key！</string>
     <string name="amap_search_failed_code_format">高德搜索失败(错误码:%d)</string>
     <string name="amap_search_exception_format">高德搜索异常(可能是额度耗尽)：%s</string>
+
+    <string name="no_saved_locations_card_hint">暂无收藏地点，点击上方「收藏」保存常用位置</string>
+    <string name="saved_locations_card_title">收藏的地点</string>
+    <string name="expand_more_saved_hint">上滑查看全部 %d 个收藏地点</string>
+    <string name="delete_saved_location_short">删除</string>
+
+    <string name="swipe_up_to_view_saved">上滑查看收藏地点</string>
 </resources>

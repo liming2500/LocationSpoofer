@@ -12,6 +12,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -25,25 +26,35 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -61,23 +73,37 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
+import com.suseoaa.locationspoofer.data.model.SavedLocation
 import com.suseoaa.locationspoofer.data.model.SearchMode
 import com.suseoaa.locationspoofer.ui.components.AppMapController
 import com.suseoaa.locationspoofer.ui.components.LocalEnvironmentDataDialog
 import com.suseoaa.locationspoofer.ui.screen.*
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
+import com.suseoaa.locationspoofer.ui.theme.AccentOrange
+import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import com.suseoaa.locationspoofer.viewmodel.UpdateViewModel
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+enum class LocationPanelState {
+    COLLAPSED, // 下滑到底部（仅搜索框 + 右侧定点模拟/停止模拟按钮并排，其余卡片自然沉入底部边缘）
+    DEFAULT,   // 默认状态（定点模拟按钮微高于 TabBar，收藏地点卡片完全下沉延伸至屏幕下方边缘外）
+    EXPANDED   // 上滑抽拉完全展开（整组卡片向上抽拉滑出，根据点位数量动态延伸完整展现）
+}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -101,8 +127,36 @@ fun LocationTab(
     val searchCacheDurationMs = 30_000L
     var searchBounds by remember { mutableStateOf(Rect.Zero) }
     var searchResultBounds by remember { mutableStateOf(Rect.Zero) }
-    var controlPanelHeightPx by remember { mutableIntStateOf(0) }
     var showLocalDataDialog by remember { mutableStateOf(false) }
+
+    // 在页面顶层持久记录测量高度，绝不随搜索页面切换而重置为 0，彻底消除返回时“先回高位再跳动”的测量延迟
+    var persistentSavedCardHeightPx by remember { mutableIntStateOf(0) }
+    var persistentCoordCardHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+
+    val savedCardHeightDp = if (persistentSavedCardHeightPx > 0) {
+        with(density) { persistentSavedCardHeightPx.toDp() }
+    } else {
+        180.dp
+    }
+
+    val coordCardHeightDp = if (persistentCoordCardHeightPx > 0) {
+        with(density) { persistentCoordCardHeightPx.toDp() }
+    } else {
+        210.dp
+    }
+
+    var panelState by remember {
+        mutableStateOf(
+            if (uiState.isSpoofingActive) LocationPanelState.COLLAPSED else LocationPanelState.DEFAULT
+        )
+    }
+
+    LaunchedEffect(uiState.isSpoofingActive) {
+        if (uiState.isSpoofingActive) {
+            panelState = LocationPanelState.COLLAPSED
+        }
+    }
 
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -174,20 +228,23 @@ fun LocationTab(
         onIntent(SpoofingIntent.SetSearchActive(false))
     }
 
-    val density = LocalDensity.current
-    val controlPanelHeightDp = with(density) { controlPanelHeightPx.toDp() }
-    val fabBottomPadding by animateDpAsState(
-        targetValue = if (controlPanelHeightDp > 0.dp) {
-            controlPanelHeightDp + 14.dp
-        } else {
-            tabBarHeight + (if (uiState.isSpoofingActive) 76.dp else 280.dp)
+    // 悬浮卡片避让底部控制栏高度：
+    // COLLAPSED（仅搜索）：避让搜索框，停留在 tabBarHeight + 74dp
+    // DEFAULT（展示坐标卡片）：避让坐标卡片与搜索框顶部，停留在 tabBarHeight + coordCardHeightDp + 82dp
+    // EXPANDED（完全展开收藏卡片）：保持 DEFAULT 状态高度，无需进一步顶至屏幕最上方
+    val rawFabBottomPadding by animateDpAsState(
+        targetValue = when (panelState) {
+            LocationPanelState.EXPANDED -> tabBarHeight + coordCardHeightDp + 82.dp
+            LocationPanelState.DEFAULT -> tabBarHeight + coordCardHeightDp + 82.dp
+            LocationPanelState.COLLAPSED -> tabBarHeight + 74.dp
         },
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
+            dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
         ),
         label = "location_fab_bottom_padding"
     )
+    val fabBottomPadding = rawFabBottomPadding.coerceAtLeast(0.dp)
 
     SharedTransitionLayout {
         AnimatedContent(
@@ -200,8 +257,20 @@ fun LocationTab(
         ) content@{ searchActive ->
             val searchModifier = Modifier
                 .sharedElement(
-                    rememberSharedContentState(key = "location_search_bar"),
-                    this@content
+                    sharedContentState = rememberSharedContentState(key = "location_search_bar"),
+                    animatedVisibilityScope = this@content,
+                    boundsTransform = { initialBounds, targetBounds ->
+                        val isTopSearchTransition = (initialBounds.top < 350f && targetBounds.top > 350f) ||
+                                (initialBounds.top > 350f && targetBounds.top < 350f)
+                        if (isTopSearchTransition) {
+                            spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        } else {
+                            snap()
+                        }
+                    }
                 )
                 .onGloballyPositioned { searchBounds = it.boundsInRoot() }
 
@@ -244,21 +313,40 @@ fun LocationTab(
                 }
 
                 LocationControlPanel(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .onGloballyPositioned { controlPanelHeightPx = it.size.height },
+                    modifier = Modifier.align(Alignment.BottomCenter),
                     uiState = uiState,
                     isDark = isDark,
+                    panelState = panelState,
+                    onPanelStateChange = { panelState = it },
                     viewModel = viewModel,
                     tabBarHeight = tabBarHeight,
+                    savedCardHeightDp = savedCardHeightDp,
+                    coordCardHeightDp = coordCardHeightDp,
+                    onSavedCardHeightMeasured = { persistentSavedCardHeightPx = it },
+                    onCoordCardHeightMeasured = { persistentCoordCardHeightPx = it },
                     onSaveClick = { onIntent(SpoofingIntent.SetSaveDialogVisible(true)) },
                     onCustomClick = { onIntent(SpoofingIntent.SetCustomCoordDialogVisible(true)) },
                     onStartFixedSpoofing = {
                         onIntent(SpoofingIntent.SetStartSpoofingDialogVisible(true))
                     },
                     onStopSpoofing = { viewModel.stopSpoofing() },
-                    searchBar = if (!searchActive) {
-                        { barModifier ->
+                    onSelectSavedLocation = { location ->
+                        viewModel.loadSavedLocation(location)
+                        mapController?.animateCamera(location.lat, location.lng, 17.5f)
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.located_to_saved_point, location.name),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onDeleteSavedLocation = { location ->
+                        viewModel.removeSavedLocation(location)
+                    },
+                    onOpenManageSavedLocations = {
+                        onIntent(SpoofingIntent.SetSavedLocationsVisible(true))
+                    },
+                    searchBar = { barModifier ->
+                        if (!searchActive) {
                             HomeSearchBar(
                                 query = spoofingUiState.searchQuery,
                                 searchMode = uiState.searchMode,
@@ -269,9 +357,10 @@ fun LocationTab(
                                 modifier = searchModifier.then(barModifier),
                                 focusRequester = searchFocusRequester
                             )
+                        } else {
+                            // 保持占位高度与尺寸结构恒定，绝不在全屏搜索返回时发生二次重构与停顿
+                            Spacer(modifier = barModifier.height(52.dp))
                         }
-                    } else {
-                        null
                     }
                 )
 
@@ -523,83 +612,224 @@ private fun LocationControlPanel(
     modifier: Modifier,
     uiState: AppState,
     isDark: Boolean,
+    panelState: LocationPanelState,
+    onPanelStateChange: (LocationPanelState) -> Unit,
     viewModel: MainViewModel,
     tabBarHeight: Dp,
+    savedCardHeightDp: Dp,
+    coordCardHeightDp: Dp,
+    onSavedCardHeightMeasured: (Int) -> Unit,
+    onCoordCardHeightMeasured: (Int) -> Unit,
     onSaveClick: () -> Unit,
     onCustomClick: () -> Unit,
     onStartFixedSpoofing: () -> Unit,
     onStopSpoofing: () -> Unit,
-    searchBar: (@Composable (Modifier) -> Unit)?
+    onSelectSavedLocation: (SavedLocation) -> Unit,
+    onDeleteSavedLocation: (SavedLocation) -> Unit,
+    onOpenManageSavedLocations: () -> Unit,
+    searchBar: @Composable (Modifier) -> Unit
 ) {
+    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+
+    val dragGestureModifier = Modifier.pointerInput(panelState) {
+        detectVerticalDragGestures(
+            onDragStart = { dragAccumulator = 0f },
+            onVerticalDrag = { _, dragAmount ->
+                dragAccumulator += dragAmount
+            },
+            onDragEnd = {
+                if (dragAccumulator > 36f) {
+                    when (panelState) {
+                        LocationPanelState.EXPANDED -> onPanelStateChange(LocationPanelState.DEFAULT)
+                        LocationPanelState.DEFAULT -> onPanelStateChange(LocationPanelState.COLLAPSED)
+                        LocationPanelState.COLLAPSED -> {}
+                    }
+                } else if (dragAccumulator < -36f) {
+                    when (panelState) {
+                        LocationPanelState.COLLAPSED -> onPanelStateChange(LocationPanelState.DEFAULT)
+                        LocationPanelState.DEFAULT -> onPanelStateChange(LocationPanelState.EXPANDED)
+                        LocationPanelState.EXPANDED -> {}
+                    }
+                }
+                dragAccumulator = 0f
+            },
+            onDragCancel = { dragAccumulator = 0f }
+        )
+    }
+
+    // 抽屉单通道物理 Spring 滑动位移：
+    // EXPANDED（完全展开）：偏移为 0dp，整张收藏卡片向上抽拉拉出至屏幕中央，完整展现
+    // DEFAULT（默认下沉状态）：向下偏移 savedCardHeightDp + 8dp，定点模拟按钮正好保持在 TabBar 上方稍微一点点（~8dp），收藏卡片全部自然下沉延伸至屏幕下方边缘外
+    // COLLAPSED（折叠状态）：向下偏移 savedCardHeightDp + coordCardHeightDp + 16dp，坐标卡片也顺畅下沉隐藏，仅留单行搜索操作栏稳稳停留在 TabBar 上方
+    val rawDrawerOffsetY by animateDpAsState(
+        targetValue = when (panelState) {
+            LocationPanelState.EXPANDED -> 0.dp
+            LocationPanelState.DEFAULT -> savedCardHeightDp + 8.dp
+            LocationPanelState.COLLAPSED -> savedCardHeightDp + coordCardHeightDp + 16.dp
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "drawer_offset_y"
+    )
+
+    val drawerOffsetYPx = with(density) { rawDrawerOffsetY.toPx() }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp)
-            .padding(bottom = tabBarHeight + 12.dp)
-            .animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
-            )
+            .padding(bottom = (tabBarHeight + 10.dp).coerceAtLeast(0.dp))
+            .offset { IntOffset(0, drawerOffsetYPx.roundToInt()) }
+            .then(dragGestureModifier)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 顶部搜索栏与停止模拟操作行
-            if (searchBar != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // 搜索框（模拟中自动缩窄以容纳停止按钮，非模拟时充满整行）
-                    searchBar(
-                        Modifier
-                            .weight(1f)
-                            .animateContentSize()
-                    )
-
-                    // 停止模拟按钮（模拟开启时流畅展开滑入，非模拟时自动收起）
-                    AnimatedVisibility(
-                        visible = uiState.isSpoofingActive,
-                        enter = fadeIn(tween(220)) + expandHorizontally(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ),
-                        exit = fadeOut(tween(180)) + shrinkHorizontally(
-                            animationSpec = tween(220, easing = FastOutSlowInEasing)
+            // 顶部阻尼拖拽药丸指示条（支持点击快速折叠/展开与拖拽）
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp, bottom = 4.dp)
+                    .noRippleClickable {
+                        val next = when (panelState) {
+                            LocationPanelState.COLLAPSED -> LocationPanelState.DEFAULT
+                            LocationPanelState.DEFAULT -> LocationPanelState.EXPANDED
+                            LocationPanelState.EXPANDED -> LocationPanelState.DEFAULT
+                        }
+                        onPanelStateChange(next)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(36.dp)
+                        .height(4.5.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.20f)
                         )
+                )
+            }
+
+            // 顶部常驻搜索栏行（无论是否折叠都平滑存在，右侧操作按钮采用柔和弥散阴影与平滑横向伸展）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                searchBar(
+                    Modifier
+                        .weight(1f)
+                        .height(52.dp)
+                )
+
+                // 正在模拟时的停止模拟按钮
+                AnimatedVisibility(
+                    visible = uiState.isSpoofingActive,
+                    enter = expandHorizontally(tween(200, easing = FastOutSlowInEasing)) + fadeIn(tween(200)),
+                    exit = shrinkHorizontally(tween(180, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
+                ) {
+                    val errorColor = MaterialTheme.colorScheme.error
+                    val errorContainer = MaterialTheme.colorScheme.errorContainer
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .height(52.dp)
+                            .shadow(
+                                elevation = 6.dp,
+                                shape = RoundedCornerShape(26.dp),
+                                ambientColor = Color.Black.copy(alpha = 0.08f),
+                                spotColor = errorColor.copy(alpha = 0.25f)
+                            )
+                            .clip(RoundedCornerShape(26.dp))
+                            .background(errorContainer.copy(alpha = 0.95f))
+                            .noRippleClickable(onClick = onStopSpoofing),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Surface(
-                            onClick = onStopSpoofing,
-                            shape = RoundedCornerShape(26.dp),
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f),
-                            shadowElevation = 6.dp,
-                            modifier = Modifier.height(52.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    Icons.Rounded.StopCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(20.dp)
+                            Icon(
+                                Icons.Rounded.StopCircle,
+                                contentDescription = null,
+                                tint = errorColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.stop_simulation),
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = errorColor
+                            )
+                        }
+                    }
+                }
+
+                // 未模拟且处于 COLLAPSED 状态下的定点模拟胶囊按钮（间距内聚，收缩与渐隐严格同周期，绝无二次伸长）
+                AnimatedVisibility(
+                    visible = !uiState.isSpoofingActive && panelState == LocationPanelState.COLLAPSED,
+                    enter = expandHorizontally(tween(200, easing = FastOutSlowInEasing)) + fadeIn(tween(200)),
+                    exit = shrinkHorizontally(tween(180, easing = FastOutSlowInEasing)) + fadeOut(tween(180))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .height(52.dp)
+                            .shadow(
+                                elevation = 6.dp,
+                                shape = RoundedCornerShape(26.dp),
+                                ambientColor = Color.Black.copy(alpha = 0.08f),
+                                spotColor = AccentBlue.copy(alpha = 0.32f)
+                            )
+                            .clip(RoundedCornerShape(26.dp))
+                            .background(AccentBlue)
+                            .noRippleClickable(onClick = onStartFixedSpoofing),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            if (uiState.isSavingConfig) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    stringResource(R.string.stop_simulation),
+                                    stringResource(R.string.starting_ellipsis),
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Rounded.MyLocation,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    stringResource(R.string.fixed_simulation),
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
                                 )
                             }
                         }
@@ -607,49 +837,273 @@ private fun LocationControlPanel(
                 }
             }
 
-            // 目标坐标及操作卡片（未开始模拟时保持显示，开始模拟后顺畅下沉折叠）
-            AnimatedVisibility(
-                visible = !uiState.isSpoofingActive,
-                enter = fadeIn(tween(250)) + expandVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    )
-                ),
-                exit = fadeOut(tween(180)) + shrinkVertically(
-                    animationSpec = tween(260, easing = FastOutSlowInEasing)
-                )
+            // 目标坐标及操作卡片（包含定点模拟按钮，随抽屉 offset 顺畅沉降）
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned {
+                        if (it.size.height > 0) {
+                            onCoordCardHeightMeasured(it.size.height)
+                        }
+                    },
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 8.dp
             ) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 8.dp
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp)
-                    ) {
-                        CoordinateInputCard(
-                            viewModel = viewModel,
-                            uiState = uiState,
-                            isDark = isDark,
-                            onSaveClick = onSaveClick,
-                            onCustomClick = onCustomClick
+                    CoordinateInputCard(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        isDark = isDark,
+                        onSaveClick = onSaveClick,
+                        onCustomClick = onCustomClick
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    ActionButtons(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        onOpenMap = {},
+                        onStartFixedSpoofing = onStartFixedSpoofing
+                    )
+                }
+            }
+
+            // 收藏地点卡片：高度完全根据数量动态伸缩，不设固定限制，支持抽拉下沉
+            SavedLocationsCard(
+                modifier = Modifier.onGloballyPositioned {
+                    if (it.size.height > 0) {
+                        onSavedCardHeightMeasured(it.size.height)
+                    }
+                },
+                savedLocations = uiState.savedLocations,
+                panelState = panelState,
+                isDark = isDark,
+                onSelect = onSelectSavedLocation,
+                onDelete = onDeleteSavedLocation,
+                onToggleExpand = {
+                    val next = if (panelState == LocationPanelState.EXPANDED) {
+                        LocationPanelState.DEFAULT
+                    } else {
+                        LocationPanelState.EXPANDED
+                    }
+                    onPanelStateChange(next)
+                },
+                onOpenManageDialog = onOpenManageSavedLocations
+            )
+        }
+    }
+}
+
+// 动态高度的收藏地点卡片（高度随点位数量自然延伸，不限制在固定高度盒子内）
+@Composable
+private fun SavedLocationsCard(
+    modifier: Modifier = Modifier,
+    savedLocations: List<SavedLocation>,
+    panelState: LocationPanelState,
+    isDark: Boolean,
+    onSelect: (SavedLocation) -> Unit,
+    onDelete: (SavedLocation) -> Unit,
+    onToggleExpand: () -> Unit,
+    onOpenManageDialog: () -> Unit
+) {
+    val textSecondary = AppColors.textSecondary(isDark)
+
+    MiuixCard(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = 20.dp,
+        insideMargin = PaddingValues(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // 卡片头部
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(AccentOrange.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Rounded.Star,
+                        contentDescription = null,
+                        tint = AccentOrange,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.saved_locations_card_title),
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
                         )
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "${savedLocations.size}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
 
-                        Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.weight(1f))
 
-                        ActionButtons(
-                            viewModel = viewModel,
-                            uiState = uiState,
-                            onOpenMap = {},
-                            onStartFixedSpoofing = onStartFixedSpoofing
+                if (savedLocations.isNotEmpty()) {
+                    TextButton(
+                        onClick = onOpenManageDialog,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.saved_locations),
+                            fontSize = 12.sp,
+                            color = AccentBlue,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onToggleExpand,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        if (panelState == LocationPanelState.EXPANDED) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.KeyboardArrowUp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            // 卡片主体内容（根据点位数量自然延伸高度，无多余空隙，无限制滑动容器）
+            if (savedLocations.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f)
+                        )
+                        .padding(vertical = 14.dp, horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.StarOutline,
+                            contentDescription = null,
+                            tint = textSecondary.copy(alpha = 0.4f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.no_saved_locations_card_hint),
+                            fontSize = 12.sp,
+                            color = textSecondary.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    savedLocations.forEach { loc ->
+                        SavedLocationItemRow(
+                            location = loc,
+                            isDark = isDark,
+                            onSelect = { onSelect(loc) },
+                            onDelete = { onDelete(loc) }
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SavedLocationItemRow(
+    location: SavedLocation,
+    isDark: Boolean,
+    onSelect: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f)
+            )
+            .noRippleClickable(onClick = onSelect)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(AccentBlue.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.Place,
+                contentDescription = null,
+                tint = AccentBlue,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+
+        Spacer(Modifier.width(10.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = location.name,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${String.format(Locale.US, "%.5f", location.lat)}, ${String.format(Locale.US, "%.5f", location.lng)}",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+            )
+        }
+
+        IconButton(
+            onClick = onDelete,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                Icons.Rounded.DeleteOutline,
+                contentDescription = stringResource(R.string.delete_saved_location_short),
+                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.65f),
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

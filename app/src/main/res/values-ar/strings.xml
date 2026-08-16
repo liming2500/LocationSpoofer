@@ -367,4 +367,11 @@
     <string name="amap_search_failed_quota">فشل استدعاء واجهة برمجة بحث AMap (ربما نفدت الحصة)، يرجى التحقق من وحدة التحكم أو تحديث المفتاح!</string>
     <string name="amap_search_failed_code_format">فشل بحث AMap (رمز الخطأ: %d)</string>
     <string name="amap_search_exception_format">استثناء في بحث AMap (ربما نفدت الحصة): %s</string>
+
+    <string name="no_saved_locations_card_hint">لا توجد مواقع محفوظة. انقر على "حفظ" أعلاه للحفظ.</string>
+    <string name="saved_locations_card_title">المواقع المحفوظة</string>
+    <string name="expand_more_saved_hint">اسحب لأعلى لعرض جميع المواقع المحفوظة (%d)</string>
+    <string name="delete_saved_location_short">حذف</string>
+
+    <string name="swipe_up_to_view_saved">اسحب لأعلى لعرض المواقع المحفوظة</string>
 </resources>
