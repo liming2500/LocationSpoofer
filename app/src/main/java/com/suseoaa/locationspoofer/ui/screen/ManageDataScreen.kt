@@ -77,9 +77,9 @@ fun ManageDataScreen(
         val controller = mapController ?: return@LaunchedEffect
         controller.clear()
         val locations = dataList.map { it.location }
-        MapCoverageHelper.drawCoverage(controller, locations)
-        if (locations.isNotEmpty()) {
-            val last = locations.last()
+        val last = locations.lastOrNull()
+        MapCoverageHelper.drawCoverage(controller, locations, last?.lat, last?.lng)
+        if (last != null) {
             controller.moveCamera(last.lat, last.lng, 15f)
         }
     }

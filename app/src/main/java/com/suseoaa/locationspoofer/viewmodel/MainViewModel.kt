@@ -654,22 +654,35 @@ class MainViewModel(
         }
     }
 
+    private fun calculateDistanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLng = Math.toRadians(lng2 - lng1)
+        val a = kotlin.math.sin(dLat / 2).let { it * it } +
+                kotlin.math.cos(Math.toRadians(lat1)) *
+                kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLng / 2).let { it * it }
+        return 2 * 6378137.0 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+    }
+
     private suspend fun evaluateMockCapabilitiesSuspend(lat: Double, lng: Double) {
-        val allRecords = withContext(Dispatchers.IO) { environmentDao.getAllCompleteLocations() }
+        val radLat = Math.toRadians(lat)
+        val degLat = 65.0 / 111320.0
+        val degLng = 65.0 / (111320.0 * maxOf(0.1, kotlin.math.cos(radLat)))
+
+        val nearbyCandidates = withContext(Dispatchers.IO) {
+            environmentDao.getCompleteLocationsInBounds(
+                minLat = lat - degLat,
+                maxLat = lat + degLat,
+                minLng = lng - degLng,
+                maxLng = lng + degLng,
+                limit = 10
+            )
+        }
+
         val validRecords = mutableListOf<com.suseoaa.locationspoofer.data.db.CompleteLocation>()
-
-        for (record in allRecords) {
-            val loc = record.location
-            val dLat = Math.toRadians(lat - loc.lat)
-            val dLng = Math.toRadians(lng - loc.lng)
-            val a = kotlin.math.sin(dLat / 2).let { it * it } +
-                    kotlin.math.cos(Math.toRadians(loc.lat)) *
-                    kotlin.math.cos(Math.toRadians(lat)) *
-                    kotlin.math.sin(dLng / 2).let { it * it }
-            val distance =
-                2 * 6378137.0 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
-
-            if (distance <= 50.0) { // 将半径增加到 50m 以匹配视觉上更宽容的区域
+        for (record in nearbyCandidates) {
+            val dist = calculateDistanceMeters(lat, lng, record.location.lat, record.location.lng)
+            if (dist <= 50.0) {
                 validRecords.add(record)
             }
         }
@@ -711,13 +724,7 @@ class MainViewModel(
                     false
                 }
 
-                val wifiCount = try {
-                    val obj = org.json.JSONObject(wifiJson)
-                    val nearby = obj.optJSONArray("nearbyWifi")
-                    nearby?.length() ?: 0
-                } catch (e: Exception) {
-                    0
-                }
+                val wifiCount = parseWifiCount(wifiJson)
 
                 _uiState.update {
                     it.copy(
@@ -736,18 +743,22 @@ class MainViewModel(
     }
 
     private suspend fun hasLocalWifiWithin50m(lat: Double, lng: Double): Boolean {
-        val allRecords = withContext(Dispatchers.IO) { environmentDao.getAllCompleteLocations() }
-        for (record in allRecords) {
-            if (record.wifis.isEmpty()) continue
-            val loc = record.location
-            val dLat = Math.toRadians(lat - loc.lat)
-            val dLng = Math.toRadians(lng - loc.lng)
-            val a = kotlin.math.sin(dLat / 2).let { it * it } +
-                    kotlin.math.cos(Math.toRadians(loc.lat)) *
-                    kotlin.math.cos(Math.toRadians(lat)) *
-                    kotlin.math.sin(dLng / 2).let { it * it }
-            val distance =
-                2 * 6378137.0 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+        val radLat = Math.toRadians(lat)
+        val degLat = 65.0 / 111320.0
+        val degLng = 65.0 / (111320.0 * maxOf(0.1, kotlin.math.cos(radLat)))
+
+        val nearby = withContext(Dispatchers.IO) {
+            environmentDao.getCompleteLocationsInBounds(
+                minLat = lat - degLat,
+                maxLat = lat + degLat,
+                minLng = lng - degLng,
+                maxLng = lng + degLng,
+                limit = 5
+            )
+        }
+        for (record in nearby) {
+            if (record.wifis.isEmpty() && record.connectedWifi == null) continue
+            val distance = calculateDistanceMeters(lat, lng, record.location.lat, record.location.lng)
             if (distance <= 50.0) {
                 return true
             }
@@ -756,18 +767,22 @@ class MainViewModel(
     }
 
     private suspend fun hasLocalCellsWithin50m(lat: Double, lng: Double): Boolean {
-        val allRecords = withContext(Dispatchers.IO) { environmentDao.getAllCompleteLocations() }
-        for (record in allRecords) {
+        val radLat = Math.toRadians(lat)
+        val degLat = 65.0 / 111320.0
+        val degLng = 65.0 / (111320.0 * maxOf(0.1, kotlin.math.cos(radLat)))
+
+        val nearby = withContext(Dispatchers.IO) {
+            environmentDao.getCompleteLocationsInBounds(
+                minLat = lat - degLat,
+                maxLat = lat + degLat,
+                minLng = lng - degLng,
+                maxLng = lng + degLng,
+                limit = 5
+            )
+        }
+        for (record in nearby) {
             if (record.cells.isEmpty()) continue
-            val loc = record.location
-            val dLat = Math.toRadians(lat - loc.lat)
-            val dLng = Math.toRadians(lng - loc.lng)
-            val a = kotlin.math.sin(dLat / 2).let { it * it } +
-                    kotlin.math.cos(Math.toRadians(loc.lat)) *
-                    kotlin.math.cos(Math.toRadians(lat)) *
-                    kotlin.math.sin(dLng / 2).let { it * it }
-            val distance =
-                2 * 6378137.0 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+            val distance = calculateDistanceMeters(lat, lng, record.location.lat, record.location.lng)
             if (distance <= 50.0) {
                 return true
             }

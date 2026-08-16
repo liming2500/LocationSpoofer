@@ -42,6 +42,23 @@ interface EnvironmentDao {
         limit: Int = 3
     ): List<CompleteLocation>
 
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM location_records 
+        WHERE lat BETWEEN :minLat AND :maxLat 
+          AND lng BETWEEN :minLng AND :maxLng 
+        LIMIT :limit
+    """
+    )
+    suspend fun getCompleteLocationsInBounds(
+        minLat: Double,
+        maxLat: Double,
+        minLng: Double,
+        maxLng: Double,
+        limit: Int = 10
+    ): List<CompleteLocation>
+
     @Query("SELECT * FROM location_records WHERE abs(lat - :lat) < :tolerance AND abs(lng - :lng) < :tolerance ORDER BY timestamp DESC LIMIT 1")
     suspend fun findLocationByCoordinates(lat: Double, lng: Double, tolerance: Double = 0.0001): LocationRecord?
 

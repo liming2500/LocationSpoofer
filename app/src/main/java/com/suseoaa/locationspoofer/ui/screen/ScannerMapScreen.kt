@@ -68,14 +68,14 @@ fun ScannerMapScreen(
     LaunchedEffect(mapController, uiState.environmentRecordCount) {
         val controller = mapController ?: return@LaunchedEffect
         val locations = viewModel.getAllLocations()
-        controller.clear()
-
-        // 绘制覆盖范围圆圈
-        MapCoverageHelper.drawCoverage(controller, locations)
-
-        // 自动定位到当前位置
         val currentLat = uiState.latitudeInput.toDoubleOrNull() ?: 39.9042
         val currentLng = uiState.longitudeInput.toDoubleOrNull() ?: 116.4074
+        controller.clear()
+
+        // 绘制覆盖范围圆圈（带空间降采样与硬上限，确保高帧率流畅运行）
+        MapCoverageHelper.drawCoverage(controller, locations, currentLat, currentLng)
+
+        // 自动定位到当前位置
         controller.animateCamera(currentLat, currentLng, 16.5f)
     }
 

@@ -11,7 +11,13 @@ import androidx.room.Relation
 import kotlinx.serialization.Serializable
 
 @Serializable
-@Entity(tableName = "location_records")
+@Entity(
+    tableName = "location_records",
+    indices = [
+        Index(value = ["lat", "lng"]),
+        Index(value = ["timestamp"])
+    ]
+)
 data class LocationRecord(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
