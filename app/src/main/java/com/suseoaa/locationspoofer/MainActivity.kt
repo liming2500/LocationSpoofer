@@ -6,13 +6,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -28,9 +24,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import com.suseoaa.locationspoofer.ui.screen.BlockingScreen
-import com.suseoaa.locationspoofer.ui.screen.FullScreenMapPage
 import com.suseoaa.locationspoofer.ui.screen.InitializingScreen
-import com.suseoaa.locationspoofer.ui.screen.SpoofingScreen
 import com.suseoaa.locationspoofer.ui.screen.LanguageSelectionScreen
 import com.suseoaa.locationspoofer.ui.theme.AppColorSchemeDark
 import com.suseoaa.locationspoofer.ui.theme.AppColorSchemeLight
@@ -69,20 +63,6 @@ class MainActivity : ComponentActivity() {
         }
 
         checkAndRequestPermissions()
-
-        // 拦截 Back 键：模拟定位开启时进入画中画，而非关闭 Activity
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (viewModel.uiState.value.isSpoofingActive) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        val params = android.app.PictureInPictureParams.Builder().build()
-                        enterPictureInPictureMode(params)
-                    }
-                } else {
-                    finish()
-                }
-            }
-        })
 
         setContent {
             CompositionLocalProvider(
@@ -128,8 +108,7 @@ class MainActivity : ComponentActivity() {
                                 MainScreen(
                                     viewModel = viewModel,
                                     uiState = uiState,
-                                    isDark = isDark,
-                                    isInPipMode = pipModeState
+                                    isDark = isDark
                                 )
                             }
                         }
@@ -137,16 +116,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private var pipModeState by mutableStateOf(false)
-
-    override fun onPictureInPictureModeChanged(
-        isInPictureInPictureMode: Boolean,
-        newConfig: android.content.res.Configuration
-    ) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        pipModeState = isInPictureInPictureMode
     }
 
     private fun checkAndRequestPermissions() {
@@ -196,53 +165,32 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (viewModel.uiState.value.isSpoofingActive) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val params = android.app.PictureInPictureParams.Builder().build()
-                enterPictureInPictureMode(params)
-            }
-        }
-    }
 }
 
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
     uiState: com.suseoaa.locationspoofer.data.model.AppState,
-    isDark: Boolean,
-    isInPipMode: Boolean
+    isDark: Boolean
 ) {
-    if (isInPipMode) {
-        FullScreenMapPage(
-            viewModel = viewModel,
-            uiState = uiState,
-            isDark = isDark,
-            isInPipMode = true,
-            onClose = {}
+    when {
+        uiState.isInitializing -> InitializingScreen(isDark)
+        !uiState.isLanguageSet -> LanguageSelectionScreen(viewModel)
+        !uiState.hasRootAccess -> BlockingScreen(
+            icon = Icons.Rounded.Lock,
+            title = stringResource(R.string.root_required),
+            message = stringResource(R.string.root_message),
+            isDark = isDark
         )
-    } else {
-        when {
-            uiState.isInitializing -> InitializingScreen(isDark)
-            !uiState.isLanguageSet -> LanguageSelectionScreen(viewModel)
-            !uiState.hasRootAccess -> BlockingScreen(
-                icon = Icons.Rounded.Lock,
-                title = stringResource(R.string.root_required),
-                message = stringResource(R.string.root_message),
-                isDark = isDark
-            )
-            !uiState.isLSPosedActive -> BlockingScreen(
-                icon = Icons.Rounded.Extension,
-                title = stringResource(R.string.lsposed_not_active),
-                message = stringResource(R.string.lsposed_message),
-                isDark = isDark
-            )
-            else -> com.suseoaa.locationspoofer.ui.screen.MainScaffoldScreen(
-                viewModel = viewModel,
-                uiState = uiState
-            )
-        }
+        !uiState.isLSPosedActive -> BlockingScreen(
+            icon = Icons.Rounded.Extension,
+            title = stringResource(R.string.lsposed_not_active),
+            message = stringResource(R.string.lsposed_message),
+            isDark = isDark
+        )
+        else -> com.suseoaa.locationspoofer.ui.screen.MainScaffoldScreen(
+            viewModel = viewModel,
+            uiState = uiState
+        )
     }
 }
