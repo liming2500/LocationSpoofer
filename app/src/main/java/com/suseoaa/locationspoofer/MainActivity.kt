@@ -208,13 +208,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class MainNavState(
-    val fullScreen: Boolean,
-    val scanner: Boolean,
-    val manage: Boolean,
-    val settings: Boolean
-)
-
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
@@ -222,94 +215,34 @@ fun MainScreen(
     isDark: Boolean,
     isInPipMode: Boolean
 ) {
-    var isFullScreenMap by remember { mutableStateOf(false) }
-    var isScannerMap by remember { mutableStateOf(false) }
-    var isSettingsScreen by remember { mutableStateOf(false) }
-
-    val closeMapAndResetRouteIfNeeded = {
-        if (uiState.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.SELECTING ||
-            uiState.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.READY
-        ) {
-            viewModel.cancelRoutePlanning()
-        }
-        isFullScreenMap = false
-    }
-
-    BackHandler(enabled = isFullScreenMap || isScannerMap || uiState.isManageDataScreen || isSettingsScreen) {
-        if (uiState.isManageDataScreen) {
-            viewModel.toggleManageDataScreen(false)
-        } else if (isSettingsScreen) {
-            isSettingsScreen = false
-        } else if (isScannerMap) {
-            isScannerMap = false
-        } else {
-            closeMapAndResetRouteIfNeeded()
-        }
-    }
-
-    AnimatedContent(
-        targetState = MainNavState(
-            isFullScreenMap || isInPipMode,
-            isScannerMap && !isInPipMode,
-            uiState.isManageDataScreen && !isInPipMode,
-            isSettingsScreen && !isInPipMode
-        ),
-        transitionSpec = {
-            slideInVertically(tween(400)) { it } togetherWith slideOutVertically(tween(400)) { -it }
-        },
-        label = "fullscreen_transition"
-    ) { navState ->
-        if (navState.fullScreen) {
-            FullScreenMapPage(
-                viewModel = viewModel,
-                uiState = uiState,
-                isDark = isDark,
-                isInPipMode = isInPipMode,
-                onClose = { closeMapAndResetRouteIfNeeded() }
+    if (isInPipMode) {
+        FullScreenMapPage(
+            viewModel = viewModel,
+            uiState = uiState,
+            isDark = isDark,
+            isInPipMode = true,
+            onClose = {}
+        )
+    } else {
+        when {
+            uiState.isInitializing -> InitializingScreen(isDark)
+            !uiState.isLanguageSet -> LanguageSelectionScreen(viewModel)
+            !uiState.hasRootAccess -> BlockingScreen(
+                icon = Icons.Rounded.Lock,
+                title = stringResource(R.string.root_required),
+                message = stringResource(R.string.root_message),
+                isDark = isDark
             )
-        } else if (navState.scanner) {
-            com.suseoaa.locationspoofer.ui.screen.ScannerMapScreen(
-                viewModel = viewModel,
-                uiState = uiState,
-                isDark = isDark,
-                onClose = { isScannerMap = false }
+            !uiState.isLSPosedActive -> BlockingScreen(
+                icon = Icons.Rounded.Extension,
+                title = stringResource(R.string.lsposed_not_active),
+                message = stringResource(R.string.lsposed_message),
+                isDark = isDark
             )
-        } else if (navState.manage) {
-            com.suseoaa.locationspoofer.ui.screen.ManageDataScreen(
+            else -> com.suseoaa.locationspoofer.ui.screen.MainScaffoldScreen(
                 viewModel = viewModel,
-                uiState = uiState,
-                isDark = isDark,
-                onClose = { viewModel.toggleManageDataScreen(false) }
+                uiState = uiState
             )
-        } else if (navState.settings) {
-            com.suseoaa.locationspoofer.ui.screen.SettingsScreen(
-                viewModel = viewModel,
-                uiState = uiState,
-                onClose = { isSettingsScreen = false }
-            )
-        } else {
-            when {
-                uiState.isInitializing -> InitializingScreen(isDark)
-                !uiState.isLanguageSet -> LanguageSelectionScreen(viewModel)
-                !uiState.hasRootAccess -> BlockingScreen(
-                    icon = Icons.Rounded.Lock,
-                    title = stringResource(R.string.root_required),
-                    message = stringResource(R.string.root_message),
-                    isDark = isDark
-                )
-
-                !uiState.isLSPosedActive -> BlockingScreen(
-                    icon = Icons.Rounded.Extension,
-                    title = stringResource(R.string.lsposed_not_active),
-                    message = stringResource(R.string.lsposed_message),
-                    isDark = isDark
-                )
-
-                else -> com.suseoaa.locationspoofer.ui.screen.MainScaffoldScreen(
-                    viewModel = viewModel,
-                    uiState = uiState
-                )
-            }
         }
     }
 }

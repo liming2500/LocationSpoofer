@@ -1,5 +1,6 @@
 package com.suseoaa.locationspoofer.ui.screen.tabs
 
+import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -42,6 +43,7 @@ import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+@SuppressLint("LocalContextGetResourceValueCall")
 @Composable
 fun RouteTab(
     viewModel: MainViewModel,

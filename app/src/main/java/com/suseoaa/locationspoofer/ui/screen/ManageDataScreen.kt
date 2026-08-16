@@ -1,5 +1,6 @@
 package com.suseoaa.locationspoofer.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 
@@ -46,6 +47,15 @@ fun ManageDataScreen(
     val selectedIds = remember { mutableStateListOf<Long>() }
     var showClearAllConfirm by remember { mutableStateOf(false) }
     var mapController by remember { mutableStateOf<AppMapController?>(null) }
+
+    BackHandler {
+        if (isSelectionMode) {
+            isSelectionMode = false
+            selectedIds.clear()
+        } else {
+            onClose()
+        }
+    }
 
     var editingItem by remember { mutableStateOf<CompleteLocation?>(null) }
 

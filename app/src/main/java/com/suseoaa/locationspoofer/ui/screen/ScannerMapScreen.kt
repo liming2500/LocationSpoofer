@@ -1,5 +1,6 @@
 package com.suseoaa.locationspoofer.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +32,10 @@ fun ScannerMapScreen(
     isDark: Boolean,
     onClose: () -> Unit
 ) {
+    BackHandler {
+        onClose()
+    }
+
     var mapController by remember { mutableStateOf<AppMapController?>(null) }
     var showMapTypeDialog by remember { mutableStateOf(false) }
 

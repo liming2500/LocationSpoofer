@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.ui.screen.SettingsScreen
@@ -25,7 +26,11 @@ import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun InfoTab(viewModel: MainViewModel, uiState: AppState) {
+fun InfoTab(
+    viewModel: MainViewModel,
+    uiState: AppState,
+    tabBarHeight: Dp = 90.dp
+) {
     val isDark = isSystemInDarkTheme()
     val onIntent = { intent: SpoofingIntent -> viewModel.handleSpoofingIntent(intent) }
     val spoofingUiState by viewModel.spoofingUiState.collectAsState()
@@ -41,7 +46,7 @@ fun InfoTab(viewModel: MainViewModel, uiState: AppState) {
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 100.dp)
+                .padding(bottom = tabBarHeight + 24.dp)
         ) {
             Row(
                 modifier = Modifier
