@@ -399,4 +399,46 @@ Error details: %s</string>
     <string name="pinned_collected_location_badge">Locked Point: %1$s</string>
     <string name="pinned_collected_location_toast">Locked environment data for \"%1$s\" (valid within 50m)</string>
     <string name="unpin_collected_location">Unlock</string>
+
+    <string name="manage_tab_wifi">Wi-Fi (%1$d)</string>
+    <string name="manage_tab_cell">Cell (%1$d)</string>
+    <string name="manage_tab_bluetooth">Bluetooth (%1$d)</string>
+
+    <string name="manage_cell_list_title">Simulated Cells &amp; Configuration</string>
+    <string name="designated_cell_tip">Tap to designate primary Serving Cell. You can also edit/add cell parameters directly to the database.</string>
+    <string name="add_cell_btn">+ Add Cell</string>
+    <string name="edit_cell_title">Edit Cell Data</string>
+    <string name="new_cell_title">Add New Cell</string>
+    <string name="cell_type_label">Radio Type</string>
+    <string name="cell_mcc_label">Country Code (MCC)</string>
+    <string name="cell_mnc_label">Network Code (MNC)</string>
+    <string name="cell_tac_label">Tracking Area Code (TAC / LAC)</string>
+    <string name="cell_ci_label">Cell Identity (CI / CID)</string>
+    <string name="cell_pci_label">Physical Cell ID (PCI / PSC)</string>
+    <string name="cell_dbm_label">Signal RSSI (%1$d dBm)</string>
+    <string name="cell_is_registered_label">Set as Primary Serving Cell</string>
+    <string name="designated_cell_badge">Simulated Main</string>
+    <string name="registered_cell_badge">Serving Cell</string>
+    <string name="neighbor_cell_badge">Neighbor</string>
+    <string name="no_designated_cell">Auto Default (Follow Captured Serving Cell)</string>
+    <string name="no_cell_data_in_record">No Cell data in this record. Tap \"+ Add Cell\" above to create.</string>
+    <string name="delete_cell_confirm">Are you sure you want to delete Cell \"%1$s\"?</string>
+    <string name="save_cell">Save Cell</string>
+
+    <string name="manage_bt_list_title">Simulated Bluetooth &amp; Configuration</string>
+    <string name="designated_bt_tip">Tap to designate preferred simulated Bluetooth device. You can edit/add devices directly to the database.</string>
+    <string name="add_bt_btn">+ Add Bluetooth</string>
+    <string name="edit_bt_title">Edit Bluetooth Data</string>
+    <string name="new_bt_title">Add New Bluetooth</string>
+    <string name="bt_name_label">Device Name</string>
+    <string name="bt_name_hint">e.g. Mi Band 8</string>
+    <string name="bt_address_label">MAC Address</string>
+    <string name="bt_address_hint">e.g. AA:BB:CC:11:22:33</string>
+    <string name="bt_rssi_label">Signal RSSI (%1$d dBm)</string>
+    <string name="bt_scan_record_label">Scan Record Hex (Optional)</string>
+    <string name="designated_bt_badge">Simulated Preferred</string>
+    <string name="no_designated_bt">Auto Default (Follow Scan)</string>
+    <string name="no_bt_data_in_record">No Bluetooth data in this record. Tap \"+ Add Bluetooth\" above to create.</string>
+    <string name="delete_bt_confirm">Are you sure you want to delete Bluetooth device \"%1$s\"?</string>
+    <string name="save_bt">Save Bluetooth</string>
 </resources>

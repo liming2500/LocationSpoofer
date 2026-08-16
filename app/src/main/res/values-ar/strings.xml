@@ -399,4 +399,46 @@
     <string name="pinned_collected_location_badge">تم قفل النقطة المجمعة: %1$s</string>
     <string name="pinned_collected_location_toast">تم قفل بيانات البيئة لـ \"%1$s\" (صالح ضمن نطاق 50 متراً)</string>
     <string name="unpin_collected_location">إلغاء القفل</string>
+
+    <string name="manage_tab_wifi">واي فاي (%1$d)</string>
+    <string name="manage_tab_cell">الأبراج الخلوية (%1$d)</string>
+    <string name="manage_tab_bluetooth">بلوتوث (%1$d)</string>
+
+    <string name="manage_cell_list_title">قائمة وتكوين الأبراج الخلوية للمحاكاة</string>
+    <string name="designated_cell_tip">انقر لتحديد البرج الخلوي الرئيسي للخدمة (Serving Cell). يمكنك تعديل أو إضافة معلمات البرج مباشرة في قاعدة البيانات.</string>
+    <string name="add_cell_btn">+ إضافة برج</string>
+    <string name="edit_cell_title">تعديل بيانات البرج الخلوي</string>
+    <string name="new_cell_title">إضافة برج خلوي جديد</string>
+    <string name="cell_type_label">نوع الشبكة (Type)</string>
+    <string name="cell_mcc_label">رمز البلد (MCC)</string>
+    <string name="cell_mnc_label">رمز الشبكة (MNC)</string>
+    <string name="cell_tac_label">رمز منطقة التتبع (TAC / LAC)</string>
+    <string name="cell_ci_label">معرّف الخلية (CI / CID)</string>
+    <string name="cell_pci_label">معرّف الخلية الفعلي (PCI / PSC)</string>
+    <string name="cell_dbm_label">قوة الإشارة (RSSI: %1$d dBm)</string>
+    <string name="cell_is_registered_label">تعيين كخلية خدمة رئيسية (Serving Cell)</string>
+    <string name="designated_cell_badge">البرج الرئيسي للمحاكاة</string>
+    <string name="registered_cell_badge">خلية الخدمة</string>
+    <string name="neighbor_cell_badge">خلية مجاورة</string>
+    <string name="no_designated_cell">تلقائي افتراضي (حسب البرج المجمع)</string>
+    <string name="no_cell_data_in_record">لا توجد بيانات أبراج في هذا السجل، انقر على \"+ إضافة برج\" في الأعلى للإنشاء</string>
+    <string name="delete_cell_confirm">هل أنت متأكد من حذف البرج الخلوي \"%1$s\"؟</string>
+    <string name="save_cell">حفظ البرج</string>
+
+    <string name="manage_bt_list_title">قائمة وتكوين البلوتوث للمحاكاة</string>
+    <string name="designated_bt_tip">انقر لتحديد جهاز البلوتوث المفضل للمحاكاة. يمكنك تعديل أو إضافة أجهزة مباشرة في قاعدة البيانات.</string>
+    <string name="add_bt_btn">+ إضافة بلوتوث</string>
+    <string name="edit_bt_title">تعديل بيانات البلوتوث</string>
+    <string name="new_bt_title">إضافة جهاز بلوتوث جديد</string>
+    <string name="bt_name_label">اسم الجهاز (Name)</string>
+    <string name="bt_name_hint">مثال: Mi Band 8</string>
+    <string name="bt_address_label">عنوان MAC (Address)</string>
+    <string name="bt_address_hint">مثال: AA:BB:CC:11:22:33</string>
+    <string name="bt_rssi_label">قوة الإشارة (RSSI: %1$d dBm)</string>
+    <string name="bt_scan_record_label">حزمة البث الست عشرية (ScanRecordHex - اختياري)</string>
+    <string name="designated_bt_badge">المفضل للمحاكاة</string>
+    <string name="no_designated_bt">تلقائي افتراضي (حسب المسح)</string>
+    <string name="no_bt_data_in_record">لا توجد بيانات بلوتوث في هذا السجل، انقر على \"+ إضافة بلوتوث\" في الأعلى للإنشاء</string>
+    <string name="delete_bt_confirm">هل أنت متأكد من حذف جهاز البلوتوث \"%1$s\"؟</string>
+    <string name="save_bt">حفظ البلوتوث</string>
 </resources>

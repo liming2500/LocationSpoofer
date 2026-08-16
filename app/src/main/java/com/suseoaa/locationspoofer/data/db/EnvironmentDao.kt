@@ -16,13 +16,13 @@ interface EnvironmentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLocationWifi(record: LocationWifi)
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBluetoothDevice(device: BluetoothDevice)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLocationBluetooth(record: LocationBluetooth)
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCellDevice(device: CellDevice)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -91,8 +91,20 @@ interface EnvironmentDao {
     @Query("DELETE FROM location_connected_wifi WHERE locationId = :locationId")
     suspend fun deleteConnectedWifi(locationId: Long)
 
+    @Query("DELETE FROM location_cells WHERE locationId = :locationId AND cellKey = :cellKey")
+    suspend fun deleteLocationCell(locationId: Long, cellKey: String)
+
+    @Query("DELETE FROM location_bluetooth WHERE locationId = :locationId AND address = :address")
+    suspend fun deleteLocationBluetooth(locationId: Long, address: String)
+
     @Query("UPDATE location_records SET selectedWifiBssid = :selectedWifiBssid WHERE id = :id")
     suspend fun updateSelectedWifi(id: Long, selectedWifiBssid: String?)
+
+    @Query("UPDATE location_records SET selectedCellKey = :selectedCellKey WHERE id = :id")
+    suspend fun updateSelectedCell(id: Long, selectedCellKey: String?)
+
+    @Query("UPDATE location_records SET selectedBluetoothAddress = :selectedBluetoothAddress WHERE id = :id")
+    suspend fun updateSelectedBluetooth(id: Long, selectedBluetoothAddress: String?)
 
     @Query("UPDATE location_records SET placeName = :placeName, remark = :remark, selectedWifiBssid = :selectedWifiBssid, selectedBluetoothAddress = :selectedBluetoothAddress, selectedCellKey = :selectedCellKey WHERE id = :id")
     suspend fun updateMetadata(id: Long, placeName: String, remark: String, selectedWifiBssid: String?, selectedBluetoothAddress: String?, selectedCellKey: String?)

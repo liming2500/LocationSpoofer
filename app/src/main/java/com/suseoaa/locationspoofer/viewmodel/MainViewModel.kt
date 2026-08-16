@@ -2185,6 +2185,124 @@ class MainViewModel(
         }
     }
 
+    fun saveOrUpdateLocationCell(
+        locationId: Long,
+        cellKey: String,
+        type: String,
+        mcc: Int,
+        mnc: Int,
+        tac: Int = 0,
+        ci: Int = 0,
+        pci: Int = 0,
+        lac: Int = 0,
+        cid: Int = 0,
+        psc: Int = 0,
+        nci: Long = 0,
+        networkId: Int = 0,
+        systemId: Int = 0,
+        basestationId: Int = 0,
+        dbm: Int = -85,
+        isRegistered: Boolean = false,
+        isDesignated: Boolean = false
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val device = com.suseoaa.locationspoofer.data.db.CellDevice(
+                cellKey = cellKey.trim(),
+                type = type.uppercase().trim(),
+                mcc = mcc,
+                mnc = mnc,
+                tac = tac,
+                ci = ci,
+                pci = pci,
+                lac = lac,
+                cid = cid,
+                psc = psc,
+                nci = nci,
+                networkId = networkId,
+                systemId = systemId,
+                basestationId = basestationId
+            )
+            environmentDao.insertCellDevice(device)
+            environmentDao.insertLocationCell(
+                com.suseoaa.locationspoofer.data.db.LocationCell(
+                    locationId = locationId,
+                    cellKey = cellKey.trim(),
+                    dbm = dbm,
+                    isRegistered = isRegistered || isDesignated
+                )
+            )
+            if (isDesignated) {
+                environmentDao.updateSelectedCell(locationId, cellKey.trim())
+            }
+            loadManageData()
+        }
+    }
+
+    fun deleteLocationCell(locationId: Long, cellKey: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            environmentDao.deleteLocationCell(locationId, cellKey)
+            val target = _uiState.value.manageDataList.find { it.location.id == locationId }
+            if (target?.location?.selectedCellKey.equals(cellKey, ignoreCase = true)) {
+                environmentDao.updateSelectedCell(locationId, null)
+            }
+            loadManageData()
+        }
+    }
+
+    fun updateSelectedCellKey(locationId: Long, selectedCellKey: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            environmentDao.updateSelectedCell(locationId, selectedCellKey)
+            loadManageData()
+        }
+    }
+
+    fun saveOrUpdateLocationBluetooth(
+        locationId: Long,
+        address: String,
+        name: String,
+        scanRecordHex: String = "",
+        rssi: Int = -60,
+        isDesignated: Boolean = false
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val device = com.suseoaa.locationspoofer.data.db.BluetoothDevice(
+                address = address.uppercase().trim(),
+                name = name.trim(),
+                scanRecordHex = scanRecordHex.trim()
+            )
+            environmentDao.insertBluetoothDevice(device)
+            environmentDao.insertLocationBluetooth(
+                com.suseoaa.locationspoofer.data.db.LocationBluetooth(
+                    locationId = locationId,
+                    address = address.uppercase().trim(),
+                    rssi = rssi
+                )
+            )
+            if (isDesignated) {
+                environmentDao.updateSelectedBluetooth(locationId, address.uppercase().trim())
+            }
+            loadManageData()
+        }
+    }
+
+    fun deleteLocationBluetooth(locationId: Long, address: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            environmentDao.deleteLocationBluetooth(locationId, address)
+            val target = _uiState.value.manageDataList.find { it.location.id == locationId }
+            if (target?.location?.selectedBluetoothAddress.equals(address, ignoreCase = true)) {
+                environmentDao.updateSelectedBluetooth(locationId, null)
+            }
+            loadManageData()
+        }
+    }
+
+    fun updateSelectedBluetoothAddress(locationId: Long, selectedBluetoothAddress: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            environmentDao.updateSelectedBluetooth(locationId, selectedBluetoothAddress)
+            loadManageData()
+        }
+    }
+
     fun clearAllManageData() {
         viewModelScope.launch(Dispatchers.IO) {
             environmentDao.clearAll()
@@ -2607,6 +2725,7 @@ class MainViewModel(
 
         val explicitCellKey = closestRecord?.location?.selectedCellKey
         val cellArr = org.json.JSONArray()
+        val cellList = mutableListOf<org.json.JSONObject>()
         cellMap.forEach { (cellKey, rc) ->
             val w = cellWeights[cellKey]!!
             val interpolatedDbm = (cellDbms[cellKey]!! / w).toInt()
@@ -2626,10 +2745,15 @@ class MainViewModel(
             obj.put("basestationId", rc.device.basestationId)
             obj.put("dbm", interpolatedDbm)
             val isReg =
-                if (explicitCellKey != null) cellKey == explicitCellKey else rc.locationCell.isRegistered
+                if (explicitCellKey != null) cellKey.equals(explicitCellKey, ignoreCase = true) else rc.locationCell.isRegistered
             obj.put("isRegistered", isReg)
-            cellArr.put(obj)
+            if (isReg) {
+                cellList.add(0, obj)
+            } else {
+                cellList.add(obj)
+            }
         }
+        cellList.forEach { cellArr.put(it) }
 
         val btMap =
             mutableMapOf<String, com.suseoaa.locationspoofer.data.db.LocationWithBluetooth>()
@@ -2648,6 +2772,7 @@ class MainViewModel(
 
         val explicitBtAddress = closestRecord?.location?.selectedBluetoothAddress
         val btArr = org.json.JSONArray()
+        val btList = mutableListOf<org.json.JSONObject>()
         btMap.forEach { (address, rb) ->
             val w = btWeights[address]!!
             val interpolatedRssi = (btRssis[address]!! / w).toInt()
@@ -2656,11 +2781,15 @@ class MainViewModel(
             obj.put("name", rb.device.name)
             obj.put("scanRecordHex", rb.device.scanRecordHex)
             obj.put("rssi", interpolatedRssi)
-            if (explicitBtAddress != null && explicitBtAddress == address) {
+            val isSelectedBt = explicitBtAddress != null && explicitBtAddress.equals(address, ignoreCase = true)
+            if (isSelectedBt) {
                 obj.put("isConnected", true)
+                btList.add(0, obj)
+            } else {
+                btList.add(obj)
             }
-            btArr.put(obj)
         }
+        btList.forEach { btArr.put(it) }
 
         return Triple(wifiArr.toString(), cellArr.toString(), btArr.toString())
     }
