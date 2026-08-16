@@ -1,17 +1,18 @@
 package com.suseoaa.locationspoofer.ui.screen
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
@@ -20,25 +21,38 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.db.CompleteLocation
 import com.suseoaa.locationspoofer.ui.components.AppMapController
 import com.suseoaa.locationspoofer.ui.components.AppMapView
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
+import com.suseoaa.locationspoofer.ui.theme.AccentGreen
+import com.suseoaa.locationspoofer.ui.theme.AccentOrange
 import com.suseoaa.locationspoofer.ui.theme.AppColors
+import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.utils.MapCoverageHelper
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageDataScreen(
     viewModel: MainViewModel,
@@ -46,22 +60,13 @@ fun ManageDataScreen(
     isDark: Boolean,
     onClose: () -> Unit
 ) {
-    var isSelectionMode by remember { mutableStateOf(false) }
-    val selectedIds = remember { mutableStateListOf<Long>() }
-    var showClearAllConfirm by remember { mutableStateOf(false) }
     var mapController by remember { mutableStateOf<AppMapController?>(null) }
-
-    BackHandler {
-        if (isSelectionMode) {
-            isSelectionMode = false
-            selectedIds.clear()
-        } else {
-            onClose()
-        }
-    }
-
     var editingItem by remember { mutableStateOf<CompleteLocation?>(null) }
+    var itemToDelete by remember { mutableStateOf<CompleteLocation?>(null) }
+
     val dataList = uiState.manageDataList
+
+    BackHandler(onBack = onClose)
 
     LaunchedEffect(mapController, uiState.mapType) {
         mapController?.setMapType(uiState.mapType)
@@ -78,107 +83,122 @@ fun ManageDataScreen(
         }
     }
 
-    Scaffold(
-        containerColor = AppColors.background(isDark),
-        topBar = {
-            TopAppBar(
-                title = {
-                    if (isSelectionMode) {
-                        Text(stringResource(R.string.selected_items, selectedIds.size), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    } else {
-                        Text(stringResource(R.string.title_manage_data), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (isSelectionMode) {
-                            isSelectionMode = false
-                            selectedIds.clear()
-                        } else {
-                            onClose()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AppColors.background(isDark))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
+            // 顶部导航栏（现代化独立圆形返回按键与标题，无右侧杂乱按钮）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 独立立体圆形返回按键
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .shadow(elevation = 6.dp, shape = CircleShape, clip = false)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF22272E) else Color.White)
+                        .border(
+                            width = 1.dp,
+                            color = if (isDark) Color.White.copy(alpha = 0.14f) else Color(0xFFE5E8EC),
+                            shape = CircleShape
+                        )
+                        .noRippleClickable(onClick = onClose),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = if (isDark) Color.White else Color(0xFF1A1D20),
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(14.dp))
+
+                Column {
+                    Text(
+                        text = stringResource(R.string.title_manage_data),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = "共 ${dataList.size} 条采集数据",
+                        fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
+                    )
+                }
+            }
+
+            if (uiState.manageDataIsLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = AccentBlue)
+                }
+            } else if (dataList.isEmpty()) {
+                // 空数据状态质感呈现
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded.Storage,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                                modifier = Modifier.size(36.dp)
+                            )
                         }
-                    }) {
-                        Icon(
-                            if (isSelectionMode) Icons.Rounded.Close else Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.back)
+                        Text(
+                            text = stringResource(R.string.no_data_collected),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "在定位或路线页面采集的数据将收录在此处统一管理",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )
                     }
-                },
-                actions = {
-                    if (isSelectionMode) {
-                        IconButton(onClick = {
-                            if (selectedIds.size == dataList.size) {
-                                selectedIds.clear()
-                            } else {
-                                selectedIds.clear()
-                                selectedIds.addAll(dataList.map { it.location.id })
-                            }
-                        }) {
-                            Icon(
-                                Icons.Rounded.SelectAll,
-                                contentDescription = stringResource(R.string.select_all)
-                            )
-                        }
-                        if (selectedIds.isNotEmpty()) {
-                            IconButton(onClick = {
-                                viewModel.deleteManageData(selectedIds.toList())
-                                isSelectionMode = false
-                                selectedIds.clear()
-                            }) {
-                                Icon(
-                                    Icons.Rounded.Delete,
-                                    contentDescription = stringResource(R.string.delete),
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    } else {
-                        IconButton(onClick = { isSelectionMode = true }) {
-                            Icon(
-                                Icons.Rounded.Checklist,
-                                contentDescription = stringResource(R.string.select_all)
-                            )
-                        }
-                        IconButton(onClick = { showClearAllConfirm = true }) {
-                            Icon(
-                                Icons.Rounded.DeleteSweep,
-                                contentDescription = stringResource(R.string.clear_all),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        }
-    ) { paddingValues ->
-        if (uiState.manageDataIsLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AccentBlue)
-            }
-        } else if (dataList.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    stringResource(R.string.no_data_collected),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    fontSize = 14.sp
-                )
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                // Top Map View
+                }
+            } else {
+                // 地图概览卡片 (Upper Map Card)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.38f)
+                        .weight(0.36f)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .border(
+                            0.8.dp,
+                            if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.06f),
+                            RoundedCornerShape(18.dp)
+                        )
                 ) {
                     AppMapView(
                         mapEngine = uiState.mapEngine,
@@ -189,44 +209,58 @@ fun ManageDataScreen(
                             controller.disableUiControls()
                         }
                     )
+
+                    // 地图右上角覆盖范围提示胶囊
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.90f))
+                            .border(
+                                0.5.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                                RoundedCornerShape(10.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentGreen)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "${dataList.size} 个点位已绘制",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
 
-                // Bottom List View
+                // 下部数据卡片列表 (向左滑动显露编辑与删除操作)
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.62f),
-                    contentPadding = PaddingValues(16.dp),
+                        .weight(0.64f),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(dataList, key = { it.location.id }) { item ->
-                        val isSelected = selectedIds.contains(item.location.id)
-                        DataListItem(
+                        SwipeableDataListItem(
                             item = item,
                             isDark = isDark,
-                            isSelectionMode = isSelectionMode,
-                            isSelected = isSelected,
-                            onSelect = {
-                                if (isSelected) selectedIds.remove(item.location.id)
-                                else selectedIds.add(item.location.id)
-                            },
-                            onLongClick = {
-                                if (!isSelectionMode) {
-                                    isSelectionMode = true
-                                    selectedIds.add(item.location.id)
-                                }
-                            },
                             onClick = {
                                 viewModel.updateLatitude(String.format(Locale.US, "%.6f", item.location.lat))
                                 viewModel.updateLongitude(String.format(Locale.US, "%.6f", item.location.lng))
                                 mapController?.animateCamera(item.location.lat, item.location.lng, 17f)
                             },
-                            onDeleteSingle = {
-                                viewModel.deleteManageDataSingle(item.location.id)
-                            },
-                            onEdit = {
-                                editingItem = item
-                            }
+                            onEdit = { editingItem = item },
+                            onDelete = { itemToDelete = item }
                         )
                     }
                 }
@@ -234,223 +268,760 @@ fun ManageDataScreen(
         }
     }
 
+    // 现代化编辑数据弹窗
     if (editingItem != null) {
-        var placeName by remember { mutableStateOf(editingItem!!.location.placeName) }
-        var remark by remember { mutableStateOf(editingItem!!.location.remark) }
-
-        AlertDialog(
-            onDismissRequest = { editingItem = null },
-            title = { Text(stringResource(R.string.edit_location_data), fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    OutlinedTextField(
-                        value = placeName,
-                        onValueChange = { placeName = it },
-                        label = { Text(stringResource(R.string.place_name)) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue)
-                    )
-                    OutlinedTextField(
-                        value = remark,
-                        onValueChange = { remark = it },
-                        label = { Text(stringResource(R.string.remark_note)) },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val current = editingItem!!
-                        viewModel.updateManageDataMetadata(
-                            current.location.id,
-                            placeName,
-                            remark,
-                            current.location.selectedWifiBssid,
-                            current.location.selectedBluetoothAddress,
-                            current.location.selectedCellKey
-                        )
-                        editingItem = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(stringResource(R.string.save))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingItem = null }) {
-                    Text(stringResource(R.string.cancel), color = AccentBlue)
-                }
+        val currentItem = editingItem!!
+        ModernEditDataDialog(
+            item = currentItem,
+            isDark = isDark,
+            onDismiss = { editingItem = null },
+            onSave = { placeName, remark ->
+                viewModel.updateManageDataMetadata(
+                    currentItem.location.id,
+                    placeName,
+                    remark,
+                    currentItem.location.selectedWifiBssid,
+                    currentItem.location.selectedBluetoothAddress,
+                    currentItem.location.selectedCellKey
+                )
+                editingItem = null
             }
         )
     }
 
-    if (showClearAllConfirm) {
-        AlertDialog(
-            onDismissRequest = { showClearAllConfirm = false },
-            title = { Text(stringResource(R.string.clear_all_data), fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.clear_all_data_confirm), fontSize = 14.sp) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.clearAllManageData()
-                        showClearAllConfirm = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+    // 删除单项采集数据二次确认弹窗
+    if (itemToDelete != null) {
+        val targetItem = itemToDelete!!
+        val displayName = when {
+            targetItem.location.placeName.isNotBlank() -> targetItem.location.placeName
+            targetItem.location.remark.isNotBlank() -> targetItem.location.remark
+            else -> "坐标 (${String.format(Locale.US, "%.4f", targetItem.location.lat)}, ${String.format(Locale.US, "%.4f", targetItem.location.lng)})"
+        }
+
+        Dialog(
+            onDismissRequest = { itemToDelete = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            MiuixCard(
+                modifier = Modifier
+                    .fillMaxWidth(0.88f)
+                    .wrapContentHeight(),
+                cornerRadius = 24.dp,
+                insideMargin = PaddingValues(22.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Text(stringResource(R.string.clear_all))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearAllConfirm = false }) {
-                    Text(stringResource(R.string.cancel))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(Color(0xFFE53935).copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded.DeleteOutline,
+                                contentDescription = null,
+                                tint = Color(0xFFE53935),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Text(
+                            text = "删除采集数据",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Text(
+                        text = "确定要删除「$displayName」吗？删除后该位置及其附带的基站/Wi-Fi/蓝牙特征将无法恢复。",
+                        fontSize = 13.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        lineHeight = 20.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                                .noRippleClickable { itemToDelete = null },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.cancel),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.deleteManageDataSingle(targetItem.location.id)
+                                itemToDelete = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .height(42.dp)
+                        ) {
+                            Text(stringResource(R.string.delete), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
-        )
+        }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * 具有细腻物理阻尼手感与弹簧回弹的向左滑动列表项
+ */
 @Composable
-private fun DataListItem(
+private fun SwipeableDataListItem(
     item: CompleteLocation,
     isDark: Boolean,
-    isSelectionMode: Boolean,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-    onLongClick: () -> Unit,
     onClick: () -> Unit,
-    onDeleteSingle: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
+    val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // 显露操作区域总宽度（编辑 60dp + 删除 60dp + 间距）
+    val maxRevealWidthDp = 136.dp
+    val maxRevealWidthPx = with(density) { maxRevealWidthDp.toPx() }
+
+    val offsetX = remember { Animatable(0f) }
+
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     val timeStr = remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
 
     val wifiCount = item.wifis.size
     val cellCount = item.cells.size
     val btCount = item.bluetooths.size
 
-    MiuixCard(
+    val hasPlaceName = item.location.placeName.isNotBlank()
+    val hasRemark = item.location.remark.isNotBlank()
+
+    // 优先显示地名或备注为卡片的主标题
+    val primaryTitle = when {
+        hasPlaceName -> item.location.placeName
+        hasRemark -> item.location.remark
+        else -> "坐标记录"
+    }
+
+    val subtitle = when {
+        hasPlaceName && hasRemark -> item.location.remark
+        else -> null
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = {
-                    if (isSelectionMode) onSelect()
-                    else onClick()
-                },
-                onLongClick = onLongClick
-            ),
-        cornerRadius = 16.dp,
-        insideMargin = PaddingValues(14.dp)
+            .height(IntrinsicSize.Min)
     ) {
+        // 底层操作按键区（向左滑动时显露）
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isSelectionMode) {
-                Checkbox(
-                    checked = isSelected,
-                    onCheckedChange = { onSelect() },
-                    modifier = Modifier.padding(end = 12.dp)
-                )
+            // 编辑按钮
+            Box(
+                modifier = Modifier
+                    .width(60.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(AccentBlue)
+                    .noRippleClickable {
+                        coroutineScope.launch {
+                            offsetX.animateTo(
+                                0f,
+                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = 500f)
+                            )
+                        }
+                        onEdit()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Edit,
+                        contentDescription = "编辑",
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                    Text(
+                        text = "编辑",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = timeStr,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Lat: ${String.format(Locale.US, "%.5f", item.location.lat)}, Lng: ${String.format(Locale.US, "%.5f", item.location.lng)}",
-                    fontSize = 12.5.sp,
-                    color = AppColors.textSecondary(isDark)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    IconTextBadge(Icons.Rounded.Wifi, "$wifiCount", isDark)
-                    IconTextBadge(Icons.Rounded.CellTower, "$cellCount", isDark)
-                    IconTextBadge(Icons.Rounded.Bluetooth, "$btCount", isDark)
+            // 删除按钮
+            Box(
+                modifier = Modifier
+                    .width(60.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFFE53935))
+                    .noRippleClickable {
+                        coroutineScope.launch {
+                            offsetX.animateTo(
+                                0f,
+                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = 500f)
+                            )
+                        }
+                        onDelete()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.DeleteOutline,
+                        contentDescription = "删除",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "删除",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
+            }
+        }
 
-                if (item.location.placeName.isNotBlank() || item.location.remark.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                    Spacer(modifier = Modifier.height(6.dp))
-                    if (item.location.placeName.isNotBlank()) {
+        // 上层滑动卡片（带拖拽手势与非线性阻尼）
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .fillMaxWidth()
+        ) {
+            MiuixCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .noRippleClickable {
+                        if (offsetX.value < -10f) {
+                            coroutineScope.launch {
+                                offsetX.animateTo(
+                                    0f,
+                                    spring(dampingRatio = 0.8f, stiffness = 450f)
+                                )
+                            }
+                        } else {
+                            onClick()
+                        }
+                    },
+                cornerRadius = 16.dp,
+                insideMargin = PaddingValues(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // 主标题与时间
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = primaryTitle,
+                                fontSize = 15.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+
+                            Text(
+                                text = timeStr,
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                            )
+                        }
+
+                        // 备注副标题
+                        if (subtitle != null) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Description,
+                                    contentDescription = null,
+                                    tint = AccentBlue,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = subtitle,
+                                    fontSize = 12.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+
+                        // 经纬度坐标标签
                         Text(
-                            text = "📍 ${item.location.placeName}",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    if (item.location.remark.isNotBlank()) {
-                        Text(
-                            text = "📝 ${item.location.remark}",
+                            text = "${String.format(Locale.US, "%.5f", item.location.lat)}, ${String.format(Locale.US, "%.5f", item.location.lng)}",
                             fontSize = 12.sp,
-                            color = AppColors.textSecondary(isDark)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         )
+
+                        // 信号设备标签组（Wi-Fi、基站、蓝牙）
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SignalChip(
+                                icon = Icons.Rounded.Wifi,
+                                text = "$wifiCount",
+                                tint = AccentBlue,
+                                isDark = isDark
+                            )
+                            SignalChip(
+                                icon = Icons.Rounded.CellTower,
+                                text = "$cellCount",
+                                tint = AccentOrange,
+                                isDark = isDark
+                            )
+                            SignalChip(
+                                icon = Icons.Rounded.Bluetooth,
+                                text = "$btCount",
+                                tint = AccentGreen,
+                                isDark = isDark
+                            )
+                        }
                     }
+
+                    // 右侧指示可左滑的尖头小图标（随着滑动展开自然淡出）
+                    val chevronAlpha = ((1f - abs(offsetX.value) / maxRevealWidthPx) * 0.4f).coerceIn(0f, 0.4f)
+                    Icon(
+                        imageVector = Icons.Rounded.ChevronLeft,
+                        contentDescription = "向左滑动",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = chevronAlpha),
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(18.dp)
+                    )
                 }
             }
 
-            if (!isSelectionMode) {
-                Row {
-                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                        Icon(
-                            Icons.Rounded.Edit,
-                            contentDescription = stringResource(R.string.edit_location_data),
-                            tint = AccentBlue.copy(alpha = 0.8f),
-                            modifier = Modifier.size(18.dp)
+            // 右侧 1/3 区域专用滑动手势触发层（左侧区域保留正常点击与纵向顺畅滚动）
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxWidth(0.35f)
+                    .fillMaxHeight()
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                coroutineScope.launch {
+                                    val target = if (offsetX.value < -maxRevealWidthPx * 0.45f) {
+                                        -maxRevealWidthPx
+                                    } else {
+                                        0f
+                                    }
+                                    offsetX.animateTo(
+                                        targetValue = target,
+                                        animationSpec = spring(
+                                            dampingRatio = 0.8f,
+                                            stiffness = 450f
+                                        )
+                                    )
+                                }
+                            },
+                            onHorizontalDrag = { _, dragAmount ->
+                                coroutineScope.launch {
+                                    val current = offsetX.value
+                                    val newOffset = if (dragAmount < 0) {
+                                        // 向左滑动
+                                        if (current < -maxRevealWidthPx) {
+                                            // 超过最大显露宽度时应用弹性阻尼 (Rubber-band damping)
+                                            val overDrag = abs(current) - maxRevealWidthPx
+                                            val dampingFactor = 1f / (1f + overDrag / 60f)
+                                            current + dragAmount * dampingFactor
+                                        } else {
+                                            current + dragAmount
+                                        }
+                                    } else {
+                                        // 向右滑动
+                                        if (current > 0) {
+                                            // 右侧超出边界重阻尼
+                                            current + dragAmount * 0.15f
+                                        } else {
+                                            current + dragAmount
+                                        }
+                                    }
+                                    offsetX.snapTo(newOffset.coerceAtLeast(-maxRevealWidthPx * 1.35f))
+                                }
+                            }
                         )
                     }
-                    IconButton(onClick = onDeleteSingle, modifier = Modifier.size(36.dp)) {
-                        Icon(
-                            Icons.Rounded.DeleteOutline,
-                            contentDescription = stringResource(R.string.delete),
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
+            )
         }
     }
 }
 
 @Composable
-private fun IconTextBadge(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, isDark: Boolean) {
+private fun SignalChip(
+    icon: ImageVector,
+    text: String,
+    tint: Color,
+    isDark: Boolean
+) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.04f))
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(tint.copy(alpha = if (isDark) 0.12f else 0.08f))
+            .padding(horizontal = 7.dp, vertical = 2.5.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 icon,
                 contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = AppColors.textSecondary(isDark)
+                modifier = Modifier.size(12.dp),
+                tint = tint
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(3.5.dp))
             Text(
                 text = text,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = AppColors.textSecondary(isDark)
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = tint
             )
+        }
+    }
+}
+
+@Composable
+private fun ModernEditDataDialog(
+    item: CompleteLocation,
+    isDark: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (placeName: String, remark: String) -> Unit
+) {
+    var placeName by remember { mutableStateOf(item.location.placeName) }
+    var remark by remember { mutableStateOf(item.location.remark) }
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+    val timeStr = remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        MiuixCard(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight(),
+            cornerRadius = 24.dp,
+            insideMargin = PaddingValues(22.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // 顶部标题栏
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(13.dp))
+                            .background(AccentBlue.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Rounded.EditLocation,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "编辑位置数据",
+                            fontSize = 17.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "采集时间: $timeStr",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                            .noRippleClickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = "关闭",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+
+                // 经纬度及信号预览条
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Rounded.MyLocation,
+                                contentDescription = null,
+                                tint = AccentBlue,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "${String.format(Locale.US, "%.5f", item.location.lat)}, ${String.format(Locale.US, "%.5f", item.location.lng)}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "${item.wifis.size} Wi-Fi",
+                                fontSize = 11.sp,
+                                color = AccentBlue,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "•",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                            )
+                            Text(
+                                text = "${item.cells.size} 基站",
+                                fontSize = 11.sp,
+                                color = AccentOrange,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // 表单输入容器（现代聚合卡片式输入）
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                        .border(
+                            0.8.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.12f else 0.06f),
+                            RoundedCornerShape(16.dp)
+                        )
+                ) {
+                    // 位置名称输入
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.Place,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        BasicTextField(
+                            value = placeName,
+                            onValueChange = { placeName = it },
+                            textStyle = TextStyle(
+                                fontSize = 14.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            decorationBox = { innerTextField ->
+                                if (placeName.isEmpty()) {
+                                    Text(
+                                        text = "设置位置名称（如：教学楼、宿舍等）",
+                                        fontSize = 13.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+                        if (placeName.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                                    .noRippleClickable { placeName = "" },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.10f else 0.05f))
+
+                    // 备注说明输入
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            Icons.Rounded.Description,
+                            contentDescription = null,
+                            tint = AccentOrange,
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(18.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        BasicTextField(
+                            value = remark,
+                            onValueChange = { remark = it },
+                            textStyle = TextStyle(
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            minLines = 2,
+                            maxLines = 4,
+                            modifier = Modifier.weight(1f),
+                            decorationBox = { innerTextField ->
+                                if (remark.isEmpty()) {
+                                    Text(
+                                        text = "添加自定义备注说明...",
+                                        fontSize = 13.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+                        if (remark.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                                    .noRippleClickable { remark = "" },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 底部操作按钮
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                            .noRippleClickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "取消",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                        )
+                    }
+
+                    Button(
+                        onClick = { onSave(placeName, remark) },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(44.dp)
+                    ) {
+                        Text(
+                            text = "保存更改",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
     }
 }
