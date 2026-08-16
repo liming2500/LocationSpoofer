@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -242,27 +243,49 @@ fun ManageDataScreen(
                     }
                 }
 
-                // 下部数据卡片列表 (向左滑动显露编辑与删除操作)
-                LazyColumn(
+                // 下部数据卡片列表 (向左滑动显露编辑与删除操作，顶部平滑溶解边界)
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.64f),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .weight(0.64f)
                 ) {
-                    items(dataList, key = { it.location.id }) { item ->
-                        SwipeableDataListItem(
-                            item = item,
-                            isDark = isDark,
-                            onClick = {
-                                viewModel.updateLatitude(String.format(Locale.US, "%.6f", item.location.lat))
-                                viewModel.updateLongitude(String.format(Locale.US, "%.6f", item.location.lng))
-                                mapController?.animateCamera(item.location.lat, item.location.lng, 17f)
-                            },
-                            onEdit = { editingItem = item },
-                            onDelete = { itemToDelete = item }
-                        )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(dataList, key = { it.location.id }) { item ->
+                            SwipeableDataListItem(
+                                item = item,
+                                isDark = isDark,
+                                onClick = {
+                                    viewModel.updateLatitude(String.format(Locale.US, "%.6f", item.location.lat))
+                                    viewModel.updateLongitude(String.format(Locale.US, "%.6f", item.location.lng))
+                                    mapController?.animateCamera(item.location.lat, item.location.lng, 17f)
+                                },
+                                onEdit = { editingItem = item },
+                                onDelete = { itemToDelete = item }
+                            )
+                        }
                     }
+
+                    // 顶部边界模糊渐变过渡（消除生硬切边）
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(18.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        AppColors.background(isDark),
+                                        AppColors.background(isDark).copy(alpha = 0.85f),
+                                        AppColors.background(isDark).copy(alpha = 0.40f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                 }
             }
         }
