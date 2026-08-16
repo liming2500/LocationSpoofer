@@ -74,13 +74,13 @@ fun MapTypeDialog(
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "图层与引擎设置",
+                                text = stringResource(R.string.layers_and_engine_title),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "选择地图渲染样式与底层地图引擎",
+                                text = stringResource(R.string.layers_and_engine_desc),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                             )
@@ -103,7 +103,7 @@ fun MapTypeDialog(
                 // 地图图层类型
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "地图图层",
+                        text = stringResource(R.string.map_layers),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -153,7 +153,7 @@ fun MapTypeDialog(
                 // 地图服务引擎
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "地图引擎服务",
+                        text = stringResource(R.string.map_engine_service),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -164,7 +164,7 @@ fun MapTypeDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         MiuixEngineOptionCard(
-                            title = "自动匹配",
+                            title = stringResource(R.string.auto_match),
                             icon = Icons.Rounded.AutoMode,
                             isSelected = currentMapEngine == MapEngine.AUTO,
                             onClick = {
@@ -175,7 +175,7 @@ fun MapTypeDialog(
                         )
 
                         MiuixEngineOptionCard(
-                            title = "高德地图",
+                            title = stringResource(R.string.map_engine_amap),
                             icon = Icons.Rounded.Navigation,
                             isSelected = currentMapEngine == MapEngine.AMAP,
                             onClick = {
@@ -186,7 +186,7 @@ fun MapTypeDialog(
                         )
 
                         MiuixEngineOptionCard(
-                            title = "百度地图",
+                            title = stringResource(R.string.map_engine_baidu),
                             icon = Icons.Rounded.Explore,
                             isSelected = currentMapEngine == MapEngine.BAIDU,
                             onClick = {
@@ -197,7 +197,7 @@ fun MapTypeDialog(
                         )
 
                         MiuixEngineOptionCard(
-                            title = "谷歌地图",
+                            title = stringResource(R.string.map_engine_google),
                             icon = Icons.Rounded.Public,
                             isSelected = currentMapEngine == MapEngine.GOOGLE,
                             onClick = {

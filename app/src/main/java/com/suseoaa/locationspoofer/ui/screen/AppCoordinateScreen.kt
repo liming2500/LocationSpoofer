@@ -42,11 +42,21 @@ import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
-private enum class CoordinateFilterTab(val label: String) {
-    All("全部"),
-    Customized("已自定义"),
-    UserApps("用户应用"),
-    SystemApps("系统应用")
+private enum class CoordinateFilterTab {
+    All,
+    Customized,
+    UserApps,
+    SystemApps;
+
+    @Composable
+    fun getLabel(customCount: Int): String {
+        return when (this) {
+            All -> stringResource(R.string.tab_all)
+            Customized -> stringResource(R.string.customized_count_format, customCount)
+            UserApps -> stringResource(R.string.tab_user_apps)
+            SystemApps -> stringResource(R.string.tab_system_apps)
+        }
+    }
 }
 
 @Composable
@@ -143,7 +153,7 @@ fun AppCoordinateScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "自定义各目标应用经纬度标准",
+                        text = stringResource(R.string.app_coord_subtitle),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                     )
@@ -192,7 +202,7 @@ fun AppCoordinateScreen(
                         decorationBox = { innerTextField ->
                             if (searchQuery.isEmpty()) {
                                 Text(
-                                    text = "搜索应用名称或包名...",
+                                    text = stringResource(R.string.search_app_hint),
                                     fontSize = 13.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                 )
@@ -230,10 +240,7 @@ fun AppCoordinateScreen(
             ) {
                 items(CoordinateFilterTab.values()) { tab ->
                     val isSelected = selectedFilter == tab
-                    val label = when (tab) {
-                        CoordinateFilterTab.Customized -> "已自定义 ($customConfiguredCount)"
-                        else -> tab.label
-                    }
+                    val label = tab.getLabel(customConfiguredCount)
 
                     Box(
                         modifier = Modifier
@@ -295,7 +302,7 @@ fun AppCoordinateScreen(
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "请尝试修改搜索词或选择「系统应用」标签",
+                            text = stringResource(R.string.search_no_match_hint),
                             fontSize = 12.5.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )
@@ -436,7 +443,7 @@ private fun AppItemCard(
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
-                                text = "系统",
+                                text = stringResource(R.string.system_tag),
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
@@ -525,21 +532,21 @@ private fun CoordinateSelectionDialog(
     val options = listOf(
         CoordinateOption(
             key = "GCJ-02",
-            name = "GCJ-02 (火星坐标系)",
-            tag = "默认推荐",
-            desc = "高德地图、腾讯地图及国内绝大多数主流 App 采用的标准。"
+            name = stringResource(R.string.gcj02_title),
+            tag = stringResource(R.string.default_recommended),
+            desc = stringResource(R.string.gcj02_desc)
         ),
         CoordinateOption(
             key = "WGS-84",
-            name = "WGS-84 (地球大地坐标系)",
+            name = stringResource(R.string.wgs84_title),
             tag = null,
-            desc = "国际标准 GPS 原始经纬度、Google Maps (境外)、OSM 等。"
+            desc = stringResource(R.string.wgs84_desc)
         ),
         CoordinateOption(
             key = "BD-09",
-            name = "BD-09 (百度坐标系)",
+            name = stringResource(R.string.bd09_title),
             tag = null,
-            desc = "百度地图及集成百度定位 SDK 的应用专用二次加密标准。"
+            desc = stringResource(R.string.bd09_desc)
         )
     )
 
@@ -593,7 +600,7 @@ private fun CoordinateSelectionDialog(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "选择该应用接收的坐标系算法",
+                            text = stringResource(R.string.select_coord_algo_title),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
@@ -613,7 +620,7 @@ private fun CoordinateSelectionDialog(
                     ) {
                         Icon(
                             Icons.Rounded.Close,
-                            contentDescription = "关闭",
+                            contentDescription = stringResource(R.string.close),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             modifier = Modifier.size(15.dp)
                         )
@@ -736,7 +743,7 @@ private fun CoordinateSelectionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "取消",
+                            text = stringResource(R.string.cancel),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
@@ -752,7 +759,7 @@ private fun CoordinateSelectionDialog(
                             .height(44.dp)
                     ) {
                         Text(
-                            text = "应用设置",
+                            text = stringResource(R.string.app_coordinate_setting),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )

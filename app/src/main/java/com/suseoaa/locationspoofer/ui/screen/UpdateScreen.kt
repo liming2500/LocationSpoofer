@@ -108,14 +108,14 @@ fun UpdateScreen(
                         .padding(horizontal = 4.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "软件更新",
+                        text = stringResource(R.string.software_update),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "检查并获取最新发布版本与功能改进",
+                        text = stringResource(R.string.software_update_desc),
                         fontSize = 13.5.sp,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
                     )
@@ -145,7 +145,7 @@ fun UpdateScreen(
             if (displayList.isNotEmpty()) {
                 item {
                     Text(
-                        text = if (hasNewVersion) "更新日志" else "版本历史",
+                        text = if (hasNewVersion) stringResource(R.string.changelog) else stringResource(R.string.version_history),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -254,7 +254,7 @@ private fun CurrentVersionHeroCard(
             ) {
                 Column {
                     Text(
-                        text = "位置模拟器",
+                        text = stringResource(R.string.app_name),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -299,7 +299,7 @@ private fun CurrentVersionHeroCard(
                         color = AccentBlue
                     )
                     Text(
-                        text = "正在检索服务器最新发布版本...",
+                        text = stringResource(R.string.checking_latest_release),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -311,7 +311,7 @@ private fun CurrentVersionHeroCard(
                             .background(MaterialTheme.colorScheme.error)
                     )
                     Text(
-                        text = "检查失败，请检查网络连接",
+                        text = stringResource(R.string.check_failed_network),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -325,7 +325,7 @@ private fun CurrentVersionHeroCard(
                             .background(Color(0xFFE53935))
                     )
                     Text(
-                        text = "发现新版本 v$cleanLatestVersion",
+                        text = stringResource(R.string.new_version_found_format, cleanLatestVersion),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFE53935)
@@ -338,7 +338,7 @@ private fun CurrentVersionHeroCard(
                             .background(AccentGreen)
                     )
                     Text(
-                        text = "当前已是最新版本",
+                        text = stringResource(R.string.already_latest_version),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = AccentGreen
@@ -357,7 +357,7 @@ private fun CurrentVersionHeroCard(
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                         modifier = Modifier.height(40.dp)
                     ) {
-                        Text("安装新版本", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.install_new_version), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Column(
@@ -370,12 +370,12 @@ private fun CurrentVersionHeroCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "正在下载更新 (${uiState.downloadProgress}%)",
+                                text = stringResource(R.string.downloading_progress, uiState.downloadProgress),
                                 fontSize = 12.5.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                             )
                             Text(
-                                text = "取消",
+                                text = stringResource(R.string.cancel),
                                 fontSize = 12.5.sp,
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.noRippleClickable(onClick = onCancelDownload)
@@ -413,7 +413,7 @@ private fun CurrentVersionHeroCard(
                                 modifier = Modifier.height(40.dp)
                             ) {
                                 Text(
-                                    text = if (latestRelease.downloadUrl32Bit != null) "立即更新 (64位)" else "立即更新",
+                                    text = if (latestRelease.downloadUrl32Bit != null) stringResource(R.string.update_now_64) else stringResource(R.string.update_now),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -432,14 +432,14 @@ private fun CurrentVersionHeroCard(
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                                 modifier = Modifier.height(40.dp)
                             ) {
-                                Text("32位兼容包", fontSize = 13.sp, color = AccentBlue)
+                                Text(stringResource(R.string.download_32_compat), fontSize = 13.sp, color = AccentBlue)
                             }
                         }
                     }
 
                     // 仅最新版显示“忽略此版本”
                     Text(
-                        text = "忽略此版本",
+                        text = stringResource(R.string.ignore_this_version),
                         fontSize = 12.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                         modifier = Modifier
@@ -454,7 +454,7 @@ private fun CurrentVersionHeroCard(
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                     modifier = Modifier.height(38.dp)
                 ) {
-                    Text("重新检查", fontSize = 13.sp)
+                    Text(stringResource(R.string.recheck), fontSize = 13.sp)
                 }
             }
         }
@@ -503,7 +503,7 @@ private fun ReleaseItemCard(
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "当前版本",
+                                text = stringResource(R.string.current_version),
                                 fontSize = 10.5.sp,
                                 color = AccentGreen,
                                 fontWeight = FontWeight.Bold
@@ -520,7 +520,7 @@ private fun ReleaseItemCard(
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "聚合 $mergedCount 个更新",
+                                text = stringResource(R.string.merged_count_badge, mergedCount),
                                 fontSize = 10.5.sp,
                                 color = AccentBlue,
                                 fontWeight = FontWeight.Bold
@@ -566,7 +566,7 @@ private fun ReleaseItemCard(
                                 modifier = Modifier.height(34.dp)
                             ) {
                                 Text(
-                                    text = if (release.downloadUrl32Bit != null) "下载 (64位)" else "下载",
+                                    text = if (release.downloadUrl32Bit != null) stringResource(R.string.download_64) else stringResource(R.string.download),
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -586,7 +586,7 @@ private fun ReleaseItemCard(
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                 modifier = Modifier.height(34.dp)
                             ) {
-                                Text("下载 32位", fontSize = 12.sp, color = AccentBlue)
+                                Text(stringResource(R.string.download_32), fontSize = 12.sp, color = AccentBlue)
                             }
                         }
                     }
@@ -634,7 +634,7 @@ fun StartupUpdateDialog(
                                 .background(Color(0xFFE53935))
                         )
                         Text(
-                            text = "发现新版本",
+                            text = stringResource(R.string.new_version_found),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -671,7 +671,7 @@ fun StartupUpdateDialog(
                     }
                 } else {
                     Text(
-                        text = "新版本已发布，推荐立即更新以获取全新特性与性能优化。",
+                        text = stringResource(R.string.new_version_prompt_desc),
                         fontSize = 13.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -686,7 +686,7 @@ fun StartupUpdateDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "忽略此版本",
+                        text = stringResource(R.string.ignore_this_version),
                         fontSize = 12.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                         modifier = Modifier.noRippleClickable {
@@ -704,7 +704,7 @@ fun StartupUpdateDialog(
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
-                                "以后再说",
+                                stringResource(R.string.later),
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
@@ -719,7 +719,7 @@ fun StartupUpdateDialog(
                             colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            Text("前往更新", fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.go_to_update), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

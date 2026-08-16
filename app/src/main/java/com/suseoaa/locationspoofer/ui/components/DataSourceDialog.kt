@@ -16,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.SearchMode
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 
@@ -64,13 +66,13 @@ fun DataSourceDialog(
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "选择数据源",
+                            text = stringResource(R.string.select_data_source),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "设置定位页面的地点与环境检索来源",
+                            text = stringResource(R.string.select_data_source_desc),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                         )
@@ -80,8 +82,8 @@ fun DataSourceDialog(
                 Spacer(Modifier.height(2.dp))
 
                 DataSourceItem(
-                    title = "网络在线检索",
-                    subtitle = "在线检索地图 POI、地点与地理坐标",
+                    title = stringResource(R.string.network_online_search),
+                    subtitle = stringResource(R.string.network_online_search_desc),
                     icon = Icons.Rounded.Public,
                     isSelected = currentSearchMode == SearchMode.NETWORK,
                     onClick = {
@@ -91,8 +93,8 @@ fun DataSourceDialog(
                 )
 
                 DataSourceItem(
-                    title = "本地采集数据源",
-                    subtitle = "优先检索本地采集的环境数据库（Wi-Fi / 基站指纹）",
+                    title = stringResource(R.string.local_collected_datasource),
+                    subtitle = stringResource(R.string.local_collected_datasource_desc),
                     icon = Icons.Rounded.Storage,
                     isSelected = currentSearchMode == SearchMode.LOCAL,
                     onClick = {
@@ -130,7 +132,7 @@ fun DataSourceDialog(
                             )
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                text = "导入外部本地数据源 (JSON)...",
+                                text = stringResource(R.string.import_external_datasource),
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface

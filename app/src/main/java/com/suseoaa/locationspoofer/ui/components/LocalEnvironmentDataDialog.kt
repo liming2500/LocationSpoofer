@@ -95,13 +95,13 @@ fun LocalEnvironmentDataDialog(
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "本地采集数据源",
+                                text = stringResource(R.string.local_collected_datasource),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = if (dataList.isEmpty()) "暂无采集点" else "共 ${dataList.size} 个本地采集点位",
+                                text = if (dataList.isEmpty()) stringResource(R.string.no_local_env_data) else stringResource(R.string.local_collected_points_format, dataList.size),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                             )
@@ -158,7 +158,7 @@ fun LocalEnvironmentDataDialog(
                                 decorationBox = { innerTextField ->
                                     if (searchQuery.isEmpty()) {
                                         Text(
-                                            "搜索备注、地点或经纬度坐标...",
+                                            stringResource(R.string.search_remark_coord_hint),
                                             fontSize = 13.5.sp,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                                         )
@@ -215,14 +215,14 @@ fun LocalEnvironmentDataDialog(
                         )
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            text = "暂无本地采集数据",
+                            text = stringResource(R.string.no_local_env_data),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "可在「功能」页开启扫街采集，或直接导入环境数据文件",
+                            text = stringResource(R.string.scan_or_import_hint),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -236,7 +236,7 @@ fun LocalEnvironmentDataDialog(
                         ) {
                             Icon(Icons.Rounded.FolderOpen, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("导入外部数据 (JSON)", fontSize = 13.sp)
+                            Text(stringResource(R.string.import_external_data_json), fontSize = 13.sp)
                         }
                     }
                 } else if (filteredList.isEmpty()) {
@@ -247,7 +247,7 @@ fun LocalEnvironmentDataDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "未找到匹配的采集点",
+                            text = stringResource(R.string.no_matching_collected_points),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
@@ -291,7 +291,7 @@ fun LocalEnvironmentDataDialog(
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                "导入数据源 (JSON)",
+                                stringResource(R.string.import_external_data_json),
                                 fontSize = 12.5.sp,
                                 color = AccentBlue,
                                 fontWeight = FontWeight.Medium
@@ -399,10 +399,10 @@ private fun LocalDataItem(
                         SignalTag("Wi-Fi ${item.wifis.size}")
                     }
                     if (item.cells.isNotEmpty()) {
-                        SignalTag("基站 ${item.cells.size}")
+                        SignalTag(stringResource(R.string.cells_count_label, item.cells.size))
                     }
                     if (item.bluetooths.isNotEmpty()) {
-                        SignalTag("蓝牙 ${item.bluetooths.size}")
+                        SignalTag(stringResource(R.string.bluetooth_count_label, item.bluetooths.size))
                     }
                 }
 

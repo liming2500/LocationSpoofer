@@ -7,6 +7,7 @@ import com.amap.api.location.AMapLocationClient
 import com.amap.api.location.AMapLocationClientOption
 import com.google.android.gms.location.LocationServices
 import com.suseoaa.locationspoofer.LocationApp
+import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.db.EnvironmentDao
 import com.suseoaa.locationspoofer.data.db.LocationRecord
 import com.suseoaa.locationspoofer.data.model.AppState
@@ -295,20 +296,21 @@ class MainViewModel(
         return clusters.map { cluster ->
             val tags = mutableListOf<String>()
             if (cluster.hasWifi) tags.add("Wi-Fi")
-            if (cluster.hasBluetooth) tags.add("蓝牙")
-            if (cluster.hasCell) tags.add("基站")
+            if (cluster.hasBluetooth) tags.add(context.getString(R.string.tag_bluetooth))
+            if (cluster.hasCell) tags.add(context.getString(R.string.tag_cell))
 
             val tagStr = if (tags.isNotEmpty()) " [${tags.joinToString(", ")}]" else ""
 
             val baseTitle = when {
                 cluster.center.remark.isNotEmpty() -> cluster.center.remark
                 cluster.center.placeName.isNotEmpty() -> cluster.center.placeName
-                else -> "本地采集热点"
+                else -> context.getString(R.string.local_collected_hotspot)
             }
 
+            val recordsSnippet = context.getString(R.string.contains_records_format, cluster.count)
             com.suseoaa.locationspoofer.ui.screen.AppPoiItem(
                 title = "$baseTitle$tagStr",
-                snippet = "包含 ${cluster.count} 条记录 (${
+                snippet = "$recordsSnippet (${
                     String.format(
                         "%.4f",
                         cluster.center.lat
@@ -862,10 +864,11 @@ class MainViewModel(
                     val newestLocation = environmentDao.getAllLocations()
                         .firstOrNull { it.lat == lat && it.lng == lng }
                     if (newestLocation != null) {
+                        val latLngPrefix = context.getString(R.string.lat_lng_format_prefix)
                         environmentDao.updateMetadata(
                             newestLocation.id,
-                            "WiGLE 导入",
-                            "经纬度: (${String.format("%.6f", lat)}, ${
+                            context.getString(R.string.wigle_import),
+                            "$latLngPrefix (${String.format("%.6f", lat)}, ${
                                 String.format(
                                     "%.6f",
                                     lng
@@ -932,10 +935,11 @@ class MainViewModel(
                     val newestLocation = environmentDao.getAllLocations()
                         .firstOrNull { it.lat == lat && it.lng == lng }
                     if (newestLocation != null) {
+                        val latLngPrefix = context.getString(R.string.lat_lng_format_prefix)
                         environmentDao.updateMetadata(
                             newestLocation.id,
-                            "OpenCellID 导入",
-                            "经纬度: (${String.format("%.6f", lat)}, ${
+                            context.getString(R.string.opencellid_import),
+                            "$latLngPrefix (${String.format("%.6f", lat)}, ${
                                 String.format(
                                     "%.6f",
                                     lng
@@ -1385,7 +1389,7 @@ class MainViewModel(
                         _uiState.update { it.copy(isFetchingRoute = false) }
                         android.widget.Toast.makeText(
                             context,
-                            "路线规划失败或部分失败，使用直线模拟",
+                            context.getString(R.string.route_plan_failed_fallback_straight),
                             android.widget.Toast.LENGTH_SHORT
                         ).show()
                         startSimulationWithPoints(points, state)
@@ -1395,16 +1399,15 @@ class MainViewModel(
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(isFetchingRoute = false) }
-                    var msg = "路线请求异常: ${e.message}"
+                    var msg = context.getString(R.string.route_request_exception, e.message ?: "")
                     if (e is com.amap.api.services.core.AMapException) {
                         val errCode = e.errorCode
                         val errMsg = e.errorMessage ?: ""
-                        msg = "高德API异常(码:$errCode): $errMsg"
+                        msg = context.getString(R.string.amap_api_exception_format, errCode, errMsg)
                         if (errCode == 10003 || errCode == 10012 || errCode == 10013 || errCode == 1800 || errCode == 18000 ||
                             errMsg.contains("额度") || errMsg.contains("limit", ignoreCase = true)
                         ) {
-                            msg =
-                                "高德API调用失败(可能是额度耗尽)，将退回直线模拟！\n错误详情: $errMsg"
+                            msg = context.getString(R.string.amap_quota_exhausted_fallback_format, errMsg)
                         }
                     }
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG)

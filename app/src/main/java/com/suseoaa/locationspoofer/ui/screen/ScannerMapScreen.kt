@@ -246,7 +246,7 @@ fun ScannerMapScreen(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Layers,
-                    contentDescription = "地图图层",
+                    contentDescription = stringResource(R.string.map_layers),
                     tint = AccentGreen,
                     modifier = Modifier.size(20.dp)
                 )

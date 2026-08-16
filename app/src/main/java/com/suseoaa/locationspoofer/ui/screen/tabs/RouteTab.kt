@@ -111,7 +111,7 @@ fun RouteTab(
                 searchResults = results
                 showSearchResults = results.isNotEmpty()
                 if (results.isEmpty()) {
-                    Toast.makeText(context, "未找到匹配的本地数据", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.no_matching_local_data), Toast.LENGTH_SHORT).show()
                 }
             }
         } else if (searchQuery.isNotBlank()) {
@@ -124,7 +124,7 @@ fun RouteTab(
                 searchResults = r
                 showSearchResults = r.isNotEmpty()
                 if (r.isEmpty()) {
-                    Toast.makeText(context, "未找到搜索结果", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.no_search_results), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -181,9 +181,11 @@ fun RouteTab(
             if (uiState.useRealRoute && uiState.routePlanStage == RoutePlanStage.RUNNING && type == MarkerType.DEFAULT) {
                 return@forEachIndexed
             }
+            val startBadge = context.getString(R.string.route_start_badge)
+            val endBadge = context.getString(R.string.route_end_badge)
             val label = when (type) {
-                MarkerType.GREEN -> "起"
-                MarkerType.RED -> "终"
+                MarkerType.GREEN -> startBadge
+                MarkerType.RED -> endBadge
                 else -> "$idx"
             }
             map.addMarker(
@@ -391,7 +393,7 @@ fun RouteTab(
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             Text(
-                                                "撤销",
+                                                stringResource(R.string.undo),
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Medium,
                                                 color = AccentBlue
@@ -580,7 +582,7 @@ fun RouteTab(
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentBlue)
                     Text(
-                        "正在规划路线轨迹...",
+                        stringResource(R.string.planning_route_trajectory),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
@@ -638,13 +640,13 @@ fun RouteTab(
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
-                                "收藏当前路线",
+                                stringResource(R.string.bookmark_current_route),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "已选 ${routePoints.size} 个路点节点",
+                                stringResource(R.string.selected_waypoints_count, routePoints.size),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
@@ -745,7 +747,7 @@ fun RouteTab(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    if (uiState.savedRoutes.isEmpty()) "暂无保存路线" else "共 ${uiState.savedRoutes.size} 条已存路线",
+                                    if (uiState.savedRoutes.isEmpty()) stringResource(R.string.no_saved_routes) else stringResource(R.string.total_saved_routes, uiState.savedRoutes.size),
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                 )
@@ -788,7 +790,7 @@ fun RouteTab(
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "添加路点后点击「收藏」即可保存规划路线",
+                                stringResource(R.string.add_points_save_hint),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                             )
@@ -831,7 +833,7 @@ fun RouteTab(
                                         showSavedRoutesDialog = false
                                         Toast.makeText(
                                             context,
-                                            "已加载路线「${route.name}」",
+                                            context.getString(R.string.loaded_route, route.name),
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     },
@@ -1002,7 +1004,7 @@ private fun RouteBottomPanel(
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        if (routePoints.isEmpty()) "添加起始点" else "添加第 ${routePoints.size + 1} 点",
+                                        if (routePoints.isEmpty()) stringResource(R.string.add_start_point) else stringResource(R.string.add_nth_point, routePoints.size + 1),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp
                                     )
@@ -1030,7 +1032,7 @@ private fun RouteBottomPanel(
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        "完成选点",
+                                        stringResource(R.string.finish_selecting),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp
                                     )
@@ -1059,7 +1061,7 @@ private fun RouteBottomPanel(
                                     )
                                     Spacer(Modifier.width(3.dp))
                                     Text(
-                                        "重选",
+                                        stringResource(R.string.reselect),
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 13.5.sp,
                                         maxLines = 1
@@ -1081,7 +1083,7 @@ private fun RouteBottomPanel(
                                     )
                                     Spacer(Modifier.width(3.dp))
                                     Text(
-                                        "收藏",
+                                        stringResource(R.string.bookmark),
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 13.5.sp,
                                         maxLines = 1
@@ -1104,7 +1106,7 @@ private fun RouteBottomPanel(
                                     )
                                     Spacer(Modifier.width(5.dp))
                                     Text(
-                                        "开始模拟",
+                                        stringResource(R.string.start_simulation),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp,
                                         maxLines = 1
@@ -1131,7 +1133,7 @@ private fun RouteBottomPanel(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = if (uiState.routeRunMode == RouteRunMode.MANUAL) "手柄操控中" else "巡航中 (${uiState.routeSimMode.speedMs.toInt()} m/s)",
+                                        text = if (uiState.routeRunMode == RouteRunMode.MANUAL) stringResource(R.string.joystick_controlling_active) else stringResource(R.string.cruising_speed_format, uiState.routeSimMode.speedMs.toInt()),
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -1154,7 +1156,7 @@ private fun RouteBottomPanel(
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        "停止模拟",
+                                        stringResource(R.string.stop_simulation),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.5.sp
                                     )
@@ -1208,7 +1210,7 @@ private fun MiuixRouteConfigDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        "路线模拟设置",
+                        stringResource(R.string.route_sim_settings),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -1219,7 +1221,7 @@ private fun MiuixRouteConfigDialog(
                     ) {
                         Icon(
                             Icons.Rounded.Close,
-                            contentDescription = "关闭",
+                            contentDescription = stringResource(R.string.close),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier.size(20.dp)
                         )
@@ -1229,7 +1231,7 @@ private fun MiuixRouteConfigDialog(
                 // 运行模式选择 (手动 / 循环)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "运行模式",
+                        stringResource(R.string.run_mode),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -1239,16 +1241,16 @@ private fun MiuixRouteConfigDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         MiuixSelectionCard(
-                            title = "循环自动巡航",
-                            subtitle = "沿路线自动移动",
+                            title = stringResource(R.string.loop_auto_cruise),
+                            subtitle = stringResource(R.string.loop_auto_cruise_desc),
                             icon = Icons.Rounded.Autorenew,
                             isSelected = uiState.routeRunMode == RouteRunMode.LOOP,
                             onClick = { onRunModeChange(RouteRunMode.LOOP) },
                             modifier = Modifier.weight(1f)
                         )
                         MiuixSelectionCard(
-                            title = "摇杆手动控制",
-                            subtitle = "摇杆引导沿路线",
+                            title = stringResource(R.string.joystick_manual_control),
+                            subtitle = stringResource(R.string.joystick_manual_control_desc),
                             icon = Icons.Rounded.SportsEsports,
                             isSelected = uiState.routeRunMode == RouteRunMode.MANUAL,
                             onClick = { onRunModeChange(RouteRunMode.MANUAL) },
@@ -1260,7 +1262,7 @@ private fun MiuixRouteConfigDialog(
                 // 速度选择
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "巡航速度",
+                        stringResource(R.string.cruise_speed),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -1270,13 +1272,13 @@ private fun MiuixRouteConfigDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            Triple(SimMode.WALKING, "步行", "1.4m/s"),
-                            Triple(SimMode.RUNNING, "跑步", "3.0m/s"),
-                            Triple(SimMode.CYCLING, "骑行", "5.5m/s"),
-                            Triple(SimMode.DRIVING, "驾车", "15m/s"),
+                            Triple(SimMode.WALKING, stringResource(R.string.walking), "1.4m/s"),
+                            Triple(SimMode.RUNNING, stringResource(R.string.running), "3.0m/s"),
+                            Triple(SimMode.CYCLING, stringResource(R.string.cycling), "5.5m/s"),
+                            Triple(SimMode.DRIVING, stringResource(R.string.driving), "15m/s"),
                             Triple(
                                 SimMode.CUSTOM,
-                                "自定义",
+                                stringResource(R.string.custom),
                                 "${
                                     String.format(
                                         java.util.Locale.US,
@@ -1355,13 +1357,13 @@ private fun MiuixRouteConfigDialog(
                                 ) {
                                     Column {
                                         Text(
-                                            "自定义速度",
+                                            stringResource(R.string.custom_speed),
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            "配速: $paceStr",
+                                            stringResource(R.string.pace_format, paceStr),
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                         )
@@ -1455,13 +1457,13 @@ private fun MiuixRouteConfigDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "步频与计步模拟",
+                                    stringResource(R.string.step_cadence_simulation),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "为运动软件注入实时计步与生理步频数据",
+                                    stringResource(R.string.step_cadence_simulation_desc),
                                     fontSize = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                                 )
@@ -1496,7 +1498,7 @@ private fun MiuixRouteConfigDialog(
                                         .clickable { onIsAutoCadenceChange(true) }
                                 ) {
                                     Text(
-                                        "智能自适应步频",
+                                        stringResource(R.string.smart_adaptive_cadence),
                                         fontSize = 12.sp,
                                         fontWeight = if (uiState.isAutoCadence) FontWeight.Bold else FontWeight.Normal,
                                         color = if (uiState.isAutoCadence) AccentBlue else MaterialTheme.colorScheme.onSurface,
@@ -1519,7 +1521,7 @@ private fun MiuixRouteConfigDialog(
                                         .clickable { onIsAutoCadenceChange(false) }
                                 ) {
                                     Text(
-                                        "自定义固定步频",
+                                        stringResource(R.string.custom_fixed_cadence),
                                         fontSize = 12.sp,
                                         fontWeight = if (!uiState.isAutoCadence) FontWeight.Bold else FontWeight.Normal,
                                         color = if (!uiState.isAutoCadence) AccentBlue else MaterialTheme.colorScheme.onSurface,
@@ -1545,7 +1547,7 @@ private fun MiuixRouteConfigDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            "设定步频",
+                                            stringResource(R.string.set_cadence),
                                             fontSize = 12.sp,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                         )
@@ -1579,7 +1581,7 @@ private fun MiuixRouteConfigDialog(
                                 }
                             } else {
                                 Text(
-                                    "步频将根据移动速度实时动态智能匹配（90~200 SPM）",
+                                    stringResource(R.string.smart_cadence_hint),
                                     fontSize = 11.sp,
                                     color = AccentBlue.copy(alpha = 0.85f),
                                     modifier = Modifier.padding(horizontal = 2.dp)
@@ -1604,13 +1606,13 @@ private fun MiuixRouteConfigDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "到达终点后停下",
+                                stringResource(R.string.stop_at_destination_title),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                if (uiState.stopAtDestination) "到达终点后停止模拟并停留在终点" else "到达终点后自动循环巡航（闭环正向，开放折返）",
+                                if (uiState.stopAtDestination) stringResource(R.string.stop_at_destination_desc_on) else stringResource(R.string.stop_at_destination_desc_off),
                                 fontSize = 11.5.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                             )
@@ -1641,13 +1643,13 @@ private fun MiuixRouteConfigDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "真实道路匹配",
+                                stringResource(R.string.real_road_matching),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "自动计算并贴合城市真实行车道路",
+                                stringResource(R.string.real_road_matching_desc),
                                 fontSize = 11.5.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                             )
@@ -1674,7 +1676,7 @@ private fun MiuixRouteConfigDialog(
                 ) {
                     Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("开始路线模拟", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.start_route_simulation), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -235,7 +235,7 @@ fun ActionButtons(
                     strokeWidth = 2.dp
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("启动中...", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.starting_ellipsis), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             } else {
                 Icon(Icons.Rounded.MyLocation, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
@@ -314,7 +314,7 @@ fun UpdateCheckCard(
                 Spacer(Modifier.height(2.dp))
                 if (hasNewVersion && cleanNewVersion != null) {
                     Text(
-                        text = "发现新版本 v$cleanNewVersion 可用",
+                        text = stringResource(R.string.new_version_available_badge, cleanNewVersion),
                         color = Color(0xFFE53935),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium

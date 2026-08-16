@@ -112,13 +112,13 @@ fun SettingsScreen(
 
                 Column {
                     Text(
-                        text = "软件配置",
+                        text = stringResource(R.string.software_config),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "界面语言、地图引擎与数据源配置",
+                        text = stringResource(R.string.settings_subtitle),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                     )
@@ -166,7 +166,7 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "切换应用界面显示语言",
+                                    text = stringResource(R.string.switch_language_desc),
                                     fontSize = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )
@@ -257,7 +257,7 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "选择地图渲染引擎及自定义 Key",
+                                    text = stringResource(R.string.map_engine_and_keys),
                                     fontSize = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )
@@ -268,7 +268,7 @@ fun SettingsScreen(
 
                         // 地图引擎 4 分段选择器
                         Text(
-                            text = "当前引擎",
+                            text = stringResource(R.string.current_engine),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -279,10 +279,10 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             val engines = listOf(
-                                MapEngine.AUTO to "自动",
-                                MapEngine.AMAP to "高德",
-                                MapEngine.BAIDU to "百度",
-                                MapEngine.GOOGLE to "谷歌"
+                                MapEngine.AUTO to stringResource(R.string.engine_auto_short),
+                                MapEngine.AMAP to stringResource(R.string.engine_amap_short),
+                                MapEngine.BAIDU to stringResource(R.string.engine_baidu_short),
+                                MapEngine.GOOGLE to stringResource(R.string.engine_google_short)
                             )
                             engines.forEach { (engine, label) ->
                                 val isSelected = uiState.mapEngine == engine
@@ -377,13 +377,13 @@ fun SettingsScreen(
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "运行环境与签名",
+                                    text = stringResource(R.string.env_and_signature),
                                     fontSize = 15.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "用于第三方地图开放平台 API Key 申请绑定",
+                                    text = stringResource(R.string.api_key_binding_desc),
                                     fontSize = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )
@@ -417,7 +417,7 @@ fun SettingsScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "应用包名 (Package Name)",
+                                        text = stringResource(R.string.app_package_name),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -435,7 +435,7 @@ fun SettingsScreen(
 
                                 Icon(
                                     Icons.Outlined.ContentCopy,
-                                    contentDescription = "复制",
+                                    contentDescription = stringResource(R.string.copy),
                                     tint = AccentBlue,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -465,14 +465,14 @@ fun SettingsScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "应用签名 (SHA1 证书指纹)",
+                                        text = stringResource(R.string.app_sha1),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                     )
                                     Spacer(Modifier.height(2.dp))
                                     Text(
-                                        text = uiState.appSha1.ifBlank { "正在读取签名..." },
+                                        text = uiState.appSha1.ifBlank { stringResource(R.string.reading_signature) },
                                         fontSize = 12.5.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -483,7 +483,7 @@ fun SettingsScreen(
 
                                 Icon(
                                     Icons.Outlined.ContentCopy,
-                                    contentDescription = "复制",
+                                    contentDescription = stringResource(R.string.copy),
                                     tint = AccentBlue,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -515,13 +515,13 @@ fun SettingsScreen(
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "后台持续模拟与保活",
+                                    text = stringResource(R.string.background_keep_alive_title),
                                     fontSize = 15.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "保障切后台、锁屏、非小窗状态下持续模拟",
+                                    text = stringResource(R.string.background_keep_alive_desc),
                                     fontSize = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )
@@ -559,7 +559,7 @@ fun SettingsScreen(
                                                 } catch (e: Exception) {
                                                     Toast.makeText(
                                                         context,
-                                                        "打开电池优化页面失败: ${e.message}",
+                                                        context.getString(R.string.open_battery_opt_failed, e.message ?: ""),
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 }
@@ -572,14 +572,14 @@ fun SettingsScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "开启无限制后台运行 (忽略电池优化)",
+                                        text = stringResource(R.string.ignore_battery_optimizations_title),
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Spacer(Modifier.height(2.dp))
                                     Text(
-                                        text = "防止系统在切到其他应用或锁屏时冻结模拟进程",
+                                        text = stringResource(R.string.ignore_battery_optimizations_desc),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                     )
@@ -587,7 +587,7 @@ fun SettingsScreen(
 
                                 Icon(
                                     Icons.Rounded.ChevronRight,
-                                    contentDescription = "前往设置",
+                                    contentDescription = stringResource(R.string.go_to_settings),
                                     tint = AccentOrange,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -615,7 +615,7 @@ fun SettingsScreen(
                                         } catch (e: Exception) {
                                             Toast.makeText(
                                                 context,
-                                                "打开应用信息失败: ${e.message}",
+                                                context.getString(R.string.open_app_info_failed, e.message ?: ""),
                                                 Toast.LENGTH_SHORT
                                             ).show()
                                         }
@@ -626,14 +626,14 @@ fun SettingsScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "前往系统应用设置 (权限与自启动)",
+                                        text = stringResource(R.string.app_info_settings_title),
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Spacer(Modifier.height(2.dp))
                                     Text(
-                                        text = "建议开启「自启动」并将省电策略设为「无限制」",
+                                        text = stringResource(R.string.app_info_settings_desc),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                     )
@@ -641,7 +641,7 @@ fun SettingsScreen(
 
                                 Icon(
                                     Icons.Rounded.ChevronRight,
-                                    contentDescription = "前往设置",
+                                    contentDescription = stringResource(R.string.go_to_settings),
                                     tint = AccentOrange,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -673,13 +673,13 @@ fun SettingsScreen(
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "环境数据源 Token",
+                                    text = stringResource(R.string.env_datasource_tokens_title),
                                     fontSize = 15.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "用于在线检索周边基站与 Wi-Fi 信号",
+                                    text = stringResource(R.string.env_datasource_tokens_desc),
                                     fontSize = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )

@@ -165,7 +165,7 @@ class SpoofingService : Service() {
                 getString(R.string.spoofing_service_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "模拟定位后台保活通知"
+                description = getString(R.string.spoofing_bg_notification_title)
                 setShowBadge(false)
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)

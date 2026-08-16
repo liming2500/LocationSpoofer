@@ -18,8 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.ui.screen.AppCoordinateConfigCard
 import com.suseoaa.locationspoofer.ui.screen.FooterLinks
@@ -47,7 +49,7 @@ fun FeaturesTab(
     ) { uri ->
         uri?.let {
             viewModel.exportEnvironmentData(it)
-            Toast.makeText(context, "导出成功", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.export_success), Toast.LENGTH_SHORT).show()
         }
     }
     val importLauncher = rememberLauncherForActivityResult(
@@ -55,7 +57,7 @@ fun FeaturesTab(
     ) { uri ->
         uri?.let {
             viewModel.importEnvironmentData(it) {
-                Toast.makeText(context, "导入合并成功", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.import_merge_success), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -84,13 +86,13 @@ fun FeaturesTab(
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "功能",
+                        text = stringResource(R.string.features_tab_title),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "管理工具与本地环境数据",
+                        text = stringResource(R.string.features_tab_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )

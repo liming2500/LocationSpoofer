@@ -21,9 +21,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.suseoaa.locationspoofer.BuildConfig
+import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.ui.components.AppMapController
 import com.suseoaa.locationspoofer.ui.components.AppMapView
@@ -37,11 +39,21 @@ import org.koin.androidx.compose.koinViewModel
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
-enum class BottomTab(val label: String, val icon: ImageVector) {
-    Location("定位", Icons.Rounded.MyLocation),
-    Route("路线", Icons.Rounded.Route),
-    Features("功能", Icons.Rounded.Extension),
-    Info("信息", Icons.Rounded.Settings)
+enum class BottomTab(val icon: ImageVector) {
+    Location(Icons.Rounded.MyLocation),
+    Route(Icons.Rounded.Route),
+    Features(Icons.Rounded.Extension),
+    Info(Icons.Rounded.Settings);
+
+    @Composable
+    fun getLabel(): String {
+        return when (this) {
+            Location -> stringResource(R.string.tab_location)
+            Route -> stringResource(R.string.tab_route)
+            Features -> stringResource(R.string.tab_features)
+            Info -> stringResource(R.string.tab_info)
+        }
+    }
 }
 
 enum class MainSubScreen {
@@ -148,16 +160,17 @@ fun MainScaffoldScreen(
                                     modifier = Modifier.defaultMinSize(minWidth = 76.dp),
                                     onClick = { selectPage(index) }
                                 ) {
+                                    val label = tab.getLabel()
                                     Icon(
                                         imageVector = tab.icon,
-                                        contentDescription = tab.label,
+                                        contentDescription = label,
                                         tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(
                                             alpha = if (isDark) 0.65f else 0.70f
                                         ),
                                         modifier = Modifier.size(22.dp)
                                     )
                                     Text(
-                                        text = tab.label,
+                                        text = label,
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                         color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(

@@ -62,18 +62,23 @@ fun InfoTab(
     }
 
     // 获取当前生效的语言名称
+    val defaultLangText = stringResource(R.string.default_language)
     val savedLangCode = viewModel.getSavedLanguage()
-    val currentLangName = remember(savedLangCode) {
-        LANGUAGES.firstOrNull { it.code == savedLangCode }?.nativeName ?: "默认语言"
+    val currentLangName = remember(savedLangCode, defaultLangText) {
+        LANGUAGES.firstOrNull { it.code == savedLangCode }?.nativeName ?: defaultLangText
     }
 
     // 获取当前地图引擎名称
-    val currentEngineName = remember(uiState.mapEngine) {
+    val autoText = stringResource(R.string.map_engine_auto)
+    val amapText = stringResource(R.string.map_engine_amap)
+    val baiduText = stringResource(R.string.map_engine_baidu)
+    val googleText = stringResource(R.string.map_engine_google)
+    val currentEngineName = remember(uiState.mapEngine, autoText, amapText, baiduText, googleText) {
         when (uiState.mapEngine) {
-            MapEngine.AUTO -> "自动选择"
-            MapEngine.AMAP -> "高德地图"
-            MapEngine.BAIDU -> "百度地图"
-            MapEngine.GOOGLE -> "谷歌地图"
+            MapEngine.AUTO -> autoText
+            MapEngine.AMAP -> amapText
+            MapEngine.BAIDU -> baiduText
+            MapEngine.GOOGLE -> googleText
         }
     }
 
@@ -141,7 +146,7 @@ fun InfoTab(
 
                     // 软件简介介绍
                     Text(
-                        text = "这是一个模拟定位软件，仅此而已",
+                        text = stringResource(R.string.app_slogan),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
                         textAlign = TextAlign.Center,
@@ -192,14 +197,14 @@ fun InfoTab(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "软件配置",
+                                text = stringResource(R.string.software_config_title),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(3.dp))
                             Text(
-                                text = "语言设置、地图引擎与数据源",
+                                text = stringResource(R.string.software_config_desc),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )

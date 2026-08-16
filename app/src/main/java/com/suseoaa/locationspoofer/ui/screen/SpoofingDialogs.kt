@@ -105,7 +105,7 @@ fun SavedLocationsDialog(
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = if (savedLocations.isEmpty()) "暂无收藏" else "已收藏 ${savedLocations.size} 个常用坐标点",
+                                text = if (savedLocations.isEmpty()) stringResource(R.string.no_saved_locations) else stringResource(R.string.saved_locations_count_format, savedLocations.size),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                             )
@@ -148,7 +148,7 @@ fun SavedLocationsDialog(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "在地图选点后点击「收藏」按钮即可快速保存常用地点",
+                            text = stringResource(R.string.map_save_location_hint),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -579,7 +579,7 @@ fun StartSpoofingDialog(
                     androidx.compose.material3.OutlinedTextField(
                         value = uiState.altitudeInput,
                         onValueChange = onAltitudeChange,
-                        label = { Text("海拔 (米)", fontSize = 12.sp) },
+                        label = { Text(stringResource(R.string.altitude_meter), fontSize = 12.sp) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -593,7 +593,7 @@ fun StartSpoofingDialog(
                     androidx.compose.material3.OutlinedTextField(
                         value = uiState.satelliteCountInput,
                         onValueChange = onSatelliteCountChange,
-                        label = { Text("卫星数", fontSize = 12.sp) },
+                        label = { Text(stringResource(R.string.satellite_count), fontSize = 12.sp) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(

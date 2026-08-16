@@ -136,7 +136,7 @@ fun ManageDataScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "共 ${dataList.size} 条采集数据",
+                        text = stringResource(R.string.total_collected_data_count, dataList.size),
                         fontSize = 12.5.sp,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
                     )
@@ -187,7 +187,7 @@ fun ManageDataScreen(
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "在定位或路线页面采集的数据将收录在此处统一管理",
+                            text = stringResource(R.string.manage_data_empty_desc),
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )
@@ -240,7 +240,7 @@ fun ManageDataScreen(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = "${dataList.size} 个点位已绘制",
+                                text = stringResource(R.string.points_drawn_count, dataList.size),
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -388,7 +388,7 @@ fun ManageDataScreen(
                             )
                         }
                         Text(
-                            text = "删除采集数据",
+                            text = stringResource(R.string.delete_data_title),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -396,7 +396,7 @@ fun ManageDataScreen(
                     }
 
                     Text(
-                        text = "确定要删除「$displayName」吗？删除后该位置及其附带的基站/Wi-Fi/蓝牙特征将无法恢复。",
+                        text = stringResource(R.string.delete_data_confirm_format, displayName),
                         fontSize = 13.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         lineHeight = 20.sp
@@ -483,11 +483,12 @@ private fun SwipeableDataListItem(
     val hasPlaceName = item.location.placeName.isNotBlank()
     val hasRemark = item.location.remark.isNotBlank()
 
+    val defaultRecordTitle = stringResource(R.string.coord_record_title)
     // 优先显示地名或备注为卡片的主标题
     val primaryTitle = when {
         hasPlaceName -> item.location.placeName
         hasRemark -> item.location.remark
-        else -> "坐标记录"
+        else -> defaultRecordTitle
     }
 
     val subtitle = when {
@@ -536,12 +537,12 @@ private fun SwipeableDataListItem(
                 ) {
                     Icon(
                         Icons.Rounded.Edit,
-                        contentDescription = "编辑",
+                        contentDescription = stringResource(R.string.edit),
                         tint = Color.White,
                         modifier = Modifier.size(19.dp)
                     )
                     Text(
-                        text = "编辑",
+                        text = stringResource(R.string.edit),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -576,12 +577,12 @@ private fun SwipeableDataListItem(
                 ) {
                     Icon(
                         Icons.Rounded.DeleteOutline,
-                        contentDescription = "删除",
+                        contentDescription = stringResource(R.string.delete),
                         tint = Color.White,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "删除",
+                        text = stringResource(R.string.delete),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -707,7 +708,7 @@ private fun SwipeableDataListItem(
                         ((1f - abs(offsetX.value) / maxRevealWidthPx) * 0.4f).coerceIn(0f, 0.4f)
                     Icon(
                         imageVector = Icons.Rounded.ChevronLeft,
-                        contentDescription = "向左滑动",
+                        contentDescription = stringResource(R.string.slide_left_hint),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = chevronAlpha),
                         modifier = Modifier
                             .padding(start = 6.dp)
@@ -855,14 +856,14 @@ private fun ModernEditDataDialog(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "编辑位置数据",
+                            text = stringResource(R.string.edit_location_data),
                             fontSize = 17.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "采集时间: $timeStr",
+                            text = stringResource(R.string.collection_time_format, timeStr),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
@@ -882,7 +883,7 @@ private fun ModernEditDataDialog(
                     ) {
                         Icon(
                             Icons.Rounded.Close,
-                            contentDescription = "关闭",
+                            contentDescription = stringResource(R.string.close),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             modifier = Modifier.size(15.dp)
                         )
@@ -941,7 +942,7 @@ private fun ModernEditDataDialog(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                             )
                             Text(
-                                text = "${item.cells.size} 基站",
+                                text = stringResource(R.string.cells_count_badge, item.cells.size),
                                 fontSize = 11.sp,
                                 color = AccentOrange,
                                 fontWeight = FontWeight.SemiBold
@@ -993,7 +994,7 @@ private fun ModernEditDataDialog(
                             decorationBox = { innerTextField ->
                                 if (placeName.isEmpty()) {
                                     Text(
-                                        text = "设置位置名称（如：教学楼、宿舍等）",
+                                        text = stringResource(R.string.set_place_name_hint),
                                         fontSize = 13.5.sp,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                     )
@@ -1052,7 +1053,7 @@ private fun ModernEditDataDialog(
                             decorationBox = { innerTextField ->
                                 if (remark.isEmpty()) {
                                     Text(
-                                        text = "添加自定义备注说明...",
+                                        text = stringResource(R.string.add_remark_hint),
                                         fontSize = 13.5.sp,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                     )
@@ -1100,7 +1101,7 @@ private fun ModernEditDataDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "取消",
+                            text = stringResource(R.string.cancel),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
@@ -1116,7 +1117,7 @@ private fun ModernEditDataDialog(
                             .height(44.dp)
                     ) {
                         Text(
-                            text = "保存更改",
+                            text = stringResource(R.string.save_changes),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )

@@ -110,7 +110,7 @@ fun LocationTab(
         uri?.let {
             viewModel.importEnvironmentData(it) {
                 viewModel.loadManageData()
-                Toast.makeText(context, "数据源导入合并成功", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.import_merge_success), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -412,7 +412,7 @@ fun LocationTab(
                 }
                 Toast.makeText(
                     context,
-                    "已定位至「$label」",
+                    context.getString(R.string.located_to_location, label),
                     Toast.LENGTH_SHORT
                 ).show()
             },
@@ -433,7 +433,7 @@ fun LocationTab(
                 onIntent(SpoofingIntent.SetSavedLocationsVisible(false))
                 Toast.makeText(
                     context,
-                    "已定位至收藏点「${location.name}」",
+                    context.getString(R.string.located_to_saved_point, location.name),
                     Toast.LENGTH_SHORT
                 ).show()
             },

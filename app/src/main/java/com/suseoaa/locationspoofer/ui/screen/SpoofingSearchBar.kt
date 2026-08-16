@@ -161,7 +161,7 @@ fun HomeSearchBar(
                         Box(modifier = Modifier.weight(1f)) {
                             if (query.isEmpty()) {
                                 Text(
-                                    "搜索地点、建筑或坐标...",
+                                    stringResource(R.string.search_place_building_coord_hint),
                                     fontSize = 15.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                     fontWeight = FontWeight.Normal
@@ -277,13 +277,13 @@ fun performPoiSearch(
                         if (rCode == 10003 || rCode == 10012 || rCode == 10013 || rCode == 10014 || rCode == 1800 || rCode == 18000) {
                             Toast.makeText(
                                 context,
-                                "高德搜索API调用失败(可能是额度耗尽)，请检查控制台或更换Key！",
+                                context.getString(R.string.amap_search_failed_quota),
                                 Toast.LENGTH_LONG
                             ).show()
                         } else if (rCode != 1000) {
                             Toast.makeText(
                                 context,
-                                "高德搜索失败(错误码:$rCode)",
+                                context.getString(R.string.amap_search_failed_code_format, rCode),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -304,7 +304,7 @@ fun performPoiSearch(
             ) {
                 Toast.makeText(
                     context,
-                    "高德搜索异常(可能是额度耗尽)：$msg",
+                    context.getString(R.string.amap_search_exception_format, msg),
                     Toast.LENGTH_LONG
                 ).show()
             }

@@ -49,11 +49,13 @@ fun parseAndCategorizeReleaseNotes(releases: List<GithubRelease>): GroupedReleas
 
     val featureHeaderKeywords = listOf(
         "feature", "feat", "add", "new", "improve", "optimize", "enhancement",
-        "功能", "新增", "特性", "新功能", "优化", "改进", "提速", "增强"
+        "功能", "新增", "特性", "新功能", "优化", "改进", "提速", "增强",
+        "ميزة", "جديد", "تحسين", "ترقية", "إضافة"
     )
     val fixHeaderKeywords = listOf(
         "fix", "bug", "crash", "issue", "solve", "repair",
-        "修复", "解决", "崩溃", "问题", "纠正", "故障"
+        "修复", "解决", "崩溃", "问题", "纠正", "故障",
+        "إصلاح", "حل", "تصحيح", "عطل"
     )
 
     for (release in releases) {
@@ -212,11 +214,11 @@ fun parseMarkdownBlocks(rawText: String): List<MarkdownBlock> {
             val category = when {
                 lower.contains("功能") || lower.contains("feature") || lower.contains("新增") || lower.contains(
                     "优化"
-                ) -> "feature"
+                ) || lower.contains("ميزة") || lower.contains("تحسين") -> "feature"
 
                 lower.contains("修复") || lower.contains("fix") || lower.contains("bug") || lower.contains(
                     "解决"
-                ) -> "fix"
+                ) || lower.contains("إصلاح") || lower.contains("حل") -> "fix"
 
                 else -> "other"
             }
