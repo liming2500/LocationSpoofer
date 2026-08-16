@@ -134,13 +134,12 @@ fun UpdateDialog(
     }
 
     LocalizedDialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        top.yukonga.miuix.kmp.basic.Card(
+            cornerRadius = 18.dp,
+            insideMargin = PaddingValues(20.dp)
         ) {
             Column(
                 modifier = Modifier
-                    .padding(16.dp)
                     .fillMaxWidth()
             ) {
                 Text(
@@ -180,7 +179,7 @@ fun UpdateDialog(
                                         Spacer(Modifier.width(8.dp))
                                         Box(
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
+                                                .clip(RoundedCornerShape(6.dp))
                                                 .background(AccentGreen.copy(alpha = 0.2f))
                                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
@@ -196,7 +195,7 @@ fun UpdateDialog(
                                         Spacer(Modifier.width(8.dp))
                                         Box(
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
+                                                .clip(RoundedCornerShape(6.dp))
                                                 .background(AccentBlue.copy(alpha = 0.2f))
                                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
@@ -227,6 +226,7 @@ fun UpdateDialog(
                                         if (uiState.downloadStatus == android.app.DownloadManager.STATUS_SUCCESSFUL) {
                                             Button(
                                                 onClick = onInstall,
+                                                shape = RoundedCornerShape(12.dp),
                                                 colors = ButtonDefaults.buttonColors(containerColor = AccentGreen)
                                             ) {
                                                 Text(stringResource(R.string.install))
@@ -278,6 +278,7 @@ fun UpdateDialog(
                                                             release.versionName
                                                         )
                                                     },
+                                                    shape = RoundedCornerShape(12.dp),
                                                     colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
                                                 ) {
                                                     Text(
@@ -298,14 +299,14 @@ fun UpdateDialog(
                                                         )
                                                     }
                                                 ) {
-                                                    Text("下载 32位版本")
+                                                    Text("下载 32位版本", color = AccentBlue)
                                                 }
                                             }
                                         }
                                     }
                                 }
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         }
                     }
                 }
@@ -333,7 +334,7 @@ fun UpdateDialog(
                         }
                     }
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.close))
+                        Text(stringResource(R.string.close), color = AccentBlue)
                     }
                 }
             }
@@ -349,13 +350,12 @@ fun SavedLocationsDialog(
     onDelete: (SavedLocation) -> Unit
 ) {
     LocalizedDialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        top.yukonga.miuix.kmp.basic.Card(
+            cornerRadius = 18.dp,
+            insideMargin = PaddingValues(20.dp)
         ) {
             Column(
                 modifier = Modifier
-                    .padding(16.dp)
                     .fillMaxWidth()
             ) {
                 Text(
@@ -403,14 +403,15 @@ fun SavedLocationsDialog(
                                     )
                                 }
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
                     Text(
-                        stringResource(R.string.close)
+                        stringResource(R.string.close),
+                        color = AccentBlue
                     )
                 }
             }

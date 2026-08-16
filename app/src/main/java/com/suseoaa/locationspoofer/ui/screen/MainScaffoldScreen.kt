@@ -1,20 +1,11 @@
 package com.suseoaa.locationspoofer.ui.screen
 
-import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.Extension
@@ -28,26 +19,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.ui.components.AppMapController
 import com.suseoaa.locationspoofer.ui.components.AppMapView
+import com.suseoaa.locationspoofer.ui.liquid.AndroidFloatingBottomBar
+import com.suseoaa.locationspoofer.ui.liquid.FloatingBottomBarItem
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurDefaults
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 
 enum class BottomTab(val label: String, val icon: ImageVector) {
     Location("定位", Icons.Rounded.MyLocation),
@@ -75,11 +59,7 @@ fun MainScaffoldScreen(
     val currentSelectedTab by rememberUpdatedState(selectedTab)
     val isDark = isSystemInDarkTheme()
     
-    val backdrop: LayerBackdrop? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        rememberLayerBackdrop()
-    } else {
-        null
-    }
+    val backdrop = rememberLayerBackdrop()
 
     // 针对非首页 Tab（路线/功能/信息）的系统返回拦截：返回到定位首页
     BackHandler(enabled = currentSubScreen == MainSubScreen.None && selectedTab != BottomTab.Location.ordinal) {
@@ -106,25 +86,49 @@ fun MainScaffoldScreen(
                     enter = fadeIn(tween(180)) + expandVertically(tween(180)),
                     exit = fadeOut(tween(140)) + shrinkVertically(tween(140))
                 ) {
-                    AppBottomNavigationBar(
-                        selectedTab = selectedTab,
-                        onTabSelected = selectPage,
-                        isDark = isDark,
-                        backdrop = backdrop
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(bottom = 14.dp),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        AndroidFloatingBottomBar(
+                            selectedIndex = { selectedTab },
+                            onSelected = selectPage,
+                            backdrop = backdrop,
+                            tabsCount = pageCount
+                        ) {
+                            BottomTab.values().forEachIndexed { index, tab ->
+                                val isSelected = selectedTab == index
+                                FloatingBottomBarItem(
+                                    modifier = Modifier.defaultMinSize(minWidth = 76.dp),
+                                    onClick = { selectPage(index) }
+                                ) {
+                                    Icon(
+                                        imageVector = tab.icon,
+                                        contentDescription = tab.label,
+                                        tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.65f else 0.70f),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Text(
+                                        text = tab.label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.65f else 0.70f),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         ) { paddingValues ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (backdrop != null) {
-                            Modifier.layerBackdrop(backdrop)
-                        } else {
-                            Modifier
-                        }
-                    )
+                    .layerBackdrop(backdrop)
             ) {
                 AppMapView(
                     modifier = Modifier.fillMaxSize(),
@@ -227,152 +231,6 @@ fun MainScaffoldScreen(
                         onClose = { currentSubScreen = MainSubScreen.None }
                     )
                     MainSubScreen.None -> Unit
-                }
-            }
-        }
-    }
-}
-
-/**
- * 现代风格胶囊悬浮底部导航栏（图标 + 文字组合）
- */
-@Composable
-fun AppBottomNavigationBar(
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit,
-    isDark: Boolean,
-    backdrop: LayerBackdrop?
-) {
-    val navigationShape = remember { RoundedCornerShape(26.dp) }
-    
-    val glassModifier = if (backdrop != null) {
-        val glassColors = BlurDefaults.blurColors(
-            blendColors = listOf(
-                BlendColorEntry(
-                    MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.68f else 0.82f)
-                )
-            ),
-            saturation = 1.1f
-        )
-        val glassHighlight = if (isDark) {
-            Highlight.GlassStrokeMiddleDark
-        } else {
-            Highlight.GlassStrokeMiddleLight
-        }
-        Modifier.textureBlur(
-            backdrop = backdrop,
-            shape = navigationShape,
-            blurRadius = 26f,
-            colors = glassColors,
-            highlight = glassHighlight
-        )
-    } else {
-        Modifier
-            .shadow(
-                elevation = 10.dp,
-                shape = navigationShape,
-                spotColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.12f)
-            )
-            .background(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.92f else 0.96f),
-                shape = navigationShape
-            )
-            .border(
-                width = 1.dp,
-                color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
-                shape = navigationShape
-            )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(68.dp)
-                .then(glassModifier),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BottomTab.values().forEachIndexed { index, tab ->
-                val isSelected = selectedTab == index
-                
-                val indicatorWidth by animateDpAsState(
-                    targetValue = if (isSelected) 54.dp else 40.dp,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    ),
-                    label = "tab_indicator_width"
-                )
-                
-                val indicatorColor by animateColorAsState(
-                    targetValue = if (isSelected) {
-                        AccentBlue.copy(alpha = if (isDark) 0.22f else 0.14f)
-                    } else {
-                        Color.Transparent
-                    },
-                    animationSpec = tween(220),
-                    label = "tab_indicator_color"
-                )
-
-                val itemColor by animateColorAsState(
-                    targetValue = if (isSelected) {
-                        AccentBlue
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.55f else 0.60f)
-                    },
-                    animationSpec = tween(220),
-                    label = "tab_item_color"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            onTabSelected(index)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(indicatorWidth)
-                                .height(30.dp)
-                                .clip(RoundedCornerShape(15.dp))
-                                .background(indicatorColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = tab.icon,
-                                contentDescription = tab.label,
-                                tint = itemColor,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = tab.label,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = itemColor,
-                            maxLines = 1
-                        )
-                    }
                 }
             }
         }

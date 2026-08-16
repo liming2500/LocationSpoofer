@@ -1,17 +1,17 @@
 package com.suseoaa.locationspoofer.ui.screen
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
@@ -23,17 +23,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.db.CompleteLocation
+import com.suseoaa.locationspoofer.ui.components.AppMapController
+import com.suseoaa.locationspoofer.ui.components.AppMapView
+import com.suseoaa.locationspoofer.ui.theme.AccentBlue
+import com.suseoaa.locationspoofer.ui.theme.AppColors
+import com.suseoaa.locationspoofer.utils.MapCoverageHelper
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.suseoaa.locationspoofer.ui.components.AppMapView
-import com.suseoaa.locationspoofer.ui.components.AppMapController
-import com.suseoaa.locationspoofer.utils.MapCoverageHelper
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,7 +61,6 @@ fun ManageDataScreen(
     }
 
     var editingItem by remember { mutableStateOf<CompleteLocation?>(null) }
-
     val dataList = uiState.manageDataList
 
     LaunchedEffect(mapController, uiState.mapType) {
@@ -77,13 +79,14 @@ fun ManageDataScreen(
     }
 
     Scaffold(
+        containerColor = AppColors.background(isDark),
         topBar = {
             TopAppBar(
                 title = {
                     if (isSelectionMode) {
-                        Text(stringResource(R.string.selected_items, selectedIds.size))
+                        Text(stringResource(R.string.selected_items, selectedIds.size), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     } else {
-                        Text(stringResource(R.string.title_manage_data))
+                        Text(stringResource(R.string.title_manage_data), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                 },
                 navigationIcon = {
@@ -146,23 +149,23 @@ fun ManageDataScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = com.suseoaa.locationspoofer.ui.theme.AppColors.topBarBackground(
-                        isDark
-                    ),
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
     ) { paddingValues ->
         if (uiState.manageDataIsLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = AccentBlue)
             }
         } else if (dataList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     stringResource(R.string.no_data_collected),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    fontSize = 14.sp
                 )
             }
         } else {
@@ -171,10 +174,12 @@ fun ManageDataScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // Top Map
-                Box(modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.4f)) {
+                // Top Map View
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.38f)
+                ) {
                     AppMapView(
                         mapEngine = uiState.mapEngine,
                         isDomestic = viewModel.isDomesticEnvironment(),
@@ -186,13 +191,13 @@ fun ManageDataScreen(
                     )
                 }
 
-                // Bottom List
+                // Bottom List View
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.6f),
+                        .weight(0.62f),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(dataList, key = { it.location.id }) { item ->
                         val isSelected = selectedIds.contains(item.location.id)
@@ -212,26 +217,9 @@ fun ManageDataScreen(
                                 }
                             },
                             onClick = {
-                                viewModel.updateLatitude(
-                                    String.format(
-                                        Locale.US,
-                                        "%.6f",
-                                        item.location.lat
-                                    )
-                                )
-                                viewModel.updateLongitude(
-                                    String.format(
-                                        Locale.US,
-                                        "%.6f",
-                                        item.location.lng
-                                    )
-                                )
-                                mapController?.animateCamera(
-                                    item.location.lat,
-                                    item.location.lng,
-                                    17f
-                                )
-                                // 可选择关闭屏幕以返回 SpoofingScreen
+                                viewModel.updateLatitude(String.format(Locale.US, "%.6f", item.location.lat))
+                                viewModel.updateLongitude(String.format(Locale.US, "%.6f", item.location.lng))
+                                mapController?.animateCamera(item.location.lat, item.location.lng, 17f)
                             },
                             onDeleteSingle = {
                                 viewModel.deleteManageDataSingle(item.location.id)
@@ -249,152 +237,57 @@ fun ManageDataScreen(
     if (editingItem != null) {
         var placeName by remember { mutableStateOf(editingItem!!.location.placeName) }
         var remark by remember { mutableStateOf(editingItem!!.location.remark) }
-        var selectedWifi by remember { mutableStateOf(editingItem!!.location.selectedWifiBssid) }
-        var selectedBt by remember { mutableStateOf(editingItem!!.location.selectedBluetoothAddress) }
-        var selectedCell by remember { mutableStateOf(editingItem!!.location.selectedCellKey) }
 
         AlertDialog(
             onDismissRequest = { editingItem = null },
-            title = { Text(stringResource(R.string.edit_location_data)) },
+            title = { Text(stringResource(R.string.edit_location_data), fontSize = 18.sp, fontWeight = FontWeight.Bold) },
             text = {
                 Column(
-                    modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     OutlinedTextField(
                         value = placeName,
                         onValueChange = { placeName = it },
                         label = { Text(stringResource(R.string.place_name)) },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue)
                     )
                     OutlinedTextField(
                         value = remark,
                         onValueChange = { remark = it },
                         label = { Text(stringResource(R.string.remark_note)) },
-                        modifier = Modifier.fillMaxWidth()
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentBlue)
                     )
-                    
-                    Text("Select Connected Devices", style = MaterialTheme.typography.titleSmall)
-                    
-                    // Wi-Fi Selection
-                    val wifiOptions = listOf<Pair<String, String?>>("None" to null) + editingItem!!.wifis.map { "${it.device.ssid} (${it.device.bssid})" to it.device.bssid }
-                    var wifiExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = wifiExpanded,
-                        onExpandedChange = { wifiExpanded = !wifiExpanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = wifiOptions.find { it.second == selectedWifi }?.first ?: "None",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Connected Wi-Fi") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = wifiExpanded) },
-                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = wifiExpanded,
-                            onDismissRequest = { wifiExpanded = false }
-                        ) {
-                            wifiOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option.first, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                    onClick = {
-                                        selectedWifi = option.second
-                                        wifiExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // Bluetooth Selection
-                    val btOptions = listOf<Pair<String, String?>>("None" to null) + editingItem!!.bluetooths.map { "${it.device.name} (${it.device.address})" to it.device.address }
-                    var btExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = btExpanded,
-                        onExpandedChange = { btExpanded = !btExpanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = btOptions.find { it.second == selectedBt }?.first ?: "None",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Connected Bluetooth") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = btExpanded) },
-                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = btExpanded,
-                            onDismissRequest = { btExpanded = false }
-                        ) {
-                            btOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option.first, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                    onClick = {
-                                        selectedBt = option.second
-                                        btExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // Cell Selection
-                    val cellOptions = listOf<Pair<String, String?>>("None" to null) + editingItem!!.cells.map { "${it.device.type} (MNC:${it.device.mnc})" to it.device.cellKey }
-                    var cellExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = cellExpanded,
-                        onExpandedChange = { cellExpanded = !cellExpanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = cellOptions.find { it.second == selectedCell }?.first ?: "None",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Registered Cell") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cellExpanded) },
-                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = cellExpanded,
-                            onDismissRequest = { cellExpanded = false }
-                        ) {
-                            cellOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option.first, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                    onClick = {
-                                        selectedCell = option.second
-                                        cellExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.updateManageDataMetadata(
-                        editingItem!!.location.id, 
-                        placeName, 
-                        remark,
-                        selectedWifi,
-                        selectedBt,
-                        selectedCell
-                    )
-                    editingItem = null
-                }) {
+                Button(
+                    onClick = {
+                        val current = editingItem!!
+                        viewModel.updateManageDataMetadata(
+                            current.location.id,
+                            placeName,
+                            remark,
+                            current.location.selectedWifiBssid,
+                            current.location.selectedBluetoothAddress,
+                            current.location.selectedCellKey
+                        )
+                        editingItem = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Text(stringResource(R.string.save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { editingItem = null }) {
-                    Text(stringResource(R.string.cancel))
+                    Text(stringResource(R.string.cancel), color = AccentBlue)
                 }
             }
         )
@@ -403,8 +296,8 @@ fun ManageDataScreen(
     if (showClearAllConfirm) {
         AlertDialog(
             onDismissRequest = { showClearAllConfirm = false },
-            title = { Text(stringResource(R.string.clear_all_data)) },
-            text = { Text(stringResource(R.string.clear_all_data_confirm)) },
+            title = { Text(stringResource(R.string.clear_all_data), fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.clear_all_data_confirm), fontSize = 14.sp) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -439,17 +332,15 @@ private fun DataListItem(
     onEdit: () -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
-    val timeStr =
-        remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
+    val timeStr = remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
 
     val wifiCount = item.wifis.size
     val cellCount = item.cells.size
     val btCount = item.bluetooths.size
 
-    Surface(
+    MiuixCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = {
                     if (isSelectionMode) onSelect()
@@ -457,67 +348,58 @@ private fun DataListItem(
                 },
                 onLongClick = onLongClick
             ),
-        color = if (isSelected) com.suseoaa.locationspoofer.ui.theme.AccentBlue.copy(alpha = 0.15f) else com.suseoaa.locationspoofer.ui.theme.AppColors.cardBackground(
-            isDark
-        ),
-        tonalElevation = 0.dp
+        cornerRadius = 16.dp,
+        insideMargin = PaddingValues(14.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isSelectionMode) {
                 Checkbox(
                     checked = isSelected,
                     onCheckedChange = { onSelect() },
-                    modifier = Modifier.padding(end = 16.dp)
+                    modifier = Modifier.padding(end = 12.dp)
                 )
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = timeStr,
-                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Lat: ${
-                        String.format(
-                            "%.5f",
-                            item.location.lat
-                        )
-                    }, Lng: ${String.format("%.5f", item.location.lng)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    text = "Lat: ${String.format(Locale.US, "%.5f", item.location.lat)}, Lng: ${String.format(Locale.US, "%.5f", item.location.lng)}",
+                    fontSize = 12.5.sp,
+                    color = AppColors.textSecondary(isDark)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    IconTextRow(Icons.Rounded.Wifi, "$wifiCount")
-                    IconTextRow(Icons.Rounded.CellTower, "$cellCount")
-                    IconTextRow(Icons.Rounded.Bluetooth, "$btCount")
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    IconTextBadge(Icons.Rounded.Wifi, "$wifiCount", isDark)
+                    IconTextBadge(Icons.Rounded.CellTower, "$cellCount", isDark)
+                    IconTextBadge(Icons.Rounded.Bluetooth, "$btCount", isDark)
                 }
 
                 if (item.location.placeName.isNotBlank() || item.location.remark.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
-                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    Spacer(modifier = Modifier.height(6.dp))
                     if (item.location.placeName.isNotBlank()) {
                         Text(
                             text = "📍 ${item.location.placeName}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     if (item.location.remark.isNotBlank()) {
                         Text(
                             text = "📝 ${item.location.remark}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            fontSize = 12.sp,
+                            color = AppColors.textSecondary(isDark)
                         )
                     }
                 }
@@ -525,18 +407,20 @@ private fun DataListItem(
 
             if (!isSelectionMode) {
                 Row {
-                    IconButton(onClick = onEdit) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
                         Icon(
                             Icons.Rounded.Edit,
                             contentDescription = stringResource(R.string.edit_location_data),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            tint = AccentBlue.copy(alpha = 0.8f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onDeleteSingle) {
+                    IconButton(onClick = onDeleteSingle, modifier = Modifier.size(36.dp)) {
                         Icon(
                             Icons.Rounded.DeleteOutline,
                             contentDescription = stringResource(R.string.delete),
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -546,19 +430,27 @@ private fun DataListItem(
 }
 
 @Composable
-private fun IconTextRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-        )
+private fun IconTextBadge(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, isDark: Boolean) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.04f))
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = AppColors.textSecondary(isDark)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = AppColors.textSecondary(isDark)
+            )
+        }
     }
 }

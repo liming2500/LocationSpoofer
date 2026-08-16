@@ -260,9 +260,9 @@ fun RouteTab(
             }
 
             AnimatedVisibility(visible = showSearchResults && searchResults.isNotEmpty()) {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                top.yukonga.miuix.kmp.basic.Card(
+                    cornerRadius = 16.dp,
+                    insideMargin = PaddingValues(0.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -452,11 +452,11 @@ fun RouteTab(
     if (showSaveRouteDialog) {
         var routeName by remember { mutableStateOf("") }
         Dialog(onDismissRequest = { showSaveRouteDialog = false }) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            top.yukonga.miuix.kmp.basic.Card(
+                cornerRadius = 18.dp,
+                insideMargin = PaddingValues(20.dp)
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text("收藏当前路线", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(16.dp))
                     androidx.compose.material3.OutlinedTextField(
@@ -464,9 +464,10 @@ fun RouteTab(
                         onValueChange = { routeName = it },
                         label = { Text(stringResource(R.string.route_name)) },
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(20.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
@@ -475,13 +476,17 @@ fun RouteTab(
                             Text(stringResource(R.string.cancel))
                         }
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = {
-                            if (routeName.isNotBlank()) {
-                                viewModel.saveRoute(routeName, routePoints)
-                                Toast.makeText(context, context.getString(R.string.save_success), Toast.LENGTH_SHORT).show()
-                                showSaveRouteDialog = false
-                            }
-                        }) {
+                        Button(
+                            onClick = {
+                                if (routeName.isNotBlank()) {
+                                    viewModel.saveRoute(routeName, routePoints)
+                                    Toast.makeText(context, context.getString(R.string.save_success), Toast.LENGTH_SHORT).show()
+                                    showSaveRouteDialog = false
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                        ) {
                             Text(stringResource(R.string.save))
                         }
                     }
@@ -492,14 +497,14 @@ fun RouteTab(
 
     if (showSavedRoutesDialog) {
         Dialog(onDismissRequest = { showSavedRoutesDialog = false }) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            top.yukonga.miuix.kmp.basic.Card(
+                cornerRadius = 18.dp,
+                insideMargin = PaddingValues(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 500.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         stringResource(R.string.route_library),
                         fontSize = 18.sp,
@@ -510,7 +515,7 @@ fun RouteTab(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f),
+                                .height(120.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -519,7 +524,7 @@ fun RouteTab(
                             )
                         }
                     } else {
-                        LazyColumn(modifier = Modifier.weight(1f)) {
+                        LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
                             items(uiState.savedRoutes) { route ->
                                 Row(
                                     modifier = Modifier

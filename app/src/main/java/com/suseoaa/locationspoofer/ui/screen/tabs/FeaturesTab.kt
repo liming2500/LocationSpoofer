@@ -22,9 +22,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.ui.screen.AppCoordinateConfigCard
+import com.suseoaa.locationspoofer.ui.screen.FooterLinks
 import com.suseoaa.locationspoofer.ui.screen.ImportExportDataCard
 import com.suseoaa.locationspoofer.ui.screen.ManageDataCard
 import com.suseoaa.locationspoofer.ui.screen.ScannerMapCard
+import com.suseoaa.locationspoofer.ui.screen.SearchModeCard
+import com.suseoaa.locationspoofer.ui.theme.AccentBlue
+import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 
 @Composable
@@ -60,7 +64,7 @@ fun FeaturesTab(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.suseoaa.locationspoofer.ui.theme.AppColors.background(isDark))
+            .background(AppColors.background(isDark))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -73,10 +77,10 @@ fun FeaturesTab(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(13.dp))
-                        .background(com.suseoaa.locationspoofer.ui.theme.AccentBlue.copy(alpha = 0.14f)),
+                        .background(AccentBlue.copy(alpha = 0.14f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Extension, null, tint = com.suseoaa.locationspoofer.ui.theme.AccentBlue)
+                    Icon(Icons.Rounded.Extension, null, tint = AccentBlue)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
@@ -99,7 +103,7 @@ fun FeaturesTab(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(bottom = tabBarHeight + 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
                     AppCoordinateConfigCard(
@@ -134,8 +138,20 @@ fun FeaturesTab(
                         }
                     )
                 }
+
+                item {
+                    SearchModeCard(
+                        isDark = isDark,
+                        searchMode = uiState.searchMode,
+                        onSearchModeChange = viewModel::setSearchMode
+                    )
+                }
+
+                item {
+                    Spacer(Modifier.height(10.dp))
+                    FooterLinks(isDark = isDark)
+                }
             }
         }
     }
 }
-
