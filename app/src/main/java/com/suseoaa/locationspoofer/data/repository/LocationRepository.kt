@@ -43,7 +43,8 @@ class LocationRepository(
         mockWifi: Boolean = true,
         mockCell: Boolean = true,
         mockBluetooth: Boolean = true,
-        enableJitter: Boolean = true
+        enableJitter: Boolean = true,
+        speedMs: Double = 0.0
     ) {
         SpooferProvider.isActive = true
         SpooferProvider.latitude = lat
@@ -78,7 +79,8 @@ class LocationRepository(
             mockBluetooth,
             enableJitter,
             alt,
-            satCount
+            satCount,
+            speedMs
         )
 
         context.startForegroundService(
@@ -153,7 +155,8 @@ class LocationRepository(
         mockWifi: Boolean = true,
         mockCell: Boolean = true,
         mockBluetooth: Boolean = true,
-        enableJitter: Boolean = true
+        enableJitter: Boolean = true,
+        speedMs: Double = 0.0
     ) {
         SpooferProvider.latitude = lat
         SpooferProvider.longitude = lng
@@ -186,7 +189,8 @@ class LocationRepository(
             mockBluetooth,
             enableJitter,
             alt,
-            satCount
+            satCount,
+            speedMs
         )
     }
 

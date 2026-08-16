@@ -145,9 +145,9 @@ internal fun LocationHooker.getJitteredLocation(
 }
 
 internal fun LocationHooker.getJitteredAccuracy(): Float {
-    // 精度值在基准20m附近做高斯漂移,模拟GDOP变化
-    hookAccuracyDrift += 0.5 * rng.nextGaussian() - 0.03 * hookAccuracyDrift
-    return (20.0 + hookAccuracyDrift).coerceIn(3.0, 45.0).toFloat()
+    // 精度值在真实优良室外环境(1.5m-3.5m)微弱起伏，运动与地图软件将判定为满格绿色强信号
+    hookAccuracyDrift += 0.1 * rng.nextGaussian() - 0.05 * hookAccuracyDrift
+    return (2.2 + hookAccuracyDrift).coerceIn(1.5, 3.5).toFloat()
 }
 
 

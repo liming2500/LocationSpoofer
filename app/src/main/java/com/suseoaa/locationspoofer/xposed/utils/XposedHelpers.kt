@@ -44,6 +44,9 @@ import io.github.libxposed.api.*
 object XposedHelpers {
     lateinit var module: XposedModule
 
+    private val fieldCache = ConcurrentHashMap<String, Field?>()
+    private val methodCache = ConcurrentHashMap<String, Method?>()
+
     fun findClass(className: String, classLoader: ClassLoader?): Class<*> {
         return Class.forName(className, false, classLoader ?: ClassLoader.getSystemClassLoader())
     }
@@ -56,58 +59,74 @@ object XposedHelpers {
         }
     }
 
-    fun getObjectField(obj: Any, fieldName: String): Any? {
-        var clazz: Class<*>? = obj.javaClass
-        while (clazz != null) {
+    private fun findFieldInternal(clazz: Class<*>, fieldName: String): Field? {
+        val key = "${clazz.name}#$fieldName"
+        if (fieldCache.containsKey(key)) {
+            return fieldCache[key]
+        }
+        var c: Class<*>? = clazz
+        while (c != null) {
             try {
-                val f = clazz.getDeclaredField(fieldName)
+                val f = c.getDeclaredField(fieldName)
                 f.isAccessible = true
-                return f.get(obj)
+                fieldCache[key] = f
+                return f
             } catch (e: NoSuchFieldException) {
-                clazz = clazz.superclass
+                c = c.superclass
             }
         }
-        throw NoSuchFieldException(fieldName)
+        fieldCache[key] = null
+        return null
+    }
+
+    fun getObjectField(obj: Any, fieldName: String): Any? {
+        val field = findFieldInternal(obj.javaClass, fieldName)
+            ?: throw NoSuchFieldException(fieldName)
+        return field.get(obj)
     }
 
     fun setObjectField(obj: Any, fieldName: String, value: Any?) {
-        var clazz: Class<*>? = obj.javaClass
-        while (clazz != null) {
-            try {
-                val f = clazz.getDeclaredField(fieldName)
-                f.isAccessible = true
-                f.set(obj, value)
-                return
-            } catch (e: NoSuchFieldException) {
-                clazz = clazz.superclass
-            }
-        }
-        throw NoSuchFieldException(fieldName)
+        val field = findFieldInternal(obj.javaClass, fieldName)
+            ?: throw NoSuchFieldException(fieldName)
+        field.set(obj, value)
     }
 
     fun setIntField(obj: Any, fieldName: String, value: Int) {
-        setObjectField(obj, fieldName, value)
+        val field = findFieldInternal(obj.javaClass, fieldName)
+            ?: throw NoSuchFieldException(fieldName)
+        field.setInt(obj, value)
     }
 
     fun setDoubleField(obj: Any, fieldName: String, value: Double) {
-        setObjectField(obj, fieldName, value)
+        val field = findFieldInternal(obj.javaClass, fieldName)
+            ?: throw NoSuchFieldException(fieldName)
+        field.setDouble(obj, value)
     }
 
     fun setBooleanField(obj: Any, fieldName: String, value: Boolean) {
-        setObjectField(obj, fieldName, value)
+        val field = findFieldInternal(obj.javaClass, fieldName)
+            ?: throw NoSuchFieldException(fieldName)
+        field.setBoolean(obj, value)
     }
 
     fun setLongField(obj: Any, fieldName: String, value: Long) {
-        setObjectField(obj, fieldName, value)
+        val field = findFieldInternal(obj.javaClass, fieldName)
+            ?: throw NoSuchFieldException(fieldName)
+        field.setLong(obj, value)
     }
 
     fun callMethod(obj: Any, methodName: String, vararg args: Any?): Any? {
-        val argTypes = args.map { it?.javaClass ?: Any::class.java }
+        val key = "${obj.javaClass.name}#$methodName#${args.size}"
+        val cachedMethod = methodCache[key]
+        if (cachedMethod != null) {
+            return cachedMethod.invoke(obj, *args)
+        }
         var clazz: Class<*>? = obj.javaClass
         while (clazz != null) {
             for (m in clazz.declaredMethods) {
                 if (m.name == methodName && m.parameterCount == args.size) {
                     m.isAccessible = true
+                    methodCache[key] = m
                     return m.invoke(obj, *args)
                 }
             }
@@ -117,6 +136,11 @@ object XposedHelpers {
     }
 
     fun callStaticMethod(clazz: Class<*>, methodName: String, vararg args: Any?): Any? {
+        val key = "${clazz.name}#$methodName#${args.size}#static"
+        val cachedMethod = methodCache[key]
+        if (cachedMethod != null) {
+            return cachedMethod.invoke(null, *args)
+        }
         var c: Class<*>? = clazz
         while (c != null) {
             for (m in c.declaredMethods) {
@@ -125,6 +149,7 @@ object XposedHelpers {
                     )
                 ) {
                     m.isAccessible = true
+                    methodCache[key] = m
                     return m.invoke(null, *args)
                 }
             }

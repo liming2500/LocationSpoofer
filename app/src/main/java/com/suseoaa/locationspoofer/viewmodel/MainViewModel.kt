@@ -1401,17 +1401,23 @@ class MainViewModel(
             )
         }
 
-        val isLoop = state.routeRunMode == RouteRunMode.LOOP
+        val isLoop = _uiState.value.routeRunMode == RouteRunMode.LOOP
+        val now = System.currentTimeMillis()
+        val speed = getEffectiveSpeedMs()
+
+        SpooferProvider.startTimestamp = now
+        SpooferProvider.latitude = startPoint.lat
+        SpooferProvider.longitude = startPoint.lng
+        SpooferProvider.simBearing = 0f
 
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-
             locationRepository.startSpoofing(
                 context, startPoint.lat, startPoint.lng,
-                if (isLoop) state.routeSimMode.name else "STILL",
-                0f, now, pointsToRun, isLoop, state.appCoordinateSystems,
-                state.collectedWifiJson, state.collectedCellJson, state.collectedBluetoothJson,
-                state.mockWifi, state.mockCell, state.mockBluetooth, state.enableJitter
+                if (isLoop) _uiState.value.routeSimMode.name else "STILL",
+                0f, now, pointsToRun, isLoop, _uiState.value.appCoordinateSystems,
+                _uiState.value.collectedWifiJson, _uiState.value.collectedCellJson, _uiState.value.collectedBluetoothJson,
+                _uiState.value.mockWifi, _uiState.value.mockCell, _uiState.value.mockBluetooth, _uiState.value.enableJitter,
+                speedMs = speed
             )
             _uiState.update {
                 it.copy(isSpoofingActive = true)
@@ -1429,7 +1435,7 @@ class MainViewModel(
             it.copy(
                 routePlanStage = RoutePlanStage.IDLE,
                 routePoints = emptyList(),
-                routeRunMode = RouteRunMode.MANUAL
+                routeRunMode = RouteRunMode.LOOP
             )
         }
     }
@@ -1447,7 +1453,7 @@ class MainViewModel(
                     isSpoofingActive = false,
                     routePlanStage = RoutePlanStage.IDLE,
                     routePoints = emptyList(),
-                    routeRunMode = RouteRunMode.MANUAL
+                    routeRunMode = RouteRunMode.LOOP
                 )
             }
         }
@@ -1609,7 +1615,6 @@ class MainViewModel(
         SpooferProvider.latitude = lat
         SpooferProvider.longitude = lng
         SpooferProvider.simBearing = bearing
-        SpooferProvider.startTimestamp = System.currentTimeMillis()
 
         // 检查是否需要查询数据库（例如：自上次查询以来移动了超过 20 米）
         val dLat = Math.toRadians(lat - lastDbQueryLat)
@@ -1623,6 +1628,10 @@ class MainViewModel(
         if (distance > 20.0) {
             lastDbQueryLat = lat
             lastDbQueryLng = lng
+            val isRouteRunning = _uiState.value.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING
+            val simModeToUse = if (isRouteRunning) _uiState.value.routeSimMode.name else "STILL"
+            val speedToUse = getEffectiveSpeedMs()
+
             viewModelScope.launch(Dispatchers.IO) {
                 val records = environmentDao.getNearestLocations(lat, lng, 3)
                 if (records.isNotEmpty()) {
@@ -1646,15 +1655,16 @@ class MainViewModel(
                         locationRepository.updateConfig(
                             lat = lat,
                             lng = lng,
-                            simMode = "STILL",
+                            simMode = simModeToUse,
                             simBearing = bearing,
                             startTime = SpooferProvider.startTimestamp,
                             routePoints = _uiState.value.routePoints,
-                            isRouteMode = _uiState.value.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING,
+                            isRouteMode = isRouteRunning,
                             appCoordinateSystems = settingsRepository.getAppCoordinateSystems(),
                             wifiJson = jsons.first,
                             cellJson = jsons.second,
-                            bluetoothJson = jsons.third
+                            bluetoothJson = jsons.third,
+                            speedMs = speedToUse
                         )
                     } else {
                         // 回退到随机基站生成
@@ -1662,15 +1672,16 @@ class MainViewModel(
                         locationRepository.updateConfig(
                             lat = lat,
                             lng = lng,
-                            simMode = "STILL",
+                            simMode = simModeToUse,
                             simBearing = bearing,
                             startTime = SpooferProvider.startTimestamp,
                             routePoints = _uiState.value.routePoints,
-                            isRouteMode = _uiState.value.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING,
+                            isRouteMode = isRouteRunning,
                             appCoordinateSystems = settingsRepository.getAppCoordinateSystems(),
                             wifiJson = "[]",
                             cellJson = "[]",
-                            bluetoothJson = "[]"
+                            bluetoothJson = "[]",
+                            speedMs = speedToUse
                         )
                     }
                 } else {
@@ -1678,15 +1689,16 @@ class MainViewModel(
                     locationRepository.updateConfig(
                         lat = lat,
                         lng = lng,
-                        simMode = "STILL",
+                        simMode = simModeToUse,
                         simBearing = bearing,
                         startTime = SpooferProvider.startTimestamp,
                         routePoints = _uiState.value.routePoints,
-                        isRouteMode = _uiState.value.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING,
+                        isRouteMode = isRouteRunning,
                         appCoordinateSystems = settingsRepository.getAppCoordinateSystems(),
                         wifiJson = "[]",
                         cellJson = "[]",
-                        bluetoothJson = "[]"
+                        bluetoothJson = "[]",
+                        speedMs = speedToUse
                     )
                 }
             }

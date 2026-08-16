@@ -45,6 +45,29 @@ import io.github.libxposed.api.*
  */
 
 
+internal fun LocationHooker.getCurrentSpoofedMotion(): SpoofedMotion? {
+    val config = readConfig() ?: return null
+    if (!config.optBoolean("active", false)) return null
+
+    val rawMotion = RouteEngine.calculateCurrentPosition(config)
+    val appSystems = config.optJSONObject("app_coordinate_systems")
+    val basePkg = currentPackageName.substringBefore(":")
+    val targetSys = if (appSystems?.has(basePkg) == true) {
+        appSystems.optString(basePkg, "GCJ-02")
+    } else {
+        "GCJ-02"
+    }
+
+    val finalCoords = when (targetSys) {
+        "WGS-84" -> gcj02ToWgs84(rawMotion.lat, rawMotion.lng)
+        "BD-09" -> gcj02ToBd09(rawMotion.lat, rawMotion.lng)
+        else -> Pair(rawMotion.lat, rawMotion.lng)
+    }
+
+    val jittered = getJitteredLocation(finalCoords.first, finalCoords.second)
+    return SpoofedMotion(jittered.first, jittered.second, rawMotion.bearing, rawMotion.speed)
+}
+
 internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPkg: String) {
     try {
         // android.location.Location 标准接口: 返回GCJ-02坐标
@@ -62,34 +85,15 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
         ) { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
 
-            // 宿主 App 需要从真实 Location 读取坐标（如"定位到当前位置"），不拦截
             if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val appSystems = config.optJSONObject("app_coordinate_systems")
-                val basePkg = currentPkg.substringBefore(":")
-                // optString 在 key 不存在时返回 ""（空字符串），不是 null！
-                // 必须用 has() 先检查，否则会错误匹配到空字符串分支
-                val targetSys = if (appSystems?.has(basePkg) == true) {
-                    appSystems.optString(basePkg, "GCJ-02")
-                } else {
-                    "GCJ-02"
-                }
-                val baseLat = when (targetSys) {
-                    "WGS-84" -> config.optDouble("wgs84_lat", result as Double)
-                    "BD-09" -> config.optDouble("bd09_lat", result as Double)
-                    else -> config.optDouble("lat", result as Double)
-                }
-                val baseLng = when (targetSys) {
-                    "WGS-84" -> config.optDouble("wgs84_lng", 0.0)
-                    "BD-09" -> config.optDouble("bd09_lng", 0.0)
-                    else -> config.optDouble("lng", 0.0)
-                }
-                result = getJitteredLocation(baseLat, baseLng).first
+            val motion = getCurrentSpoofedMotion()
+            if (motion != null) {
+                result = motion.lat
             }
 
             return@hookMethod result
         }
+
         XposedHelpers.hookMethod(
             "android.location.Location",
             classLoader,
@@ -98,31 +102,14 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             var result = chain.proceed(chain.args.toTypedArray())
 
             if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val appSystems = config.optJSONObject("app_coordinate_systems")
-                val basePkg = currentPkg.substringBefore(":")
-                // optString 在 key 不存在时返回 ""（空字符串），不是 null！
-                val targetSys = if (appSystems?.has(basePkg) == true) {
-                    appSystems.optString(basePkg, "GCJ-02")
-                } else {
-                    "GCJ-02"
-                }
-                val baseLat = when (targetSys) {
-                    "WGS-84" -> config.optDouble("wgs84_lat", 0.0)
-                    "BD-09" -> config.optDouble("bd09_lat", 0.0)
-                    else -> config.optDouble("lat", 0.0)
-                }
-                val baseLng = when (targetSys) {
-                    "WGS-84" -> config.optDouble("wgs84_lng", result as Double)
-                    "BD-09" -> config.optDouble("bd09_lng", result as Double)
-                    else -> config.optDouble("lng", result as Double)
-                }
-                result = getJitteredLocation(baseLat, baseLng).second
+            val motion = getCurrentSpoofedMotion()
+            if (motion != null) {
+                result = motion.lng
             }
 
             return@hookMethod result
         }
+
         XposedHelpers.hookMethod(
             "android.location.Location",
             classLoader,
@@ -138,6 +125,78 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
 
             return@hookMethod result
         }
+
+        XposedHelpers.hookMethod(
+            "android.location.Location",
+            classLoader,
+            "hasAccuracy"
+        ) { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                result = true
+            }
+            return@hookMethod result
+        }
+
+        XposedHelpers.hookMethod(
+            "android.location.Location",
+            classLoader,
+            "getSpeed"
+        ) { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+
+            if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
+            val motion = getCurrentSpoofedMotion()
+            if (motion != null) {
+                result = motion.speed
+            }
+
+            return@hookMethod result
+        }
+
+        XposedHelpers.hookMethod(
+            "android.location.Location",
+            classLoader,
+            "hasSpeed"
+        ) { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                result = true
+            }
+            return@hookMethod result
+        }
+
+        XposedHelpers.hookMethod(
+            "android.location.Location",
+            classLoader,
+            "getBearing"
+        ) { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+
+            if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
+            val motion = getCurrentSpoofedMotion()
+            if (motion != null) {
+                result = motion.bearing
+            }
+
+            return@hookMethod result
+        }
+
+        XposedHelpers.hookMethod(
+            "android.location.Location",
+            classLoader,
+            "hasBearing"
+        ) { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                result = true
+            }
+            return@hookMethod result
+        }
+
         XposedHelpers.hookMethod(
             "android.location.Location",
             classLoader,
@@ -147,7 +206,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
 
             val config = readConfig()
             if (config != null && config.optBoolean("active", false)) {
-                val baseAlt = config.optDouble("altitude", 0.0)
+                val baseAlt = config.optDouble("altitude", 25.0)
                 val enableJitter = config.optBoolean("enable_jitter", true)
                 result = if (enableJitter && baseAlt > 0.0) {
                     // 稍微抖动海拔，真实气压计存在起伏，±0.5米
@@ -159,6 +218,102 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
 
             return@hookMethod result
         }
+
+        XposedHelpers.hookMethod(
+            "android.location.Location",
+            classLoader,
+            "hasAltitude"
+        ) { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                result = true
+            }
+            return@hookMethod result
+        }
+
+        // Android 8.0+ 速度、航向、垂直精度扩展接口
+        try {
+            XposedHelpers.hookMethod("android.location.Location", classLoader, "getSpeedAccuracyMetersPerSecond") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) 0.1f else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookMethod("android.location.Location", classLoader, "hasSpeedAccuracy") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) true else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookMethod("android.location.Location", classLoader, "getBearingAccuracyDegrees") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) 1.5f else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookMethod("android.location.Location", classLoader, "hasBearingAccuracy") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) true else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookMethod("android.location.Location", classLoader, "getVerticalAccuracyMeters") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) 1.2f else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookMethod("android.location.Location", classLoader, "hasVerticalAccuracy") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) true else chain.proceed(chain.args.toTypedArray())
+            }
+        } catch (_: Throwable) {}
+
+        // 动态注入最新时间戳，防止运动软件（Keep/悦跑圈/高德等）因时间戳陈旧判定为丢弃点
+        XposedHelpers.hookMethod(
+            "android.location.Location",
+            classLoader,
+            "getTime"
+        ) { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                result = System.currentTimeMillis()
+            }
+            return@hookMethod result
+        }
+
+        try {
+            XposedHelpers.hookMethod(
+                "android.location.Location",
+                classLoader,
+                "getElapsedRealtimeNanos"
+            ) { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    result = android.os.SystemClock.elapsedRealtimeNanos()
+                }
+                return@hookMethod result
+            }
+        } catch (_: Throwable) {}
+
+        try {
+            XposedHelpers.hookMethod(
+                "android.location.Location",
+                classLoader,
+                "getElapsedRealtimeMillis"
+            ) { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    result = android.os.SystemClock.elapsedRealtime()
+                }
+                return@hookMethod result
+            }
+        } catch (_: Throwable) {}
+
+        try {
+            XposedHelpers.hookMethod(
+                "android.location.Location",
+                classLoader,
+                "getElapsedRealtimeAgeMillis"
+            ) { chain, method ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") 0L else chain.proceed(chain.args.toTypedArray())
+            }
+        } catch (_: Throwable) {}
 
         // 抹除 isFromMockProvider 标志位（strategy:100 的根本来源）
 
@@ -194,89 +349,6 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 return@hookMethod result
             }
         } catch (e: Throwable) { /* API < 31 的系统没有此方法 */
-        }
-
-        // ★ Android 13 专项：直接对 Location 对象的 mMock / mIsFromMockProvider 字段写 false
-        // (Android 12+ 字段名改为 mMock，Android 6-11 为 mIsFromMockProvider)
-
-        // 在 getLatitude/getLongitude/getAccuracy 时同步清字段，确保在实际读值前已抹除
-        XposedHelpers.hookMethod(
-            "android.location.Location",
-            classLoader,
-            "getLatitude"
-        ) { chain, method ->
-            var result = chain.proceed(chain.args.toTypedArray())
-
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val loc = chain.thisObject ?: return@hookMethod result
-                try {
-                    XposedHelpers.setBooleanField(loc, "mMock", false)
-                } catch (e: Throwable) {
-                }
-                try {
-                    XposedHelpers.setBooleanField(loc, "mIsFromMockProvider", false)
-                } catch (e: Throwable) {
-                }
-                // 清理 extras bundle 中可能残留的 mock 标记
-                try {
-                    val extras =
-                        XposedHelpers.callMethod(loc, "getExtras") as? android.os.Bundle
-                    extras?.remove("mockLocation")
-                    extras?.remove("isMock")
-                    // ★ 将伪造的卫星数量添加到 bundle 中
-                    val satCount = config.optInt("satellite_count", 10)
-                    if (extras == null) {
-                        val newBundle = android.os.Bundle()
-                        newBundle.putInt("satellites", satCount)
-                        XposedHelpers.setObjectField(loc, "mExtras", newBundle)
-                    } else {
-                        extras.putInt("satellites", satCount)
-                    }
-                } catch (e: Throwable) {
-                }
-            }
-
-            return@hookMethod result
-        }
-        XposedHelpers.hookMethod(
-            "android.location.Location",
-            classLoader,
-            "getLongitude"
-        ) { chain, method ->
-            var result = chain.proceed(chain.args.toTypedArray())
-
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val loc = chain.thisObject ?: return@hookMethod result
-                try {
-                    XposedHelpers.setBooleanField(loc, "mMock", false)
-                } catch (e: Throwable) {
-                }
-                try {
-                    XposedHelpers.setBooleanField(loc, "mIsFromMockProvider", false)
-                } catch (e: Throwable) {
-                }
-                // 清理 extras bundle 中可能残留的 mock 标记
-                try {
-                    val extras =
-                        XposedHelpers.callMethod(loc, "getExtras") as? android.os.Bundle
-                    extras?.remove("mockLocation")
-                    extras?.remove("isMock")
-                    // ★ 将伪造的卫星数量添加到 bundle 中
-                    val satCount = config.optInt("satellite_count", 10)
-                    if (extras == null) {
-                        val newBundle = android.os.Bundle()
-                        newBundle.putInt("satellites", satCount)
-                        XposedHelpers.setObjectField(loc, "mExtras", newBundle)
-                    } else {
-                        extras.putInt("satellites", satCount)
-                    }
-                } catch (e: Throwable) {
-                }
-            }
-
-            return@hookMethod result
         }
 
 
@@ -417,7 +489,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             XposedBridge.log(e)
         }
 
-        // ★ 捕获 LocationListener 以便主动注入模拟位置
+        // ★ 捕获 LocationListener 和 Consumer 以便主动注入模拟位置
         try {
             val locationManagerClazz =
                 XposedHelpers.findClass("android.location.LocationManager", classLoader)
@@ -429,13 +501,19 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 for (arg in chain.args) {
                     if (arg == null) continue
                     val className = arg.javaClass.name
-                    if (className == "java.lang.String" || className == "android.os.Looper" || className == "android.location.Criteria") continue
+                    if (className == "java.lang.String" || className == "android.os.Looper" || className == "android.location.Criteria" || className == "android.location.LocationRequest") continue
 
                     try {
                         if (LocationHooker.hasTypeByName(
                                 arg.javaClass,
                                 "android.location.LocationListener"
-                            )
+                            ) || LocationHooker.hasTypeByName(
+                                arg.javaClass,
+                                "java.util.function.Consumer"
+                            ) || LocationHooker.hasTypeByName(
+                                arg.javaClass,
+                                "androidx.core.util.Consumer"
+                            ) || className.contains("Listener") || className.contains("Consumer")
                         ) {
                             capturedLocationListeners.addIfAbsent(arg)
                         }
@@ -453,20 +531,63 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 for (arg in chain.args) {
                     if (arg == null) continue
                     try {
-                        if (LocationHooker.hasTypeByName(
-                                arg.javaClass,
-                                "android.location.LocationListener"
-                            )
-                        ) {
-                            capturedLocationListeners.remove(arg)
-                        }
+                        capturedLocationListeners.remove(arg)
                     } catch (e: Throwable) {
                     }
                 }
                 return@hookAllMethods chain.proceed(chain.args.toTypedArray())
             }
+
+            // ★ Hook LocationManager.getCurrentLocation (Android 11+)
+            XposedHelpers.hookAllMethods(
+                locationManagerClazz,
+                "getCurrentLocation"
+            ) { chain, method ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    val motion = getCurrentSpoofedMotion()
+                    if (motion != null) {
+                        var consumerArg: Any? = null
+                        var executorArg: java.util.concurrent.Executor? = null
+                        for (arg in chain.args) {
+                            if (arg is java.util.concurrent.Executor) {
+                                executorArg = arg
+                            } else if (arg != null && (arg.javaClass.name.contains("Consumer") || LocationHooker.hasTypeByName(arg.javaClass, "java.util.function.Consumer") || LocationHooker.hasTypeByName(arg.javaClass, "androidx.core.util.Consumer"))) {
+                                consumerArg = arg
+                            }
+                        }
+                        if (consumerArg != null) {
+                            val timeNow = System.currentTimeMillis()
+                            val locClass = Class.forName("android.location.Location", false, classLoader)
+                            val fakeLoc = locClass.getConstructor(String::class.java).newInstance(android.location.LocationManager.GPS_PROVIDER)
+                            XposedHelpers.callMethod(fakeLoc, "setLatitude", motion.lat)
+                            XposedHelpers.callMethod(fakeLoc, "setLongitude", motion.lng)
+                            XposedHelpers.callMethod(fakeLoc, "setAccuracy", getJitteredAccuracy())
+                            XposedHelpers.callMethod(fakeLoc, "setSpeed", motion.speed)
+                            XposedHelpers.callMethod(fakeLoc, "setBearing", motion.bearing)
+                            XposedHelpers.callMethod(fakeLoc, "setAltitude", config.optDouble("altitude", 25.0))
+                            XposedHelpers.callMethod(fakeLoc, "setTime", timeNow)
+                            XposedHelpers.callMethod(fakeLoc, "setElapsedRealtimeNanos", android.os.SystemClock.elapsedRealtimeNanos())
+                            try { XposedHelpers.callMethod(fakeLoc, "setIsFromMockProvider", false) } catch (_: Throwable) {}
+
+                            val runDispatch = Runnable {
+                                try {
+                                    XposedHelpers.callMethod(consumerArg, "accept", fakeLoc)
+                                } catch (_: Throwable) {}
+                            }
+                            if (executorArg != null) {
+                                executorArg.execute(runDispatch)
+                            } else {
+                                android.os.Handler(android.os.Looper.getMainLooper()).post(runDispatch)
+                            }
+                            return@hookAllMethods null
+                        }
+                    }
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
         } catch (e: Throwable) {
-            XposedBridge.log("[LocationSpoofer] Failed to hook requestLocationUpdates: $e")
+            XposedBridge.log("[LocationSpoofer] Failed to hook requestLocationUpdates/getCurrentLocation: $e")
         }
 
         // getLastKnownLocation: 立即返回伪造的位置，修复“需要多次尝试才能定位”的问题
@@ -490,28 +611,17 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                         false
                     )
                 ) return@hookAllMethods result
-                val appSystems = config.optJSONObject("app_coordinate_systems")
-                val basePkg = currentPkg.substringBefore(":")
-                val targetSys = if (appSystems?.has(basePkg) == true)
-                    appSystems.optString(basePkg, "GCJ-02") else "GCJ-02"
-                val lat = when (targetSys) {
-                    "WGS-84" -> config.optDouble("wgs84_lat", 0.0)
-                    "BD-09" -> config.optDouble("bd09_lat", 0.0)
-                    else -> config.optDouble("lat", 0.0)
-                }
-                val lng = when (targetSys) {
-                    "WGS-84" -> config.optDouble("wgs84_lng", 0.0)
-                    "BD-09" -> config.optDouble("bd09_lng", 0.0)
-                    else -> config.optDouble("lng", 0.0)
-                }
-                if (lat == 0.0 && lng == 0.0) return@hookAllMethods result
+                val motion = getCurrentSpoofedMotion() ?: return@hookAllMethods result
                 try {
                     val locClass = Class.forName("android.location.Location", false, classLoader)
                     val fakeLoc = locClass.getConstructor(String::class.java)
                         .newInstance(android.location.LocationManager.GPS_PROVIDER)
-                    XposedHelpers.callMethod(fakeLoc, "setLatitude", lat)
-                    XposedHelpers.callMethod(fakeLoc, "setLongitude", lng)
-                    XposedHelpers.callMethod(fakeLoc, "setAccuracy", 20.0f)
+                    XposedHelpers.callMethod(fakeLoc, "setLatitude", motion.lat)
+                    XposedHelpers.callMethod(fakeLoc, "setLongitude", motion.lng)
+                    XposedHelpers.callMethod(fakeLoc, "setAccuracy", getJitteredAccuracy())
+                    XposedHelpers.callMethod(fakeLoc, "setSpeed", motion.speed)
+                    XposedHelpers.callMethod(fakeLoc, "setBearing", motion.bearing)
+                    XposedHelpers.callMethod(fakeLoc, "setAltitude", config.optDouble("altitude", 25.0))
                     XposedHelpers.callMethod(fakeLoc, "setTime", System.currentTimeMillis())
                     XposedHelpers.callMethod(
                         fakeLoc, "setElapsedRealtimeNanos",
@@ -555,15 +665,9 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
 
                     // 宿主 App 使用 AMapLocationClient 获取真实位置，不拦截
                     if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-                    val config = readConfig()
-                    if (config != null && config.optBoolean("active", false)) {
-                        val baseLat = config.optDouble("lat", 0.0)
-                        val baseLng = config.optDouble("lng", 0.0)
-                        val jittered = getJitteredLocation(baseLat, baseLng)
-                        when (method.name) {
-                            "getLatitude" -> result = jittered.first
-                            "getLongitude" -> result = jittered.second
-                        }
+                    val motion = getCurrentSpoofedMotion()
+                    if (motion != null) {
+                        result = motion.lat
                     }
 
                     return@hookMethod result
@@ -577,19 +681,114 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
 
                     // 宿主 App 使用 AMapLocationClient 获取真实位置，不拦截
                     if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-                    val config = readConfig()
-                    if (config != null && config.optBoolean("active", false)) {
-                        val baseLat = config.optDouble("lat", 0.0)
-                        val baseLng = config.optDouble("lng", 0.0)
-                        val jittered = getJitteredLocation(baseLat, baseLng)
-                        when (method.name) {
-                            "getLatitude" -> result = jittered.first
-                            "getLongitude" -> result = jittered.second
-                        }
+                    val motion = getCurrentSpoofedMotion()
+                    if (motion != null) {
+                        result = motion.lng
                     }
 
                     return@hookMethod result
                 }
+                XposedHelpers.hookMethod(
+                    amapLocClass,
+                    classLoader,
+                    "getAccuracy"
+                ) { chain, method ->
+                    var result = chain.proceed(chain.args.toTypedArray())
+                    if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
+                    val config = readConfig()
+                    if (config != null && config.optBoolean("active", false)) {
+                        result = getJitteredAccuracy()
+                    }
+                    return@hookMethod result
+                }
+                XposedHelpers.hookMethod(
+                    amapLocClass,
+                    classLoader,
+                    "getSpeed"
+                ) { chain, method ->
+                    var result = chain.proceed(chain.args.toTypedArray())
+                    if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
+                    val motion = getCurrentSpoofedMotion()
+                    if (motion != null) {
+                        result = motion.speed
+                    }
+                    return@hookMethod result
+                }
+                XposedHelpers.hookMethod(
+                    amapLocClass,
+                    classLoader,
+                    "getBearing"
+                ) { chain, method ->
+                    var result = chain.proceed(chain.args.toTypedArray())
+                    if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
+                    val motion = getCurrentSpoofedMotion()
+                    if (motion != null) {
+                        result = motion.bearing
+                    }
+                    return@hookMethod result
+                }
+                XposedHelpers.hookMethod(
+                    amapLocClass,
+                    classLoader,
+                    "getSatellites"
+                ) { chain, method ->
+                    var result = chain.proceed(chain.args.toTypedArray())
+                    val config = readConfig()
+                    if (config != null && config.optBoolean("active", false)) {
+                        result = config.optInt("satellite_count", 20)
+                    }
+                    return@hookMethod result
+                }
+                XposedHelpers.hookMethod(
+                    amapLocClass,
+                    classLoader,
+                    "getGpsAccuracyStatus"
+                ) { chain, method ->
+                    var result = chain.proceed(chain.args.toTypedArray())
+                    val config = readConfig()
+                    if (config != null && config.optBoolean("active", false)) {
+                        result = 1 // GPS_ACCURACY_GOOD (卫星信号良好)
+                    }
+                    return@hookMethod result
+                }
+                XposedHelpers.hookMethod(
+                    amapLocClass,
+                    classLoader,
+                    "getAltitude"
+                ) { chain, method ->
+                    var result = chain.proceed(chain.args.toTypedArray())
+                    val config = readConfig()
+                    if (config != null && config.optBoolean("active", false)) {
+                        result = config.optDouble("altitude", 25.0)
+                    }
+                    return@hookMethod result
+                }
+                XposedHelpers.hookMethod(
+                    amapLocClass,
+                    classLoader,
+                    "getTime"
+                ) { chain, method ->
+                    var result = chain.proceed(chain.args.toTypedArray())
+                    val config = readConfig()
+                    if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                        result = System.currentTimeMillis()
+                    }
+                    return@hookMethod result
+                }
+                try {
+                    XposedHelpers.hookMethod(
+                        amapLocClass,
+                        classLoader,
+                        "getElapsedRealtime"
+                    ) { chain, method ->
+                        var result = chain.proceed(chain.args.toTypedArray())
+                        val config = readConfig()
+                        if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                            result = android.os.SystemClock.elapsedRealtime()
+                        }
+                        return@hookMethod result
+                    }
+                } catch (_: Throwable) {}
             } catch (e: Throwable) { /* 如果高德 SDK 方法签名不匹配则跳过 */
             }
 
@@ -733,49 +932,6 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 XposedBridge.log(e)
             }
 
-            // 7. 直接写底层 mock 相关字段（防反射读字段绕过 getter）
-            try {
-                XposedHelpers.hookMethod(
-                    amapLocClass,
-                    classLoader,
-                    "getLatitude"
-                ) { chain, method ->
-                    var result = chain.proceed(chain.args.toTypedArray())
-
-                    val config = readConfig()
-                    if (config != null && config.optBoolean("active", false)) {
-                        val obj = chain.thisObject ?: return@hookMethod result
-                        try {
-                            XposedHelpers.setObjectField(obj, "mockData", null)
-                        } catch (e: Throwable) {
-                        }
-                        try {
-                            XposedHelpers.setIntField(obj, "mockFlag", 0)
-                        } catch (e: Throwable) {
-                        }
-                        try {
-                            XposedHelpers.setIntField(obj, "mockType", 0)
-                        } catch (e: Throwable) {
-                        }
-                        try {
-                            XposedHelpers.setBooleanField(obj, "isMocked", false)
-                        } catch (e: Throwable) {
-                        }
-                        try {
-                            XposedHelpers.setBooleanField(obj, "mMock", false)
-                        } catch (e: Throwable) {
-                        }
-                        try {
-                            XposedHelpers.setIntField(obj, "errorCode", 0)
-                        } catch (e: Throwable) {
-                        }
-                    }
-                    return@hookMethod result
-                }
-            } catch (e: Throwable) {
-                XposedBridge.log(e)
-            }
-
             // 8. AMapLocationQualityReport 质量报告也要清零
             val qualityClazz = XposedHelpers.findClassIfExists(
                 "com.amap.api.location.AMapLocationQualityReport", classLoader
@@ -908,30 +1064,18 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
                 locationManagerClazz,
                 "addGpsStatusListener"
             ) { chain, method ->
-
                 val listener = chain.args[0]
                 if (listener != null) {
                     val clazz = listener.javaClass
                     if (hookedCallbackClasses.putIfAbsent(clazz, true) == null) {
                         try {
-                            var lastCallTime = 0L
                             XposedHelpers.hookAllMethods(
                                 clazz,
                                 "onGpsStatusChanged"
                             ) { innerChain, innerMethod ->
-                                val event = innerChain.args[0] as? Int
-                                if (event == 4) { // GPS 卫星状态事件
-                                    val now = System.currentTimeMillis()
-                                    if (now - lastCallTime < 1000) {
-                                        return@hookAllMethods null // 限制频率 (防止卡顿)
-                                    } else {
-                                        lastCallTime = now
-                                    }
-                                }
-
                                 return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
                             }
-                        } catch (e: Throwable) {
+                        } catch (_: Throwable) {
                         }
                     }
                 }
@@ -939,20 +1083,6 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
             }
         } catch (e: Throwable) {
             XposedBridge.log(e)
-        }
-
-        // Hook 取消注册 GpsStatusListener
-        try {
-            XposedHelpers.hookAllMethods(
-                locationManagerClazz,
-                "removeGpsStatusListener"
-            ) { chain, method ->
-
-                // 不再需要
-
-                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-            }
-        } catch (e: Throwable) {
         }
 
         // Hook 注册 GnssStatusCallback
@@ -976,126 +1106,28 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
                     val clazz = callbackObj.javaClass
                     if (hookedCallbackClasses.putIfAbsent(clazz, true) == null) {
                         try {
-                            var lastCallTime = 0L
-                            var cachedGnssStatus: Any? = null
-                            var lastGnssStatusUpdate = 0L
                             XposedHelpers.hookAllMethods(
                                 clazz,
                                 "onSatelliteStatusChanged"
                             ) { innerChain, innerMethod ->
-                                val now = System.currentTimeMillis()
-                                if (now - lastCallTime < 1000) {
-                                    return@hookAllMethods null // 限制频率 (防止卡顿)
-                                }
-                                lastCallTime = now
-                                val statusObj =
-                                    innerChain.args[0] ?: return@hookAllMethods innerChain.proceed(
-                                        innerChain.args.toTypedArray()
+                                val statusObj = innerChain.args[0]
+                                val config = readConfig()
+                                if (config != null && config.optBoolean("active", false)) {
+                                    val count = config.optInt("satellite_count", 20)
+                                    val enableJitter = config.optBoolean("enable_jitter", true)
+                                    val spoofedStatus = GnssFastMockEngine.getOrCreateSpoofedGnssStatus(
+                                        classLoader = clazz.classLoader ?: classLoader,
+                                        targetCount = count,
+                                        enableJitter = enableJitter,
+                                        fallbackOriginalObj = statusObj
                                     )
-                                updateSatelliteCacheIfNeeded()
-                                if (isSpoofingActiveCache && cachedSatellites != null) {
-                                    val count = spoofingCountCache
-                                    val sats = cachedSatellites!!
-                                    // 1. Android 11+
-                                    try {
-                                        val builderClass = XposedHelpers.findClassIfExists(
-                                            "android.location.GnssStatus\$Builder",
-                                            clazz.classLoader
-                                        )
-                                        if (builderClass != null) {
-                                            if (cachedGnssStatus == null || now - lastGnssStatusUpdate > 1000) {
-                                                val builder = builderClass.getDeclaredConstructor()
-                                                    .newInstance()
-                                                val addMethod = builderClass.getDeclaredMethod(
-                                                    "addSatellite",
-                                                    Int::class.javaPrimitiveType,
-                                                    Int::class.javaPrimitiveType,
-                                                    Float::class.javaPrimitiveType,
-                                                    Float::class.javaPrimitiveType,
-                                                    Float::class.javaPrimitiveType,
-                                                    Boolean::class.javaPrimitiveType,
-                                                    Boolean::class.javaPrimitiveType,
-                                                    Boolean::class.javaPrimitiveType,
-                                                    Boolean::class.javaPrimitiveType,
-                                                    Float::class.javaPrimitiveType,
-                                                    Boolean::class.javaPrimitiveType,
-                                                    Float::class.javaPrimitiveType
-                                                )
-                                                addMethod.isAccessible = true
-                                                for (i in 0 until count) {
-                                                    val sat = sats[i]
-                                                    addMethod.invoke(
-                                                        builder,
-                                                        sat.type,
-                                                        sat.svid,
-                                                        sat.cn0,
-                                                        sat.elevation,
-                                                        sat.azimuth,
-                                                        true,
-                                                        true,
-                                                        sat.usedInFix,
-                                                        false,
-                                                        0f,
-                                                        false,
-                                                        0f
-                                                    )
-                                                }
-                                                val buildMethod =
-                                                    builderClass.getDeclaredMethod("build")
-                                                buildMethod.isAccessible = true
-                                                cachedGnssStatus = buildMethod.invoke(builder)
-                                                lastGnssStatusUpdate = now
-                                            }
-                                            innerChain.args[0] = cachedGnssStatus
-                                            return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
-                                        }
-                                    } catch (e: Throwable) {
-                                    }
-
-                                    // 2. Android 10-
-                                    try {
-                                        val countField =
-                                            statusObj::class.java.getDeclaredField("mSvCount")
-                                        countField.isAccessible = true
-                                        countField.setInt(statusObj, count)
-
-                                        val cn0DbHzs = FloatArray(count)
-                                        val elevations = FloatArray(count)
-                                        val azimuths = FloatArray(count)
-                                        val svidWithFlags = IntArray(count)
-
-                                        for (i in 0 until count) {
-                                            val sat = sats[i]
-                                            cn0DbHzs[i] = sat.cn0
-                                            elevations[i] = sat.elevation
-                                            azimuths[i] = sat.azimuth
-                                            var flags = 1 or 2
-                                            if (sat.usedInFix) flags = flags or 4
-                                            svidWithFlags[i] =
-                                                (sat.svid shl 8) or (sat.type and 0xF) or (flags shl 4)
-                                        }
-
-                                        val setField = { name: String, value: Any ->
-                                            try {
-                                                val f = statusObj::class.java.getDeclaredField(name)
-                                                f.isAccessible = true
-                                                f.set(statusObj, value)
-                                            } catch (e: Exception) {
-                                            }
-                                        }
-
-                                        setField("mSvidWithFlags", svidWithFlags)
-                                        setField("mCn0DbHz", cn0DbHzs)
-                                        setField("mElevations", elevations)
-                                        setField("mAzimuths", azimuths)
-                                        setField("mCarrierFrequencies", FloatArray(count))
-                                        setField("mBasebandCn0DbHzs", FloatArray(count))
-                                    } catch (e: Exception) {
+                                    if (spoofedStatus != null) {
+                                        innerChain.args[0] = spoofedStatus
                                     }
                                 }
                                 return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
                             }
-                        } catch (e: Throwable) {
+                        } catch (_: Throwable) {
                         }
                     }
                 }
@@ -1105,18 +1137,27 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
             XposedBridge.log(e)
         }
 
-        // Hook 取消注册 GnssStatusCallback
+        // Hook LocationManager.getGpsStatus 以适配通过 LocationManager 直接拉取卫星的旧版 SDK
         try {
             XposedHelpers.hookAllMethods(
                 locationManagerClazz,
-                "unregisterGnssStatusCallback"
+                "getGpsStatus"
             ) { chain, method ->
-
-                // 不再需要
-
-                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                val result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    val count = config.optInt("satellite_count", 20)
+                    val statusObj = result ?: chain.args.firstOrNull()
+                    if (statusObj != null) {
+                        try {
+                            val satellites = GnssFastMockEngine.getOrCreateSpoofedGpsSatellites(classLoader, count)
+                            XposedHelpers.setObjectField(statusObj, "mSatellites", satellites)
+                        } catch (_: Throwable) {}
+                    }
+                }
+                return@hookAllMethods result
             }
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
         }
 
         // Hook GpsStatus.getSatellites() 以适配像 DevCheck 这样的旧应用
@@ -1126,82 +1167,29 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
                 classLoader,
                 "getSatellites"
             ) { chain, method ->
-                var result = chain.proceed(chain.args.toTypedArray())
                 val config = readConfig()
                 if (config != null && config.optBoolean("active", false)) {
-                    result = createSpoofedGpsSatellites(classLoader)
+                    val count = config.optInt("satellite_count", 20)
+                    return@hookMethod GnssFastMockEngine.getOrCreateSpoofedGpsSatellites(classLoader, count)
                 }
-                return@hookMethod result
+                return@hookMethod chain.proceed(chain.args.toTypedArray())
             }
         } catch (e: Throwable) {
             XposedBridge.log(e)
         }
 
-
-        XposedBridge.log("[LocationSpoofer] GnssStatus hooks installed")
+        XposedBridge.log("[LocationSpoofer] GnssStatus hooks installed (High-Performance Engine)")
     } catch (e: Throwable) {
         XposedBridge.log("[LocationSpoofer] GnssStatus hook failed: $e")
     }
 
-    // 确保配置轮询守护进程在所有被 Hook 的应用中立即启动
     readConfig()
 }
 
-
 internal fun LocationHooker.createSpoofedGpsSatellites(classLoader: ClassLoader): Iterable<Any> {
-    val now = System.currentTimeMillis()
-    if (cachedGpsSatellitesList == null || now - lastGpsSatellitesUpdate > 1000) {
-        val list = ArrayList<Any>()
-        try {
-            updateSatelliteCacheIfNeeded()
-            if (!isSpoofingActiveCache || cachedSatellites == null) return list
-
-            val satelliteClass = classLoader.loadClass("android.location.GpsSatellite")
-            val constructor =
-                satelliteClass.getDeclaredConstructor(Int::class.javaPrimitiveType)
-            constructor.isAccessible = true
-
-            for (i in 0 until spoofingCountCache) {
-                val data = getCachedSatellite(i) ?: continue
-                val prn = if (data.type == 3) data.svid + 64 else data.svid
-                val sat = constructor.newInstance(prn)
-                try {
-                    XposedHelpers.setBooleanField(sat, "mValid", true)
-                } catch (e: Throwable) {
-                }
-                try {
-                    XposedHelpers.setBooleanField(sat, "mHasEphemeris", true)
-                } catch (e: Throwable) {
-                }
-                try {
-                    XposedHelpers.setBooleanField(sat, "mHasAlmanac", true)
-                } catch (e: Throwable) {
-                }
-                try {
-                    XposedHelpers.setBooleanField(sat, "mUsedInFix", data.usedInFix)
-                } catch (e: Throwable) {
-                }
-                try {
-                    XposedHelpers.setObjectField(sat, "mSnr", data.cn0)
-                } catch (_: Throwable) {
-                }
-                try {
-                    XposedHelpers.setObjectField(sat, "mElevation", data.elevation)
-                } catch (_: Throwable) {
-                }
-                try {
-                    XposedHelpers.setObjectField(sat, "mAzimuth", data.azimuth)
-                } catch (_: Throwable) {
-                }
-                list.add(sat)
-            }
-            cachedGpsSatellitesList = list
-            lastGpsSatellitesUpdate = now
-        } catch (e: Throwable) {
-            XposedBridge.log(e)
-        }
-    }
-    return cachedGpsSatellitesList ?: ArrayList()
+    val config = readConfig()
+    val count = config?.optInt("satellite_count", 20) ?: 20
+    return GnssFastMockEngine.getOrCreateSpoofedGpsSatellites(classLoader, count)
 }
 
 internal fun LocationHooker.createOnNmeaMessageListenerProxy(
@@ -1281,9 +1269,10 @@ internal fun LocationHooker.spoofNmeaMessage(sentence: String): String? {
         val config = readConfig() ?: return sentence
         if (!config.optBoolean("active", false)) return sentence
 
-        val targetLat = config.optDouble("wgs84_lat", 0.0)
-        val targetLng = config.optDouble("wgs84_lng", 0.0)
-        if (targetLat == 0.0 && targetLng == 0.0) return sentence
+        val motion = RouteEngine.calculateCurrentPosition(config)
+        val wgs84 = gcj02ToWgs84(motion.lat, motion.lng)
+        val targetLat = wgs84.first
+        val targetLng = wgs84.second
 
         val parts = sentence.split("*")
         val mainPart = parts[0]
@@ -1293,20 +1282,21 @@ internal fun LocationHooker.spoofNmeaMessage(sentence: String): String? {
         val type = fields[0]
         var modified = false
 
-        // 丢弃 GSV 语句以隐藏真实的硬件卫星。
-        // （我们移除了伪造的 GSV 注入器，因此应用程序将根本看不到 GSV 语句，
-        // 这比显示与我们伪造的 GnssStatus 冲突的真实硬件 GSV 语句更安全）。
-        if (type.endsWith("GSV")) {
-            return null
-        }
-
         if (type.endsWith("RMC") && fields.size >= 7) {
             val (latStr, latDir) = convertToNmeaLatitude(targetLat)
             val (lngStr, lngDir) = convertToNmeaLongitude(targetLng)
+            fields[2] = "A" // Status Active / Valid
             fields[3] = latStr
             fields[4] = latDir
             fields[5] = lngStr
             fields[6] = lngDir
+            if (fields.size > 7) {
+                val knots = motion.speed * 1.943844f
+                fields[7] = String.format(java.util.Locale.US, "%.2f", knots)
+            }
+            if (fields.size > 8) {
+                fields[8] = String.format(java.util.Locale.US, "%.1f", motion.bearing)
+            }
             modified = true
         } else if (type.endsWith("GGA") && fields.size >= 6) {
             val (latStr, latDir) = convertToNmeaLatitude(targetLat)
@@ -1315,6 +1305,10 @@ internal fun LocationHooker.spoofNmeaMessage(sentence: String): String? {
             fields[3] = latDir
             fields[4] = lngStr
             fields[5] = lngDir
+            if (fields.size > 6) fields[6] = "1" // GPS Fix (Quality indicator)
+            if (fields.size > 7) fields[7] = config.optInt("satellite_count", 18).toString() // Number of satellites
+            if (fields.size > 8) fields[8] = "0.8" // HDOP (High accuracy)
+            if (fields.size > 9) fields[9] = String.format(java.util.Locale.US, "%.1f", config.optDouble("altitude", 25.0))
             modified = true
         } else if (type.endsWith("GLL") && fields.size >= 5) {
             val (latStr, latDir) = convertToNmeaLatitude(targetLat)
@@ -1323,6 +1317,7 @@ internal fun LocationHooker.spoofNmeaMessage(sentence: String): String? {
             fields[2] = latDir
             fields[3] = lngStr
             fields[4] = lngDir
+            if (fields.size > 6) fields[6] = "A"
             modified = true
         }
 

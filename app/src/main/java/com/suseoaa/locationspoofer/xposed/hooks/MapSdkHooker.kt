@@ -127,9 +127,8 @@ internal fun LocationHooker.hookTencentLocationClass(clazz: Class<*>, classLoade
             var result = chain.proceed(chain.args.toTypedArray())
             val config = readConfig()
             if (config != null && config.optBoolean("active", false)) {
-                val baseLat = config.optDouble("lat", 0.0)
-                val baseLng = config.optDouble("lng", 0.0)
-                val jittered = getJitteredLocation(baseLat, baseLng)
+                val motion = RouteEngine.calculateCurrentPosition(config)
+                val jittered = getJitteredLocation(motion.lat, motion.lng)
                 result = jittered.first
             }
             return@hookAllMethods result
@@ -138,10 +137,35 @@ internal fun LocationHooker.hookTencentLocationClass(clazz: Class<*>, classLoade
             var result = chain.proceed(chain.args.toTypedArray())
             val config = readConfig()
             if (config != null && config.optBoolean("active", false)) {
-                val baseLat = config.optDouble("lat", 0.0)
-                val baseLng = config.optDouble("lng", 0.0)
-                val jittered = getJitteredLocation(baseLat, baseLng)
+                val motion = RouteEngine.calculateCurrentPosition(config)
+                val jittered = getJitteredLocation(motion.lat, motion.lng)
                 result = jittered.second
+            }
+            return@hookAllMethods result
+        }
+        XposedHelpers.hookAllMethods(clazz, "getSpeed") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val motion = RouteEngine.calculateCurrentPosition(config)
+                result = motion.speed
+            }
+            return@hookAllMethods result
+        }
+        XposedHelpers.hookAllMethods(clazz, "getBearing") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                val motion = RouteEngine.calculateCurrentPosition(config)
+                result = motion.bearing
+            }
+            return@hookAllMethods result
+        }
+        XposedHelpers.hookAllMethods(clazz, "getTime") { chain, method ->
+            var result = chain.proceed(chain.args.toTypedArray())
+            val config = readConfig()
+            if (config != null && config.optBoolean("active", false)) {
+                result = System.currentTimeMillis()
             }
             return@hookAllMethods result
         }
@@ -228,9 +252,8 @@ internal fun LocationHooker.hookTencentLocationCallback(classLoader: ClassLoader
 
             val tencentLoc =
                 chain.args[0] ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-            val baseLat = config.optDouble("lat", 0.0)
-            val baseLng = config.optDouble("lng", 0.0)
-            val jittered = getJitteredLocation(baseLat, baseLng)
+            val motion = RouteEngine.calculateCurrentPosition(config)
+            val jittered = getJitteredLocation(motion.lat, motion.lng)
 
             // 通过反射直接写入TencentLocation实现类的经纬度字段
             try {
@@ -324,28 +347,16 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
             var result = chain.proceed(chain.args.toTypedArray())
             val config = readConfig()
             if (config != null && config.optBoolean("active", false)) {
+                val motion = RouteEngine.calculateCurrentPosition(config)
                 val coorType = try {
                     XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
                 } catch (e: Throwable) {
                     null
                 }
-                val targetLat: Double
-                val targetLng: Double
-                when (coorType) {
-                    "bd09ll", "bd09mc", "bd09" -> {
-                        targetLat = config.optDouble("bd09_lat", 0.0)
-                        targetLng = config.optDouble("bd09_lng", 0.0)
-                    }
-
-                    "wgs84" -> {
-                        targetLat = config.optDouble("wgs84_lat", 0.0)
-                        targetLng = config.optDouble("wgs84_lng", 0.0)
-                    }
-
-                    else -> { // gcj02 或默认(中国标准坐标系)
-                        targetLat = config.optDouble("lat", 0.0)
-                        targetLng = config.optDouble("lng", 0.0)
-                    }
+                val (targetLat, targetLng) = when (coorType) {
+                    "wgs84" -> gcj02ToWgs84(motion.lat, motion.lng)
+                    "gcj02" -> Pair(motion.lat, motion.lng)
+                    else -> gcj02ToBd09(motion.lat, motion.lng) // bd09ll, bd09mc, bd09 或默认
                 }
                 val jittered = getJitteredLocation(targetLat, targetLng)
                 result = jittered.first
@@ -357,28 +368,16 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
             var result = chain.proceed(chain.args.toTypedArray())
             val config = readConfig()
             if (config != null && config.optBoolean("active", false)) {
+                val motion = RouteEngine.calculateCurrentPosition(config)
                 val coorType = try {
                     XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
                 } catch (e: Throwable) {
                     null
                 }
-                val targetLat: Double
-                val targetLng: Double
-                when (coorType) {
-                    "bd09ll", "bd09mc", "bd09" -> {
-                        targetLat = config.optDouble("bd09_lat", 0.0)
-                        targetLng = config.optDouble("bd09_lng", 0.0)
-                    }
-
-                    "wgs84" -> {
-                        targetLat = config.optDouble("wgs84_lat", 0.0)
-                        targetLng = config.optDouble("wgs84_lng", 0.0)
-                    }
-
-                    else -> { // gcj02 或默认(中国标准坐标系)
-                        targetLat = config.optDouble("lat", 0.0)
-                        targetLng = config.optDouble("lng", 0.0)
-                    }
+                val (targetLat, targetLng) = when (coorType) {
+                    "wgs84" -> gcj02ToWgs84(motion.lat, motion.lng)
+                    "gcj02" -> Pair(motion.lat, motion.lng)
+                    else -> gcj02ToBd09(motion.lat, motion.lng)
                 }
                 val jittered = getJitteredLocation(targetLat, targetLng)
                 result = jittered.second
@@ -392,9 +391,6 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
             val config = readConfig()
             if (config != null && config.optBoolean("active", false)) {
                 val originalLocationType = result as? Int ?: 61
-                // 百度地图SDK中：61代表GPS定位结果，161代表网络定位结果，601代表某些特殊或离线网络定位结果
-                // 为了避免在室内环境（如没有GPS信号）强行返回61导致应用侧判定为作弊，
-                // 我们直接放行原有的网络定位类型，由于经纬度已经被修改，这样显得更加真实自然。
                 if (originalLocationType == 161 || originalLocationType == 601) {
                     result = originalLocationType
                 } else {
@@ -404,7 +400,7 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
             return@hookAllMethods result
         }
 
-        // getRadius(精度) -> 与全局抖动精度同步
+        // getRadius(精度) -> 与全局抖动精度同步 (1.5m - 3.5m 满格绿色信号)
         try {
             XposedHelpers.hookAllMethods(baiduClazz, "getRadius") { chain, method ->
                 var result = chain.proceed(chain.args.toTypedArray())
@@ -413,6 +409,39 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
                     result = getJitteredAccuracy()
                 }
                 return@hookAllMethods result
+            }
+        } catch (e: Throwable) { /* 忽略 */
+        }
+
+        // getSpeed (km/h) & hasSpeed
+        try {
+            XposedHelpers.hookAllMethods(baiduClazz, "getSpeed") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    val motion = RouteEngine.calculateCurrentPosition(config)
+                    motion.speed * 3.6f
+                } else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(baiduClazz, "hasSpeed") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) true else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(baiduClazz, "getDirection") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    val motion = RouteEngine.calculateCurrentPosition(config)
+                    motion.bearing
+                } else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(baiduClazz, "getGpsCheckStatus") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) 1 else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(baiduClazz, "getTime") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+                } else chain.proceed(chain.args.toTypedArray())
             }
         } catch (e: Throwable) { /* 忽略 */
         }
@@ -430,13 +459,13 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
         } catch (e: Throwable) { /* 忽略 */
         }
 
-        // getSatelliteNumber -> 12-18颗
+        // getSatelliteNumber -> 18-24颗
         try {
             XposedHelpers.hookAllMethods(baiduClazz, "getSatelliteNumber") { chain, method ->
                 var result = chain.proceed(chain.args.toTypedArray())
                 val config = readConfig()
                 if (config != null && config.optBoolean("active", false)) {
-                    result = 12 + rng.nextInt(7)
+                    result = config.optInt("satellite_count", 20)
                 }
                 return@hookAllMethods result
             }
@@ -480,23 +509,11 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
                     null
                 }
 
-                val targetLat: Double
-                val targetLng: Double
-                when (coorType) {
-                    "bd09ll", "bd09mc", "bd09" -> {
-                        targetLat = config.optDouble("bd09_lat", 0.0)
-                        targetLng = config.optDouble("bd09_lng", 0.0)
-                    }
-
-                    "wgs84" -> {
-                        targetLat = config.optDouble("wgs84_lat", 0.0)
-                        targetLng = config.optDouble("wgs84_lng", 0.0)
-                    }
-
-                    else -> { // gcj02 或默认(中国标准坐标系)
-                        targetLat = config.optDouble("lat", 0.0)
-                        targetLng = config.optDouble("lng", 0.0)
-                    }
+                val motion = RouteEngine.calculateCurrentPosition(config)
+                val (targetLat, targetLng) = when (coorType) {
+                    "wgs84" -> gcj02ToWgs84(motion.lat, motion.lng)
+                    "gcj02" -> Pair(motion.lat, motion.lng)
+                    else -> gcj02ToBd09(motion.lat, motion.lng)
                 }
 
                 val jittered = getJitteredLocation(targetLat, targetLng)

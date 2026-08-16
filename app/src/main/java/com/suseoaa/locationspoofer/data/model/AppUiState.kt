@@ -74,7 +74,7 @@ data class AppState(
     val routePoints: List<RoutePoint> = emptyList(),
     val routePlanStage: RoutePlanStage = RoutePlanStage.IDLE,
     /** 路线运行模式（手动 / 循环） */
-    val routeRunMode: RouteRunMode = RouteRunMode.MANUAL,
+    val routeRunMode: RouteRunMode = RouteRunMode.LOOP,
     /** 循环模式使用的速度 */
     val routeSimMode: SimMode = SimMode.WALKING,
     /** 自定义速度 (m/s)，仅当 routeSimMode == CUSTOM 时使用 */

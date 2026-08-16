@@ -24,7 +24,6 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
     private var cachedPoiName = ""
 
     suspend fun saveConfig(
-
         lat: Double,
         lng: Double,
         active: Boolean,
@@ -42,7 +41,8 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
         mockBluetooth: Boolean = true,
         enableJitter: Boolean = true,
         altitude: Double = 0.0,
-        satelliteCount: Int = 20
+        satelliteCount: Int = 20,
+        speedMs: Double = 0.0
     ) = withContext(Dispatchers.IO) {
         val routeArray = JSONArray()
         routePoints.forEach { p ->
@@ -68,25 +68,22 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
             lastGeocodedLat = lat
             lastGeocodedLng = lng
             try {
-                // 原坐标是 GCJ-02，Geocoder 是调用 Android 系统的原生服务，严格要求 WGS-84 坐标
-                // 因此在此处做一次逆向偏移，防止解析出的街道文本发生几百米的偏移误差
-                val wgs84 = CoordinateUtils.gcj02ToWgs84(lat, lng)
-                val geocoder = Geocoder(context)
-                val addresses = geocoder.getFromLocation(wgs84.lat, wgs84.lng, 1)
+                val geocoder = android.location.Geocoder(context, java.util.Locale.CHINA)
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocation(lat, lng, 1)
                 if (!addresses.isNullOrEmpty()) {
                     val addr = addresses[0]
-                    cachedCountry = addr.countryName ?: ""
                     cachedProvince = addr.adminArea ?: ""
                     cachedCity = addr.locality ?: addr.subAdminArea ?: ""
                     cachedDistrict = addr.subLocality ?: ""
                     cachedStreet = addr.thoroughfare ?: ""
                     cachedStreetNum = addr.subThoroughfare ?: ""
-                    cachedAddressText = addr.getAddressLine(0)
-                        ?: "${cachedProvince}${cachedCity}${cachedDistrict}${cachedStreet}${cachedStreetNum}"
+                    cachedAddressText = addr.getAddressLine(0) ?: ""
+                    cachedCountry = addr.countryName ?: "中国"
                     cachedPoiName = addr.featureName ?: ""
                 }
             } catch (e: Exception) {
-                // 忽略网络或地理编码错误
+                // 逆地理编码失败时静默降级
             }
         }
 
@@ -100,11 +97,18 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
             put("country", cachedCountry)
             put("poiName", cachedPoiName)
 
+            val wgs = CoordinateUtils.gcj02ToWgs84(lat, lng)
+            val bd = CoordinateUtils.gcj02ToBd09(lat, lng)
+            put("wgs84_lat", wgs.lat)
+            put("wgs84_lng", wgs.lng)
+            put("bd09_lat", bd.lat)
+            put("bd09_lng", bd.lng)
             put("lat", lat)
             put("lng", lng)
             put("active", active)
             put("sim_mode", simMode)
             put("sim_bearing", simBearing.toDouble())
+            put("speed_m_s", speedMs)
             put("start_timestamp", startTimestamp)
             put("route_points", routeArray)
             put("is_route_mode", isRouteMode)

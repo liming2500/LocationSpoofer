@@ -207,97 +207,6 @@ class LocationHooker : XposedModule() {
     internal var hookAccuracyDrift = 0.0
     internal var hookLastCallTime = 0L
 
-    internal var cachedSatellites: Array<SatelliteData>? = null
-    internal var lastSatelliteUpdate: Long = 0L
-    internal var isSpoofingActiveCache: Boolean = false
-    internal var spoofingCountCache: Int = 0
-
-    internal fun updateSatelliteCacheIfNeeded() {
-        val now = System.currentTimeMillis()
-        if (cachedSatellites == null || now - lastSatelliteUpdate > 1000) {
-            val config = readConfig()
-            isSpoofingActiveCache = config?.optBoolean("active", false) ?: false
-            if (isSpoofingActiveCache) {
-                val count = config?.optInt("satellite_count", 10) ?: 10
-                spoofingCountCache = count
-                val startTime = config?.optLong("start_timestamp", now) ?: now
-                val deltaTimeMin = (now - startTime) / 60000.0
-                val timeSec = now / 1000.0
-                val enableJitter = config?.optBoolean("enable_jitter", true) ?: true
-
-                val newCache = Array(count) { i ->
-                    generateSatelliteData(i, deltaTimeMin, enableJitter, timeSec)
-                }
-                cachedSatellites = newCache
-            } else {
-                cachedSatellites = null
-            }
-            lastSatelliteUpdate = now
-        }
-    }
-
-    internal fun getCachedSatellite(satIndex: Int): SatelliteData? {
-        if (!isSpoofingActiveCache || cachedSatellites == null || cachedSatellites!!.isEmpty()) return null
-        val safeIndex = satIndex % cachedSatellites!!.size
-        return cachedSatellites!![safeIndex]
-    }
-
-    internal fun generateSatelliteData(
-        satIndex: Int,
-        deltaTimeMin: Double,
-        enableJitter: Boolean,
-        timeSec: Double
-    ): SatelliteData {
-        // 增量刷新优化:
-        // 强制每个卫星的数据每 4 秒才变化一次，并使用 satIndex 进行错开。
-        // 这意味着在任何一秒钟，只有 25% 的卫星数据发生变化。
-        // 目标 App 的 DiffUtil 会发现 75% 的卫星数据完全没变，从而跳过大部分 UI 重绘，彻底解决滑动卡顿！
-        val updateIntervalSec = 4.0
-        val steppedTimeSec =
-            Math.floor((timeSec + satIndex) / updateIntervalSec) * updateIntervalSec - satIndex
-        val steppedDeltaTimeMin = steppedTimeSec / 60.0
-
-        val rng = java.util.Random(satIndex.toLong() + 1000L)
-        val initialPhase = rng.nextDouble() * Math.PI * 2
-        val amplitude = 20.0 + rng.nextDouble() * 20.0
-        val baseElevation = 30.0 + rng.nextDouble() * 20.0
-        val elevation =
-            (baseElevation + amplitude * Math.sin(steppedDeltaTimeMin * 0.05 + initialPhase)).toFloat()
-                .coerceIn(0f, 90f)
-
-        val rngAz = java.util.Random(satIndex.toLong() + 4000L)
-        val initialAzimuth = rngAz.nextDouble() * 360.0
-        val currentAzimuth = ((initialAzimuth + steppedDeltaTimeMin * 0.5) % 360.0).toFloat()
-
-        val baseCn0 = 20.0 + (elevation / 90.0) * 20.0
-        val noise = if (enableJitter) {
-            val dynamicRng = java.util.Random((steppedTimeSec / 3.0).toLong() + satIndex)
-            (dynamicRng.nextDouble() - 0.5) * 4.0 // +/- 2 dB
-        } else 0.0
-        val cn0 = (baseCn0 + noise).coerceIn(10.0, 45.0).toFloat()
-
-        val rngType = java.util.Random(satIndex.toLong() + 3000L)
-        val rand = rngType.nextDouble()
-        val type = when {
-            rand < 0.5 -> 1
-            rand < 0.7 -> 3
-            else -> 5
-        }
-        val svid = when (type) {
-            1 -> 1 + (satIndex * 7) % 32 // GPS
-            3 -> 1 + (satIndex * 3) % 24 // GLONASS (GnssStatus 规定是 1-24)
-            else -> 1 + (satIndex * 5) % 63 // BDS
-        }
-
-        // 偶尔或者在调试时记录生成的卫星
-        // XposedBridge.log("[GPS_Spoofer] Generated Sat: type=$type, svid=$svid, cn0=$cn0, elev=$elevation, az=$currentAzimuth")
-
-        val rngFix = java.util.Random(satIndex.toLong() + 2000L)
-        val usedInFix = rngFix.nextDouble() < 0.75
-
-        return SatelliteData(svid, type, elevation, currentAzimuth, cn0, usedInFix)
-    }
-
     /**
      * 拦截GnssStatus回调,注入伪造的卫星星座数据
      *
@@ -400,6 +309,8 @@ class LocationHooker : XposedModule() {
         return config
     }
 
+    private val lastConfigModifiedMap = ConcurrentHashMap<String, Long>()
+
     internal fun loadConfigFromDisk(source: String): JSONObject? {
         val errors = ArrayList<String>()
         for (path in configReadPaths()) {
@@ -409,8 +320,15 @@ class LocationHooker : XposedModule() {
                     errors.add("$path missing")
                     continue
                 }
-                val config = normalizeConfig(JSONObject(file.readText()))
+                val lastModified = file.lastModified()
+                val cachedMod = lastConfigModifiedMap[path]
+                if (lastConfig != null && cachedMod != null && cachedMod == lastModified) {
+                    return lastConfig
+                }
+                val text = file.readText()
+                val config = normalizeConfig(JSONObject(text))
                 lastConfig = config
+                lastConfigModifiedMap[path] = lastModified
                 configPollIntervalMs = 1_000L
                 logOpenCellConfigLoaded("$source:$path", config)
                 return config
@@ -461,11 +379,6 @@ class LocationHooker : XposedModule() {
 
                     // 启动后台轮询守护线程
                     Thread {
-                        android.util.Log.e(
-                            "LocationSpoofer",
-                            "[POLLER-START] ConfigPoller started for pkg=$currentPackageName"
-                        )
-
                         while (true) {
                             Thread.sleep(configPollIntervalMs)
                             val newConfig = loadConfigFromDisk("poll")
@@ -486,227 +399,262 @@ class LocationHooker : XposedModule() {
                                 cachedCountry = newConfig.optString("country", "")
                                 cachedPoiName = newConfig.optString("poiName", "")
 
+                                val timeNow = System.currentTimeMillis()
+                                val elapsedNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                                val motion = RouteEngine.calculateCurrentPosition(newConfig, timeNow)
+                                lastSpoofedLat = motion.lat
+                                lastSpoofedLng = motion.lng
+
+                                val basePkg = currentPackageName.substringBefore(":")
+                                if (basePkg == "com.suseoaa.locationspoofer") {
+                                    continue
+                                }
+
                                 val cl = currentClassLoader
                                 val nCount = capturedLocationListeners.size
                                 val aCount = capturedAMapListeners.size
                                 val bCount = capturedBaiduListeners.size
                                 val tCount = capturedTencentListeners.size
-                                android.util.Log.e(
-                                    "LocationSpoofer",
-                                    "[POLLER] pkg=$currentPackageName lat=$currentLat lng=$currentLng native=$nCount amap=$aCount baidu=$bCount tencent=$tCount"
-                                )
 
-                                val timeNow = System.currentTimeMillis()
-                                val elapsedNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                                val appSystems = newConfig.optJSONObject("app_coordinate_systems")
+                                val targetSys = if (appSystems?.has(basePkg) == true)
+                                    appSystems.optString(basePkg, "GCJ-02") else "GCJ-02"
 
-                                // 1. Android Native LocationListener
-                                // 坐标系修复：推送坐标必须与 getLatitude() hook 返回值一致。
-                                // getLatitude() hook 默认返回 GCJ-02（config["lat"]）。
-                                // 同时尊重每个 App 的坐标系配置（app_coordinate_systems）。
-                                if (nCount > 0 && cl != null) {
-                                    val appSystems =
-                                        newConfig.optJSONObject("app_coordinate_systems")
-                                    val basePkg = currentPackageName.substringBefore(":")
-                                    val targetSys = if (appSystems?.has(basePkg) == true)
-                                        appSystems.optString(basePkg, "GCJ-02") else "GCJ-02"
-                                    val pushLat = when (targetSys) {
-                                        "WGS-84" -> newConfig.optDouble("wgs84_lat", currentLat)
-                                        "BD-09" -> newConfig.optDouble("bd09_lat", currentLat)
-                                        else -> currentLat  // GCJ-02（默认，与 hook 一致）
-                                    }
-                                    val pushLng = when (targetSys) {
-                                        "WGS-84" -> newConfig.optDouble("wgs84_lng", currentLng)
-                                        "BD-09" -> newConfig.optDouble("bd09_lng", currentLng)
-                                        else -> currentLng
-                                    }
-                                    val listenersToNotify = capturedLocationListeners.toList()
-                                    for (listener in listenersToNotify) {
-                                        try {
-                                            val listenerCl = listener.javaClass.classLoader ?: cl
-                                            val locationClass = Class.forName(
-                                                "android.location.Location",
-                                                false,
-                                                listenerCl
-                                            )
-                                            val mockLoc =
-                                                locationClass.getConstructor(String::class.java)
-                                                    .newInstance(android.location.LocationManager.GPS_PROVIDER)
-                                            XposedHelpers.callMethod(
-                                                mockLoc,
-                                                "setLatitude",
-                                                pushLat
-                                            )
-                                            XposedHelpers.callMethod(
-                                                mockLoc,
-                                                "setLongitude",
-                                                pushLng
-                                            )
-                                            XposedHelpers.callMethod(mockLoc, "setAccuracy", 20.0f)
-                                            XposedHelpers.callMethod(mockLoc, "setSpeed", 0.0f)
-                                            XposedHelpers.callMethod(mockLoc, "setTime", timeNow)
-                                            XposedHelpers.callMethod(
-                                                mockLoc,
-                                                "setElapsedRealtimeNanos",
-                                                elapsedNanos
-                                            )
-                                            try {
-                                                XposedHelpers.callMethod(
-                                                    mockLoc,
-                                                    "setIsFromMockProvider",
-                                                    false
-                                                )
-                                            } catch (e: Throwable) {
-                                            }
-                                            XposedHelpers.callMethod(
-                                                listener,
-                                                "onLocationChanged",
-                                                mockLoc
-                                            )
-                                            android.util.Log.e(
-                                                "LocationSpoofer",
-                                                "[PUSH] Native($targetSys lat=$pushLat lng=$pushLng): ${listener.javaClass.name}"
-                                            )
-                                        } catch (e: Throwable) {
-                                            android.util.Log.e(
-                                                "LocationSpoofer",
-                                                "[PUSH-ERR] Native listener error: $e"
-                                            )
-                                        }
-                                    }
+                                val (targetLat, targetLng) = when (targetSys) {
+                                    "WGS-84" -> gcj02ToWgs84(motion.lat, motion.lng)
+                                    "BD-09" -> gcj02ToBd09(motion.lat, motion.lng)
+                                    else -> Pair(motion.lat, motion.lng)
+                                }
+                                val jittered = getJitteredLocation(targetLat, targetLng)
+                                val pushLat = jittered.first
+                                val pushLng = jittered.second
+                                val pushSpeed = motion.speed
+                                val pushBearing = motion.bearing
+                                val pushAccuracy = getJitteredAccuracy()
+                                val pushAltitude = newConfig.optDouble("altitude", 25.0)
+
+                                val mainHandler = try {
+                                    android.os.Handler(android.os.Looper.getMainLooper())
+                                } catch (_: Throwable) {
+                                    null
                                 }
 
-
-                                // 2. AMapLocationListener
-                                if (aCount > 0 && cl != null) {
-                                    val listenersToNotify = capturedAMapListeners.toList()
-                                    for (listener in listenersToNotify) {
-                                        try {
-                                            val listenerCl = listener.javaClass.classLoader ?: cl
-                                            val amapLocationClass = Class.forName(
-                                                "com.amap.api.location.AMapLocation",
-                                                false,
-                                                listenerCl
-                                            )
-                                            val mockAMapLoc =
-                                                amapLocationClass.getConstructor(String::class.java)
-                                                    .newInstance("gps")
-                                            XposedHelpers.callMethod(
-                                                mockAMapLoc,
-                                                "setLatitude",
-                                                currentLat
-                                            )
-                                            XposedHelpers.callMethod(
-                                                mockAMapLoc,
-                                                "setLongitude",
-                                                currentLng
-                                            )
-                                            XposedHelpers.callMethod(
-                                                mockAMapLoc,
-                                                "setAccuracy",
-                                                20.0f
-                                            )
-                                            XposedHelpers.callMethod(
-                                                mockAMapLoc,
-                                                "setTime",
-                                                timeNow
-                                            )
-                                            XposedHelpers.callMethod(
-                                                listener,
-                                                "onLocationChanged",
-                                                mockAMapLoc
-                                            )
-                                            android.util.Log.e(
-                                                "LocationSpoofer",
-                                                "[PUSH] AMap listener pushed OK: ${listener.javaClass.name}"
-                                            )
-                                        } catch (e: Throwable) {
-                                            android.util.Log.e(
-                                                "LocationSpoofer",
-                                                "[PUSH-ERR] AMap listener error: $e"
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // 3. BDLocationListener / BDAbstractLocationListener
-                                if (bCount > 0 && cl != null) {
-                                    val bd09Lat = newConfig.optDouble("bd09_lat", currentLat)
-                                    val bd09Lng = newConfig.optDouble("bd09_lng", currentLng)
-                                    val listenersToNotify = capturedBaiduListeners.toList()
-                                    for (listener in listenersToNotify) {
-                                        try {
-                                            val listenerCl = listener.javaClass.classLoader ?: cl
-                                            val bdLocationClass = Class.forName(
-                                                "com.baidu.location.BDLocation",
-                                                false,
-                                                listenerCl
-                                            )
-                                            val mockBDLoc =
-                                                bdLocationClass.getConstructor().newInstance()
-                                            XposedHelpers.callMethod(
-                                                mockBDLoc,
-                                                "setLatitude",
-                                                bd09Lat
-                                            )
-                                            XposedHelpers.callMethod(
-                                                mockBDLoc,
-                                                "setLongitude",
-                                                bd09Lng
-                                            )
-                                            XposedHelpers.callMethod(mockBDLoc, "setLocType", 61)
-                                            XposedHelpers.callMethod(
-                                                listener,
-                                                "onReceiveLocation",
-                                                mockBDLoc
-                                            )
-                                            android.util.Log.e(
-                                                "LocationSpoofer",
-                                                "[PUSH] Baidu listener pushed OK"
-                                            )
-                                        } catch (e: Throwable) {
-                                            android.util.Log.e(
-                                                "LocationSpoofer",
-                                                "[PUSH-ERR] Baidu listener error: $e"
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // 4. TencentLocationListener
-                                if (tCount > 0 && cl != null) {
-                                    try {
-                                        val tencentLocInterface = Class.forName(
-                                            "com.tencent.map.geolocation.TencentLocation",
-                                            false,
-                                            cl
-                                        )
-                                        val proxyLoc = Proxy.newProxyInstance(
-                                            cl, arrayOf(tencentLocInterface)
-                                        ) { _, method, _ ->
-                                            when (method.name) {
-                                                "getLatitude" -> currentLat
-                                                "getLongitude" -> currentLng
-                                                "getProvider" -> "gps"
-                                                "getAccuracy" -> 20.0f
-                                                "getTime" -> timeNow
-                                                else -> null
-                                            }
-                                        }
-                                        val listenersToNotify = capturedTencentListeners.toList()
+                                val dispatchBlock = Runnable {
+                                    // 1. Android Native LocationListener & Consumer
+                                    if (nCount > 0 && cl != null) {
+                                        val listenersToNotify = capturedLocationListeners.toList()
                                         for (listener in listenersToNotify) {
                                             try {
+                                                val listenerCl = listener.javaClass.classLoader ?: cl
+                                                val locationClass = Class.forName(
+                                                    "android.location.Location",
+                                                    false,
+                                                    listenerCl
+                                                )
+                                                val mockLoc =
+                                                    locationClass.getConstructor(String::class.java)
+                                                        .newInstance(android.location.LocationManager.GPS_PROVIDER)
+                                                XposedHelpers.callMethod(mockLoc, "setLatitude", pushLat)
+                                                XposedHelpers.callMethod(mockLoc, "setLongitude", pushLng)
+                                                XposedHelpers.callMethod(mockLoc, "setAccuracy", pushAccuracy)
+                                                XposedHelpers.callMethod(mockLoc, "setSpeed", pushSpeed)
+                                                XposedHelpers.callMethod(mockLoc, "setBearing", pushBearing)
+                                                XposedHelpers.callMethod(mockLoc, "setAltitude", pushAltitude)
+                                                XposedHelpers.callMethod(mockLoc, "setTime", timeNow)
+                                                XposedHelpers.callMethod(
+                                                    mockLoc,
+                                                    "setElapsedRealtimeNanos",
+                                                    elapsedNanos
+                                                )
+                                                try {
+                                                    XposedHelpers.callMethod(
+                                                        mockLoc,
+                                                        "setIsFromMockProvider",
+                                                        false
+                                                    )
+                                                } catch (_: Throwable) {
+                                                }
+                                                var called = false
+                                                try {
+                                                    XposedHelpers.callMethod(
+                                                        listener,
+                                                        "onLocationChanged",
+                                                        mockLoc
+                                                    )
+                                                    called = true
+                                                } catch (_: Throwable) {}
+                                                if (!called) {
+                                                    try {
+                                                        XposedHelpers.callMethod(
+                                                            listener,
+                                                            "accept",
+                                                            mockLoc
+                                                        )
+                                                        called = true
+                                                    } catch (_: Throwable) {}
+                                                }
+                                                if (!called) {
+                                                    try {
+                                                        XposedHelpers.callMethod(
+                                                            listener,
+                                                            "onLocationChanged",
+                                                            listOf(mockLoc)
+                                                        )
+                                                    } catch (_: Throwable) {}
+                                                }
+                                            } catch (_: Throwable) {
+                                            }
+                                        }
+                                    }
+
+                                    // 2. AMapLocationListener
+                                    if (aCount > 0 && cl != null) {
+                                        val listenersToNotify = capturedAMapListeners.toList()
+                                        for (listener in listenersToNotify) {
+                                            try {
+                                                val listenerCl = listener.javaClass.classLoader ?: cl
+                                                val amapLocationClass = Class.forName(
+                                                    "com.amap.api.location.AMapLocation",
+                                                    false,
+                                                    listenerCl
+                                                )
+                                                val mockAMapLoc =
+                                                    amapLocationClass.getConstructor(String::class.java)
+                                                        .newInstance("gps")
+                                                XposedHelpers.callMethod(
+                                                    mockAMapLoc,
+                                                    "setLatitude",
+                                                    motion.lat
+                                                )
+                                                XposedHelpers.callMethod(
+                                                    mockAMapLoc,
+                                                    "setLongitude",
+                                                    motion.lng
+                                                )
+                                                XposedHelpers.callMethod(
+                                                    mockAMapLoc,
+                                                    "setAccuracy",
+                                                    pushAccuracy
+                                                )
+                                                XposedHelpers.callMethod(
+                                                    mockAMapLoc,
+                                                    "setSpeed",
+                                                    pushSpeed
+                                                )
+                                                XposedHelpers.callMethod(
+                                                    mockAMapLoc,
+                                                    "setBearing",
+                                                    pushBearing
+                                                )
+                                                XposedHelpers.callMethod(
+                                                    mockAMapLoc,
+                                                    "setAltitude",
+                                                    pushAltitude
+                                                )
+                                                XposedHelpers.callMethod(
+                                                    mockAMapLoc,
+                                                    "setTime",
+                                                    timeNow
+                                                )
+                                                try {
+                                                    XposedHelpers.callMethod(mockAMapLoc, "setSatellites", newConfig.optInt("satellite_count", 20))
+                                                    XposedHelpers.callMethod(mockAMapLoc, "setGpsAccuracyStatus", 1)
+                                                    XposedHelpers.callMethod(mockAMapLoc, "setLocationType", 1)
+                                                } catch (_: Throwable) {}
                                                 XposedHelpers.callMethod(
                                                     listener,
                                                     "onLocationChanged",
-                                                    proxyLoc,
-                                                    0,
-                                                    "ok"
+                                                    mockAMapLoc
                                                 )
-                                            } catch (e: Throwable) {
+                                            } catch (_: Throwable) {
                                             }
                                         }
-                                    } catch (e: Throwable) {
                                     }
+
+                                    // 3. BDLocationListener / BDAbstractLocationListener
+                                    if (bCount > 0 && cl != null) {
+                                        val bd09 = gcj02ToBd09(motion.lat, motion.lng)
+                                        val listenersToNotify = capturedBaiduListeners.toList()
+                                        for (listener in listenersToNotify) {
+                                            try {
+                                                val listenerCl = listener.javaClass.classLoader ?: cl
+                                                val bdLocationClass = Class.forName(
+                                                    "com.baidu.location.BDLocation",
+                                                    false,
+                                                    listenerCl
+                                                )
+                                                val mockBDLoc =
+                                                    bdLocationClass.getConstructor().newInstance()
+                                                XposedHelpers.callMethod(
+                                                    mockBDLoc,
+                                                    "setLatitude",
+                                                    bd09.first
+                                                )
+                                                XposedHelpers.callMethod(
+                                                    mockBDLoc,
+                                                    "setLongitude",
+                                                    bd09.second
+                                                )
+                                                XposedHelpers.callMethod(mockBDLoc, "setRadius", pushAccuracy)
+                                                XposedHelpers.callMethod(mockBDLoc, "setSpeed", pushSpeed * 3.6f)
+                                                XposedHelpers.callMethod(mockBDLoc, "setDirection", pushBearing)
+                                                XposedHelpers.callMethod(mockBDLoc, "setLocType", 61)
+                                                XposedHelpers.callMethod(mockBDLoc, "setSatelliteNumber", 20)
+                                                XposedHelpers.callMethod(mockBDLoc, "setGpsCheckStatus", 1)
+                                                XposedHelpers.callMethod(
+                                                    listener,
+                                                    "onReceiveLocation",
+                                                    mockBDLoc
+                                                )
+                                            } catch (_: Throwable) {
+                                            }
+                                        }
+                                    }
+
+                                    // 4. TencentLocationListener
+                                    if (tCount > 0 && cl != null) {
+                                        try {
+                                            val tencentLocInterface = Class.forName(
+                                                "com.tencent.map.geolocation.TencentLocation",
+                                                false,
+                                                cl
+                                            )
+                                            val proxyLoc = Proxy.newProxyInstance(
+                                                cl, arrayOf(tencentLocInterface)
+                                            ) { _, method, _ ->
+                                                when (method.name) {
+                                                    "getLatitude" -> motion.lat
+                                                    "getLongitude" -> motion.lng
+                                                    "getProvider" -> "gps"
+                                                    "getAccuracy" -> pushAccuracy
+                                                    "getSpeed" -> pushSpeed
+                                                    "getBearing" -> pushBearing
+                                                    "getTime" -> timeNow
+                                                    else -> null
+                                                }
+                                            }
+                                            val listenersToNotify = capturedTencentListeners.toList()
+                                            for (listener in listenersToNotify) {
+                                                try {
+                                                    XposedHelpers.callMethod(
+                                                        listener,
+                                                        "onLocationChanged",
+                                                        proxyLoc,
+                                                        0,
+                                                        "ok"
+                                                    )
+                                                } catch (_: Throwable) {
+                                                }
+                                            }
+                                        } catch (_: Throwable) {
+                                        }
+                                    }
+                                }
+
+                                if (mainHandler != null) {
+                                    mainHandler.post(dispatchBlock)
+                                } else {
+                                    dispatchBlock.run()
                                 }
                             }
                         }
