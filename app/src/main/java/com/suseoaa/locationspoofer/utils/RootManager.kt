@@ -19,7 +19,7 @@ class RootManager {
 
     suspend fun revokeMockLocation(): Boolean = withContext(Dispatchers.IO) {
         val result =
-            executeCommand("appops set com.suseoaa.locationspoofer android:mock_location deny")
+            executeCommand("appops set com.suseoaa.locationspoofer android:mock_location default")
         result != "ERROR"
     }
 

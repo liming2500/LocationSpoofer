@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,27 +22,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.*
-import com.suseoaa.locationspoofer.ui.components.MapTypeDialog
 import com.suseoaa.locationspoofer.ui.components.AppMapController
 import com.suseoaa.locationspoofer.ui.components.AppMapMarker
+import com.suseoaa.locationspoofer.ui.components.MapTypeDialog
 import com.suseoaa.locationspoofer.ui.components.MarkerType
 import com.suseoaa.locationspoofer.ui.screen.*
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentOrange
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
@@ -53,7 +55,6 @@ fun RouteTab(
     bottomBarHeight: Dp = 90.dp
 ) {
     val context = LocalContext.current
-    var showSavedLocations by remember { mutableStateOf(false) }
     var showMapTypeDialog by remember { mutableStateOf(false) }
     var showConfigDialog by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
@@ -63,11 +64,19 @@ fun RouteTab(
     var searchResults by remember { mutableStateOf<List<AppPoiItem>>(emptyList()) }
     var showSearchResults by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    var bottomActionHeightPx by remember { mutableIntStateOf(0) }
 
     val stage = uiState.routePlanStage
     val isRunning = stage == RoutePlanStage.RUNNING
     val isManual = uiState.routeRunMode == RouteRunMode.MANUAL
     val routePoints = uiState.routePoints
+
+    // 进入路线页面时，如果当前处于 IDLE，自动切换至选点模式 (SELECTING)
+    LaunchedEffect(Unit) {
+        if (uiState.routePlanStage == RoutePlanStage.IDLE) {
+            viewModel.restartSelectingPoints()
+        }
+    }
 
     BackHandler(enabled = showSearchResults) {
         showSearchResults = false
@@ -155,11 +164,26 @@ fun RouteTab(
         if (stage == RoutePlanStage.READY) showConfigDialog = true
     }
 
+    val density = LocalDensity.current
+    val bottomActionHeightDp = with(density) { bottomActionHeightPx.toDp() }
+    val fabBottomPadding by animateDpAsState(
+        targetValue = if (bottomActionHeightDp > 0.dp) {
+            bottomActionHeightDp + 14.dp
+        } else {
+            when (stage) {
+                RoutePlanStage.SELECTING, RoutePlanStage.READY, RoutePlanStage.IDLE -> bottomBarHeight + 130.dp
+                RoutePlanStage.RUNNING -> if (isManual) 220.dp else bottomBarHeight + 84.dp
+            }
+        },
+        label = "route_fab_bottom_padding"
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
+        // 中心瞄准标记（选点阶段显示）
         if (stage == RoutePlanStage.SELECTING || stage == RoutePlanStage.IDLE) {
             Icon(
                 Icons.Rounded.AddLocationAlt, null,
-                tint = AccentBlue.copy(alpha = 0.8f),
+                tint = AccentBlue.copy(alpha = 0.85f),
                 modifier = Modifier
                     .align(Alignment.Center)
                     .size(40.dp)
@@ -177,13 +201,19 @@ fun RouteTab(
             )
         }
 
-        Column(modifier = Modifier.align(Alignment.TopCenter)) {
-
+        // 顶部搜索与选点状态栏（含系统状态栏避让）
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 8.dp)
+        ) {
             if (stage == RoutePlanStage.SELECTING || stage == RoutePlanStage.IDLE) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.foundation.text.BasicTextField(
@@ -240,22 +270,6 @@ fun RouteTab(
                             }
                         }
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .shadow(4.dp, RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), RoundedCornerShape(24.dp))
-                            .clickable { showSavedRoutesDialog = true },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Rounded.Bookmarks,
-                            null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
                 }
             }
 
@@ -265,8 +279,8 @@ fun RouteTab(
                     insideMargin = PaddingValues(0.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                        .heightIn(max = 300.dp)
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .heightIn(max = 280.dp)
                 ) {
                     LazyColumn {
                         items(searchResults) { poi ->
@@ -298,46 +312,29 @@ fun RouteTab(
                 routePointCount = routePoints.size,
                 isManual = isManual,
                 onBack = { /* No back for tab */ },
-                canUndo = stage == RoutePlanStage.SELECTING && routePoints.isNotEmpty(),
+                canUndo = (stage == RoutePlanStage.SELECTING || stage == RoutePlanStage.IDLE) && routePoints.isNotEmpty(),
                 onUndo = { viewModel.undoLastRoutePoint() }
             )
         }
 
+        // 右侧悬浮功能按钮（主动避让底部操作栏，永不重叠）
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 12.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(end = 16.dp, bottom = fabBottomPadding),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.End
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                    .clickable { viewModel.fetchCurrentLocation(context) { _, _ -> } },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.MyLocation,
-                    null,
-                    tint = AccentBlue,
-                    modifier = Modifier.size(22.dp)
-                )
+            RouteControlButton(Icons.Rounded.MyLocation) {
+                viewModel.fetchCurrentLocation(context) { lat, lng ->
+                    mapController?.animateCamera(lat, lng, 16f)
+                }
             }
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                    .clickable { showMapTypeDialog = true },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Layers,
-                    null,
-                    tint = AccentBlue,
-                    modifier = Modifier.size(22.dp)
-                )
+            RouteControlButton(Icons.Rounded.Layers) {
+                showMapTypeDialog = true
+            }
+            RouteControlButton(Icons.Rounded.Bookmarks) {
+                showSavedRoutesDialog = true
             }
         }
 
@@ -350,50 +347,35 @@ fun RouteTab(
             }
         }
 
-        if (stage == RoutePlanStage.IDLE) {
-            Button(
-                onClick = {
-                    val tLat = mapController?.cameraTargetLat
-                    val tLng = mapController?.cameraTargetLng
-                    if (tLat != null && tLng != null) {
-                        viewModel.confirmMapPoint(tLat, tLng)
-                        Toast.makeText(context, context.getString(R.string.coordinate_selected), Toast.LENGTH_SHORT).show()
+        // 底部动作控制区域（路线规划专属选点与控制栏）
+        BottomActionBar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = bottomBarHeight + 12.dp)
+                .onGloballyPositioned { bottomActionHeightPx = it.size.height + ((bottomBarHeight.value + 12f) * density.density).toInt() },
+            stage = if (stage == RoutePlanStage.IDLE) RoutePlanStage.SELECTING else stage,
+            routePoints = routePoints,
+            onConfirmPoint = {
+                val tLat = mapController?.cameraTargetLat
+                val tLng = mapController?.cameraTargetLng
+                if (tLat != null && tLng != null) {
+                    viewModel.addRoutePoint(tLat, tLng)
+                    Toast.makeText(context, "已添加第 ${routePoints.size + 1} 个路点", Toast.LENGTH_SHORT).show()
+                } else {
+                    val fallbackLat = uiState.latitudeInput.toDoubleOrNull()
+                    val fallbackLng = uiState.longitudeInput.toDoubleOrNull()
+                    if (fallbackLat != null && fallbackLng != null) {
+                        viewModel.addRoutePoint(fallbackLat, fallbackLng)
+                        Toast.makeText(context, "已添加第 ${routePoints.size + 1} 个路点", Toast.LENGTH_SHORT).show()
                     }
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = bottomBarHeight + 12.dp)
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
-            ) {
-                Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.confirm_point), fontWeight = FontWeight.Bold)
-            }
-        } else {
-            BottomActionBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomBarHeight + 12.dp),
-                stage = stage,
-                routePoints = routePoints,
-                onConfirmPoint = {
-                    val tLat = mapController?.cameraTargetLat
-                    val tLng = mapController?.cameraTargetLng
-                    if (tLat != null && tLng != null) {
-                        viewModel.addRoutePoint(tLat, tLng)
-                    }
-                },
-                onFinishSelecting = { viewModel.finishSelectingPoints() },
-                onRestartSelecting = { viewModel.restartSelectingPoints() },
-                onSaveRoute = { showSaveRouteDialog = true },
-                onStartPlanning = { showConfigDialog = true },
-                onStopRoute = { viewModel.stopRoutePlanning() }
-            )
-        }
+                }
+            },
+            onFinishSelecting = { viewModel.finishSelectingPoints() },
+            onRestartSelecting = { viewModel.restartSelectingPoints() },
+            onSaveRoute = { showSaveRouteDialog = true },
+            onStartPlanning = { showConfigDialog = true },
+            onStopRoute = { viewModel.stopRoutePlanning() }
+        )
     }
 
     if (showConfigDialog) {
@@ -423,16 +405,16 @@ fun RouteTab(
                 .background(Color.Black.copy(alpha = 0.3f)),
             contentAlignment = Alignment.Center
         ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            top.yukonga.miuix.kmp.basic.Card(
+                cornerRadius = 16.dp,
+                insideMargin = PaddingValues(24.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentBlue)
                     Text("正在规划真实路线...", fontSize = 16.sp)
                 }
             }
@@ -459,7 +441,7 @@ fun RouteTab(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text("收藏当前路线", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(16.dp))
-                    androidx.compose.material3.OutlinedTextField(
+                    OutlinedTextField(
                         value = routeName,
                         onValueChange = { routeName = it },
                         label = { Text(stringResource(R.string.route_name)) },
@@ -472,7 +454,7 @@ fun RouteTab(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        androidx.compose.material3.TextButton(onClick = { showSaveRouteDialog = false }) {
+                        TextButton(onClick = { showSaveRouteDialog = false }) {
                             Text(stringResource(R.string.cancel))
                         }
                         Spacer(Modifier.width(8.dp))
@@ -572,7 +554,7 @@ fun RouteTab(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        androidx.compose.material3.TextButton(onClick = {
+                        TextButton(onClick = {
                             showSavedRoutesDialog = false
                         }) {
                             Text(stringResource(R.string.close))
@@ -581,5 +563,23 @@ fun RouteTab(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RouteControlButton(
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .shadow(4.dp, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, null, tint = AccentBlue, modifier = Modifier.size(22.dp))
     }
 }

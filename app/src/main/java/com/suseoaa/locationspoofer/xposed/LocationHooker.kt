@@ -229,6 +229,8 @@ class LocationHooker : XposedModule() {
                     generateSatelliteData(i, deltaTimeMin, enableJitter, timeSec)
                 }
                 cachedSatellites = newCache
+            } else {
+                cachedSatellites = null
             }
             lastSatelliteUpdate = now
         }

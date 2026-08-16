@@ -5,32 +5,14 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.location.Criteria
-import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
-import android.os.SystemClock
-import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.suseoaa.locationspoofer.data.model.RoutePoint
-import com.suseoaa.locationspoofer.data.model.SimulatedLocation
-import com.suseoaa.locationspoofer.provider.SpooferProvider
-import com.suseoaa.locationspoofer.utils.CoordinateUtils
-import com.suseoaa.locationspoofer.utils.TrajectorySimulator
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import org.json.JSONArray
 
 class SpoofingService : Service() {
 
     private lateinit var locationManager: LocationManager
-    private var spoofingJob: Job? = null
-    private val serviceScope = CoroutineScope(Dispatchers.IO)
 
     companion object {
         const val ACTION_START = "ACTION_START"
@@ -89,106 +71,29 @@ class SpoofingService : Service() {
             // 忽略异常，在没有前台状态的情况下继续运行
         }
         isRunning = true
-
-        setupTestProvider(LocationManager.GPS_PROVIDER)
-        setupTestProvider(LocationManager.NETWORK_PROVIDER)
-
-        spoofingJob = serviceScope.launch {
-            while (isActive) {
-                val currentLoc = computeCurrentLocation()
-                pushLocation(LocationManager.GPS_PROVIDER, currentLoc)
-                pushLocation(LocationManager.NETWORK_PROVIDER, currentLoc)
-                
-                // 在路线模拟模式下使用更高的刷新率以实现平滑移动
-                val updateInterval = if (SpooferProvider.isRouteMode) 100L else 500L
-                delay(updateInterval)
-            }
-        }
-    }
-
-    private fun computeCurrentLocation(): SimulatedLocation {
-        val routePoints = parseRoutePoints(SpooferProvider.routeJson)
-        return if (SpooferProvider.isRouteMode && routePoints.size >= 2) {
-            TrajectorySimulator.calculateRoutePosition(
-                routePoints,
-                SpooferProvider.startTimestamp,
-                SpooferProvider.simMode,
-                enableJitter = SpooferProvider.enableJitter
-            )
-        } else {
-            TrajectorySimulator.calculateSimulatedLocation(
-                SpooferProvider.latitude,
-                SpooferProvider.longitude,
-                SpooferProvider.startTimestamp,
-                SpooferProvider.simMode,
-                SpooferProvider.simBearing,
-                enableJitter = SpooferProvider.enableJitter
-            )
-        }
-    }
-
-    private fun parseRoutePoints(json: String): List<RoutePoint> {
-        return try {
-            val arr = JSONArray(json)
-            (0 until arr.length()).map { i ->
-                val obj = arr.getJSONObject(i)
-                RoutePoint(obj.getDouble("lat"), obj.getDouble("lng"))
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
     }
 
     private fun stopSpoofing() {
-        spoofingJob?.cancel()
         isRunning = false
-
-        removeTestProvider(LocationManager.GPS_PROVIDER)
-        removeTestProvider(LocationManager.NETWORK_PROVIDER)
+        cleanupLegacyTestProviders()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    @android.annotation.SuppressLint("WrongConstant", "MissingPermission")
-    private fun setupTestProvider(provider: String) {
-        try {
-            @Suppress("DEPRECATION")
-            locationManager.addTestProvider(
-                provider, false, false, false, false,
-                true, true, true, Criteria.POWER_LOW, Criteria.ACCURACY_FINE
-            )
-            locationManager.setTestProviderEnabled(provider, true)
-        } catch (e: Exception) {
+    private fun cleanupLegacyTestProviders() {
+        val providers = mutableListOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            providers.add(LocationManager.FUSED_PROVIDER)
         }
-    }
-
-    private fun removeTestProvider(provider: String) {
-        try {
-            locationManager.removeTestProvider(provider)
-        } catch (e: Exception) {
-        }
-    }
-
-    private fun pushLocation(provider: String, loc: SimulatedLocation) {
-        try {
-            // SpooferProvider 中存储的是 GCJ-02（高德坐标系），
-            // setTestProviderLocation 要求 WGS-84（GPS坐标系），必须转换
-            val wgs84 = CoordinateUtils.gcj02ToWgs84(loc.lat, loc.lng)
-            val location = Location(provider).apply {
-                latitude = wgs84.lat
-                longitude = wgs84.lng
-                accuracy = loc.accuracy
-                altitude = loc.altitude
-                speed = loc.speed
-                bearing = loc.bearing
-                time = System.currentTimeMillis()
-                elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                extras = android.os.Bundle().apply {
-                    putBoolean("suseoaa_mock", true)
-                }
+        for (provider in providers) {
+            try {
+                locationManager.setTestProviderEnabled(provider, false)
+            } catch (e: Throwable) {
             }
-            locationManager.setTestProviderLocation(provider, location)
-        } catch (e: Exception) {
+            try {
+                locationManager.removeTestProvider(provider)
+            } catch (e: Throwable) {
+            }
         }
     }
 
@@ -201,6 +106,12 @@ class SpoofingService : Service() {
             )
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        isRunning = false
+        cleanupLegacyTestProviders()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

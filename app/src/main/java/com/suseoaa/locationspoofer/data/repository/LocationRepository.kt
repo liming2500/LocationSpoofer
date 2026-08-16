@@ -2,6 +2,8 @@ package com.suseoaa.locationspoofer.data.repository
 
 import android.content.Context
 import android.content.Intent
+import android.location.LocationManager
+import android.os.Build
 import com.suseoaa.locationspoofer.data.db.SavedRouteDao
 import com.suseoaa.locationspoofer.data.db.SavedRouteEntity
 import com.suseoaa.locationspoofer.data.model.RoutePoint
@@ -78,7 +80,6 @@ class LocationRepository(
             alt,
             satCount
         )
-        rootManager.grantMockLocation()
 
         context.startForegroundService(
             Intent(context, SpoofingService::class.java).apply {
@@ -91,15 +92,49 @@ class LocationRepository(
 
     suspend fun stopSpoofing(context: Context) {
         SpooferProvider.isActive = false
+        SpooferProvider.latitude = 0.0
+        SpooferProvider.longitude = 0.0
         SpooferProvider.wifiJson = "[]"
         SpooferProvider.cellJson = "[]"
         SpooferProvider.bluetoothJson = "[]"
         SpooferProvider.routeJson = "[]"
         SpooferProvider.isRouteMode = false
         configManager.saveConfig(0.0, 0.0, false)
-        context.startService(Intent(context, SpoofingService::class.java).apply {
-            action = SpoofingService.ACTION_STOP
-        })
+
+        // 1. 同步在当前进程清理所有可能残留的 TestProvider
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        if (lm != null) {
+            try {
+                lm.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
+            } catch (e: Throwable) {}
+            try {
+                lm.removeTestProvider(LocationManager.GPS_PROVIDER)
+            } catch (e: Throwable) {}
+            try {
+                lm.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
+            } catch (e: Throwable) {}
+            try {
+                lm.removeTestProvider(LocationManager.NETWORK_PROVIDER)
+            } catch (e: Throwable) {}
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    lm.setTestProviderEnabled(LocationManager.FUSED_PROVIDER, false)
+                    lm.removeTestProvider(LocationManager.FUSED_PROVIDER)
+                }
+            } catch (e: Throwable) {}
+        }
+
+        // 2. 停止前台模拟服务
+        try {
+            context.stopService(Intent(context, SpoofingService::class.java))
+        } catch (e: Throwable) {}
+        try {
+            context.startService(Intent(context, SpoofingService::class.java).apply {
+                action = SpoofingService.ACTION_STOP
+            })
+        } catch (e: Throwable) {}
+
+        // 3. 彻底重置系统的 mock_location 状态，防止被澎湃OS/系统安全中心记录为模拟中
         rootManager.revokeMockLocation()
     }
 

@@ -393,13 +393,6 @@ class MainViewModel(
         convertToGcj: Boolean
     ) {
         try {
-            if (forceCallback != null && convertToGcj) {
-                android.widget.Toast.makeText(
-                    ctx,
-                    ctx.getString(com.suseoaa.locationspoofer.R.string.amap_restricted_fallback),
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            }
             val locationManager =
                 ctx.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
             val provider =
@@ -1442,6 +1435,7 @@ class MainViewModel(
     }
 
     fun stopRoutePlanning() {
+        settingsRepository.isSpoofingActive = false
         locationSyncJob?.cancel()
         locationSyncJob = null
         autoRouteJob?.cancel()
