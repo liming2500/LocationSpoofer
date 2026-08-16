@@ -142,6 +142,7 @@ class MainActivity : ComponentActivity() {
             requestPermissions(notGranted.toTypedArray(), 100)
         } else {
             checkBackgroundLocation()
+            requestIgnoreBatteryOptimizations()
         }
     }
 
@@ -149,6 +150,25 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             if (checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 101)
+            }
+        }
+    }
+
+    private fun requestIgnoreBatteryOptimizations() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager ?: return
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                try {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = android.net.Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    try {
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        startActivity(intent)
+                    } catch (_: Exception) {}
+                }
             }
         }
     }
@@ -162,6 +182,7 @@ class MainActivity : ComponentActivity() {
         if (requestCode == 100) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 checkBackgroundLocation()
+                requestIgnoreBatteryOptimizations()
             }
         }
     }

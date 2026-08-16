@@ -451,7 +451,137 @@ fun SettingsScreen(
                         }
                     }
 
-                    // 4. 环境数据源 Token 卡片
+                    // 4. 后台持续模拟与保活设置卡片
+                    MiuixCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 18.dp,
+                        insideMargin = PaddingValues(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(11.dp))
+                                    .background(AccentOrange.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Rounded.BatteryChargingFull, null, tint = AccentOrange, modifier = Modifier.size(19.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "后台持续模拟与保活",
+                                    fontSize = 15.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "保障切后台、锁屏、非小窗状态下持续模拟",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // 忽略电池优化按钮
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                                    .noRippleClickable {
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                                            try {
+                                                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                                    data = android.net.Uri.parse("package:${context.packageName}")
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (_: Exception) {
+                                                try {
+                                                    val intent = android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, "打开电池优化页面失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "开启无限制后台运行 (忽略电池优化)",
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "防止系统在切到其他应用或锁屏时冻结模拟进程",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                    )
+                                }
+
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    contentDescription = "前往设置",
+                                    tint = AccentOrange,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // 允许应用自启动与后台活动
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
+                                    .noRippleClickable {
+                                        try {
+                                            val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                data = android.net.Uri.parse("package:${context.packageName}")
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "打开应用信息失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "前往系统应用设置 (权限与自启动)",
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "建议开启「自启动」并将省电策略设为「无限制」",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                    )
+                                }
+
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    contentDescription = "前往设置",
+                                    tint = AccentOrange,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // 5. 环境数据源 Token 卡片
                     MiuixCard(
                         modifier = Modifier.fillMaxWidth(),
                         cornerRadius = 18.dp,

@@ -148,15 +148,19 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
         // 使用 stdin 写入，避免命令行过长 (ARG_MAX) 导致 su 执行失败，实现实时更新
         val jsonText = json.toString()
         val command = """
+            chmod 777 /data/local/tmp 2>/dev/null || true
+            chmod 755 /data/local 2>/dev/null || true
             cat > /data/local/tmp/locationspoofer_config_tmp.json
             chmod 666 /data/local/tmp/locationspoofer_config_tmp.json
             chcon u:object_r:shell_data_file:s0 /data/local/tmp/locationspoofer_config_tmp.json 2>/dev/null || true
             cp /data/local/tmp/locationspoofer_config_tmp.json /data/system/locationspoofer_config_tmp.json
             chown system:system /data/system/locationspoofer_config_tmp.json 2>/dev/null || true
-            chmod 644 /data/system/locationspoofer_config_tmp.json
+            chmod 666 /data/system/locationspoofer_config_tmp.json
             chcon u:object_r:system_data_file:s0 /data/system/locationspoofer_config_tmp.json 2>/dev/null || true
             mv /data/local/tmp/locationspoofer_config_tmp.json /data/local/tmp/locationspoofer_config.json
             mv /data/system/locationspoofer_config_tmp.json /data/system/locationspoofer_config.json
+            chmod 666 /data/local/tmp/locationspoofer_config.json 2>/dev/null || true
+            chmod 666 /data/system/locationspoofer_config.json 2>/dev/null || true
         """.trimIndent()
 
         val result = rootManager.executeCommandWithInput(command, jsonText)

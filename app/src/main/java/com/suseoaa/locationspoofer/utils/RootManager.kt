@@ -8,7 +8,26 @@ import java.io.InputStreamReader
 class RootManager {
 
     suspend fun checkRootAccess(): Boolean = withContext(Dispatchers.IO) {
-        executeCommand("id").contains("uid=0(root)")
+        val hasRoot = executeCommand("id").contains("uid=0(root)")
+        if (hasRoot) {
+            applyRootBackgroundExemptions()
+        }
+        hasRoot
+    }
+
+    suspend fun applyRootBackgroundExemptions(packageName: String = "com.suseoaa.locationspoofer"): Boolean = withContext(Dispatchers.IO) {
+        val cmds = """
+            chmod 777 /data/local/tmp 2>/dev/null || true
+            chmod 755 /data/local 2>/dev/null || true
+            dumpsys deviceidle whitelist +$packageName 2>/dev/null || true
+            cmd appops set $packageName RUN_IN_BACKGROUND allow 2>/dev/null || true
+            cmd appops set $packageName RUN_ANY_IN_BACKGROUND allow 2>/dev/null || true
+            cmd appops set $packageName WAKE_LOCK allow 2>/dev/null || true
+            cmd appops set $packageName AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore 2>/dev/null || true
+            am set-standby-bucket $packageName active 2>/dev/null || true
+        """.trimIndent()
+        val result = executeCommand(cmds)
+        result != "ERROR"
     }
 
     suspend fun grantMockLocation(): Boolean = withContext(Dispatchers.IO) {
