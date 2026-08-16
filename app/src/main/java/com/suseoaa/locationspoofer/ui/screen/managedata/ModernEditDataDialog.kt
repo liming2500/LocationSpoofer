@@ -100,19 +100,18 @@ fun ModernEditDataDialog(
         }
 
         item.wifis.forEach { lw ->
-            val bssid = lw.device.bssid
-            if (!seenBssids.contains(bssid.uppercase())) {
-                seenBssids.add(bssid.uppercase())
+            if (!seenBssids.contains(lw.device.bssid.uppercase())) {
+                seenBssids.add(lw.device.bssid.uppercase())
                 list.add(
                     EditableWifiItem(
-                        bssid = bssid,
+                        bssid = lw.device.bssid,
                         ssid = lw.device.ssid,
                         frequency = lw.device.frequency,
                         level = lw.locationWifi.level,
                         capabilities = lw.device.capabilities,
                         vendor = lw.device.vendor,
                         isConnected = false,
-                        isDesignated = selectedWifiBssid?.equals(bssid, ignoreCase = true) == true
+                        isDesignated = selectedWifiBssid?.equals(lw.device.bssid, ignoreCase = true) == true
                     )
                 )
             }
@@ -121,39 +120,57 @@ fun ModernEditDataDialog(
     }
 
     val cellList = remember(item, selectedCellKey) {
-        item.cells.map { lc ->
-            EditableCellItem(
-                cellKey = lc.device.cellKey,
-                type = lc.device.type,
-                mcc = lc.device.mcc,
-                mnc = lc.device.mnc,
-                tac = lc.device.tac,
-                ci = lc.device.ci,
-                pci = lc.device.pci,
-                lac = lc.device.lac,
-                cid = lc.device.cid,
-                psc = lc.device.psc,
-                nci = lc.device.nci,
-                networkId = lc.device.networkId,
-                systemId = lc.device.systemId,
-                basestationId = lc.device.basestationId,
-                dbm = lc.locationCell.dbm,
-                isRegistered = lc.locationCell.isRegistered,
-                isDesignated = selectedCellKey?.equals(lc.device.cellKey, ignoreCase = true) == true
-            )
+        val list = mutableListOf<EditableCellItem>()
+        val seenKeys = mutableSetOf<String>()
+
+        item.cells.forEach { lc ->
+            if (!seenKeys.contains(lc.device.cellKey)) {
+                seenKeys.add(lc.device.cellKey)
+                list.add(
+                    EditableCellItem(
+                        cellKey = lc.device.cellKey,
+                        type = lc.device.type,
+                        mcc = lc.device.mcc,
+                        mnc = lc.device.mnc,
+                        tac = lc.device.tac,
+                        ci = lc.device.ci,
+                        pci = lc.device.pci,
+                        lac = lc.device.lac,
+                        cid = lc.device.cid,
+                        psc = lc.device.psc,
+                        nci = lc.device.nci,
+                        networkId = lc.device.networkId,
+                        systemId = lc.device.systemId,
+                        basestationId = lc.device.basestationId,
+                        dbm = lc.locationCell.dbm,
+                        isRegistered = lc.locationCell.isRegistered,
+                        isDesignated = selectedCellKey?.equals(lc.device.cellKey, ignoreCase = true) == true
+                    )
+                )
+            }
         }
+        list
     }
 
     val btList = remember(item, selectedBluetoothAddress) {
-        item.bluetooths.map { lb ->
-            EditableBluetoothItem(
-                address = lb.device.address,
-                name = lb.device.name,
-                scanRecordHex = lb.device.scanRecordHex,
-                rssi = lb.locationBluetooth.rssi,
-                isDesignated = selectedBluetoothAddress?.equals(lb.device.address, ignoreCase = true) == true
-            )
+        val list = mutableListOf<EditableBluetoothItem>()
+        val seenAddresses = mutableSetOf<String>()
+
+        item.bluetooths.forEach { lb ->
+            if (!seenAddresses.contains(lb.device.address.uppercase())) {
+                seenAddresses.add(lb.device.address.uppercase())
+                list.add(
+                    EditableBluetoothItem(
+                        address = lb.device.address,
+                        name = lb.device.name,
+                        scanRecordHex = lb.device.scanRecordHex,
+                        rssi = lb.locationBluetooth.rssi,
+                        isDesignated = selectedBluetoothAddress?.equals(lb.device.address, ignoreCase = true) == true
+                    )
+                )
+            }
         }
+        list
     }
 
     Dialog(
@@ -164,7 +181,7 @@ fun ModernEditDataDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .fillMaxHeight(0.88f),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
@@ -176,163 +193,146 @@ fun ModernEditDataDialog(
                 // 顶部标题栏
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(13.dp))
-                            .background(AccentBlue.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            Icons.Rounded.EditLocation,
-                            contentDescription = null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.edit_location_data),
-                            fontSize = 17.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(R.string.collection_time_format, timeStr),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
-                                    alpha = 0.05f
-                                )
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(AccentBlue.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded.EditLocationAlt,
+                                contentDescription = null,
+                                tint = AccentBlue,
+                                modifier = Modifier.size(22.dp)
                             )
-                            .noRippleClickable(onClick = onDismiss),
-                        contentAlignment = Alignment.Center
+                        }
+                        Column {
+                            Text(
+                                text = stringResource(R.string.edit_location_data),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = timeStr,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.close),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(14.dp))
 
                 // 可滚动内容区域
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // 经纬度及环境数据概览条
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(
-                                    alpha = 0.03f
-                                )
-                            )
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    // 坐标概览与环境元数据卡片
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Rounded.MyLocation,
-                                    contentDescription = null,
-                                    tint = AccentBlue,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Rounded.MyLocation,
+                                        contentDescription = null,
+                                        tint = AccentBlue,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "${
+                                            String.format(
+                                                Locale.US,
+                                                "%.6f",
+                                                item.location.lat
+                                            )
+                                        }, ${String.format(Locale.US, "%.6f", item.location.lng)}",
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
                                 Text(
-                                    text = "${
-                                        String.format(
-                                            Locale.US,
-                                            "%.5f",
-                                            item.location.lat
-                                        )
-                                    }, ${String.format(Locale.US, "%.5f", item.location.lng)}",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                    text = "ID: #${item.location.id}",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )
                             }
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                SignalChip(
+                                    icon = Icons.Rounded.Wifi,
                                     text = "${wifiList.size} Wi-Fi",
-                                    fontSize = 11.sp,
-                                    color = AccentBlue,
-                                    fontWeight = FontWeight.SemiBold
+                                    tint = AccentBlue,
+                                    isDark = isDark
                                 )
-                                Text(
-                                    text = "•",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                SignalChip(
+                                    icon = Icons.Rounded.CellTower,
+                                    text = "${cellList.size} ${stringResource(R.string.tag_cell)}",
+                                    tint = AccentOrange,
+                                    isDark = isDark
                                 )
-                                Text(
-                                    text = stringResource(R.string.cells_count_badge, cellList.size),
-                                    fontSize = 11.sp,
-                                    color = AccentOrange,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "•",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                )
-                                Text(
-                                    text = "${btList.size} BT",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF9C27B0),
-                                    fontWeight = FontWeight.SemiBold
+                                SignalChip(
+                                    icon = Icons.Rounded.Bluetooth,
+                                    text = "${btList.size} ${stringResource(R.string.tag_bluetooth)}",
+                                    tint = Color(0xFF9C27B0),
+                                    isDark = isDark
                                 )
                             }
                         }
                     }
 
-                    // 表单输入容器（地名与备注）
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
-                                    alpha = 0.03f
-                                )
-                            )
-                            .border(
-                                0.8.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.12f else 0.06f),
-                                RoundedCornerShape(16.dp)
-                            )
+                    // 地点名称输入框
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                     ) {
-                        // 位置名称输入
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -346,7 +346,7 @@ fun ModernEditDataDialog(
                                 value = placeName,
                                 onValueChange = { placeName = it },
                                 textStyle = TextStyle(
-                                    fontSize = 14.5.sp,
+                                    fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Medium
                                 ),
@@ -381,20 +381,24 @@ fun ModernEditDataDialog(
                                 }
                             }
                         }
+                    }
 
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.10f else 0.05f))
-
-                        // 备注说明输入
+                    // 备注描述输入框
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.Top
                         ) {
                             Icon(
-                                Icons.Rounded.Description,
+                                Icons.Rounded.Notes,
                                 contentDescription = null,
-                                tint = AccentOrange,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                 modifier = Modifier
                                     .padding(top = 2.dp)
                                     .size(18.dp)
@@ -479,7 +483,7 @@ fun ModernEditDataDialog(
                                                 0.6.dp,
                                                 if (isDark) Color.White.copy(alpha = 0.18f) else Color.Black.copy(alpha = 0.08f),
                                                 RoundedCornerShape(9.dp)
-                                             )
+                                            )
                                         } else Modifier
                                     )
                                     .noRippleClickable { selectedTab = tab },
@@ -498,625 +502,57 @@ fun ModernEditDataDialog(
                     // 选项卡内容区
                     when (selectedTab) {
                         EditDataTab.WIFI -> {
-                            // 模拟 Wi-Fi 选项与数据库管理模块
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
-                                    .border(0.8.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.12f else 0.06f), RoundedCornerShape(16.dp))
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Rounded.Wifi, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(text = stringResource(R.string.manage_wifi_list_title), fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(AccentBlue.copy(alpha = 0.12f))
-                                            .noRippleClickable {
-                                                isNewWifiDialog = true
-                                                wifiBeingEdited = null
-                                            }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Rounded.Add, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(14.dp))
-                                            Spacer(Modifier.width(3.dp))
-                                            Text(text = stringResource(R.string.add_wifi_btn), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AccentBlue)
-                                        }
-                                    }
-                                }
-
-                                Text(
-                                    text = stringResource(R.string.designated_wifi_tip),
-                                    fontSize = 11.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.48f),
-                                    lineHeight = 16.sp
-                                )
-
-                                val isAutoSelected = selectedWifiBssid == null
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(if (isAutoSelected) AccentBlue.copy(alpha = 0.08f) else Color.Transparent)
-                                        .border(0.8.dp, if (isAutoSelected) AccentBlue.copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(10.dp))
-                                        .noRippleClickable { selectedWifiBssid = null }
-                                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = if (isAutoSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                        contentDescription = null,
-                                        tint = if (isAutoSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.no_designated_wifi),
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isAutoSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (isAutoSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                                    )
-                                }
-
-                                if (wifiList.isEmpty()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 12.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(text = stringResource(R.string.no_wifi_data_in_record), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                                    }
-                                } else {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        wifiList.forEach { wifi ->
-                                            val isSelected = selectedWifiBssid?.equals(wifi.bssid, ignoreCase = true) == true
-
-                                             Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .background(
-                                                        if (isSelected) AccentBlue.copy(alpha = 0.09f)
-                                                        else if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f)
-                                                    )
-                                                    .border(
-                                                        0.8.dp,
-                                                        if (isSelected) AccentBlue.copy(alpha = 0.4f)
-                                                        else MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.08f else 0.04f),
-                                                        RoundedCornerShape(12.dp)
-                                                    )
-                                                    .noRippleClickable { selectedWifiBssid = wifi.bssid }
-                                                    .padding(horizontal = 10.dp, vertical = 9.dp)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (isSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                                        contentDescription = null,
-                                                        tint = if (isSelected) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                                        modifier = Modifier.size(17.dp)
-                                                    )
-                                                    Spacer(Modifier.width(8.dp))
-
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = wifi.ssid.ifBlank { "<Hidden SSID>" },
-                                                                fontSize = 13.5.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.onSurface
-                                                            )
-
-                                                            if (isSelected) {
-                                                                Box(
-                                                                    modifier = Modifier
-                                                                        .clip(RoundedCornerShape(4.dp))
-                                                                        .background(AccentBlue.copy(alpha = 0.15f))
-                                                                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                                                                ) {
-                                                                    Text(
-                                                                        text = stringResource(R.string.designated_simulation_badge),
-                                                                        fontSize = 9.5.sp,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        color = AccentBlue
-                                                                    )
-                                                                }
-                                                            }
-
-                                                            if (wifi.isConnected) {
-                                                                Box(
-                                                                    modifier = Modifier
-                                                                        .clip(RoundedCornerShape(4.dp))
-                                                                        .background(AccentGreen.copy(alpha = 0.15f))
-                                                                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                                                                ) {
-                                                                    Text(
-                                                                        text = stringResource(R.string.connected_wifi_badge),
-                                                                        fontSize = 9.5.sp,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        color = AccentGreen
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-
-                                                        Spacer(Modifier.height(3.dp))
-
-                                                        Text(
-                                                            text = "${wifi.bssid}  •  ${wifi.level} dBm  •  ${wifi.frequency} MHz",
-                                                            fontSize = 11.5.sp,
-                                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                                                        )
-
-                                                        if (wifi.capabilities.isNotBlank()) {
-                                                            Text(
-                                                                text = wifi.capabilities,
-                                                                fontSize = 10.sp,
-                                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                                                                maxLines = 1
-                                                            )
-                                                        }
-                                                    }
-
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(28.dp)
-                                                            .clip(CircleShape)
-                                                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-                                                            .noRippleClickable {
-                                                                wifiBeingEdited = wifi
-                                                                isNewWifiDialog = false
-                                                            },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(Icons.Rounded.Edit, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(13.dp))
-                                                    }
-
-                                                    Spacer(Modifier.width(6.dp))
-
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(28.dp)
-                                                            .clip(CircleShape)
-                                                            .background(Color(0xFFE53935).copy(alpha = 0.08f))
-                                                            .noRippleClickable { wifiToDelete = wifi.bssid },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(14.dp))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            ManageWifiTabContent(
+                                wifiList = wifiList,
+                                selectedWifiBssid = selectedWifiBssid,
+                                isDark = isDark,
+                                onSelectBssid = { selectedWifiBssid = it },
+                                onAddWifi = {
+                                    isNewWifiDialog = true
+                                    wifiBeingEdited = null
+                                },
+                                onEditWifi = { wifi ->
+                                    wifiBeingEdited = wifi
+                                    isNewWifiDialog = false
+                                },
+                                onDeleteWifi = { bssid -> wifiToDelete = bssid }
+                            )
                         }
 
                         EditDataTab.CELL -> {
-                            // 模拟基站选项与数据库管理模块
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
-                                    .border(0.8.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.12f else 0.06f), RoundedCornerShape(16.dp))
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Rounded.CellTower, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(text = stringResource(R.string.manage_cell_list_title), fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(AccentOrange.copy(alpha = 0.12f))
-                                            .noRippleClickable {
-                                                isNewCellDialog = true
-                                                cellBeingEdited = null
-                                            }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Rounded.Add, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(14.dp))
-                                            Spacer(Modifier.width(3.dp))
-                                            Text(text = stringResource(R.string.add_cell_btn), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AccentOrange)
-                                        }
-                                    }
-                                }
-
-                                Text(
-                                    text = stringResource(R.string.designated_cell_tip),
-                                    fontSize = 11.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.48f),
-                                    lineHeight = 16.sp
-                                )
-
-                                val isAutoSelected = selectedCellKey == null
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(if (isAutoSelected) AccentOrange.copy(alpha = 0.08f) else Color.Transparent)
-                                        .border(0.8.dp, if (isAutoSelected) AccentOrange.copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(10.dp))
-                                        .noRippleClickable { selectedCellKey = null }
-                                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = if (isAutoSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                        contentDescription = null,
-                                        tint = if (isAutoSelected) AccentOrange else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.no_designated_cell),
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isAutoSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (isAutoSelected) AccentOrange else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                                    )
-                                }
-
-                                if (cellList.isEmpty()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 12.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(text = stringResource(R.string.no_cell_data_in_record), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                                    }
-                                } else {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        cellList.forEach { cell ->
-                                            val isSelected = selectedCellKey?.equals(cell.cellKey, ignoreCase = true) == true
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .background(
-                                                        if (isSelected) AccentOrange.copy(alpha = 0.09f)
-                                                        else if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f)
-                                                    )
-                                                    .border(
-                                                        0.8.dp,
-                                                        if (isSelected) AccentOrange.copy(alpha = 0.4f)
-                                                        else MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.08f else 0.04f),
-                                                        RoundedCornerShape(12.dp)
-                                                    )
-                                                    .noRippleClickable { selectedCellKey = cell.cellKey }
-                                                    .padding(horizontal = 10.dp, vertical = 9.dp)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (isSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                                        contentDescription = null,
-                                                        tint = if (isSelected) AccentOrange else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                                        modifier = Modifier.size(17.dp)
-                                                    )
-                                                    Spacer(Modifier.width(8.dp))
-
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = "${cell.type.uppercase()} • MCC:${cell.mcc} MNC:${cell.mnc}",
-                                                                fontSize = 13.5.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.onSurface
-                                                            )
-
-                                                            if (isSelected) {
-                                                                Box(
-                                                                    modifier = Modifier
-                                                                        .clip(RoundedCornerShape(4.dp))
-                                                                        .background(AccentBlue.copy(alpha = 0.15f))
-                                                                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                                                                ) {
-                                                                    Text(
-                                                                        text = stringResource(R.string.designated_cell_badge),
-                                                                        fontSize = 9.5.sp,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        color = AccentBlue
-                                                                    )
-                                                                }
-                                                            }
-
-                                                            if (cell.isRegistered) {
-                                                                Box(
-                                                                    modifier = Modifier
-                                                                        .clip(RoundedCornerShape(4.dp))
-                                                                        .background(AccentOrange.copy(alpha = 0.15f))
-                                                                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                                                                ) {
-                                                                    Text(
-                                                                        text = stringResource(R.string.registered_cell_badge),
-                                                                        fontSize = 9.5.sp,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        color = AccentOrange
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-
-                                                        Spacer(Modifier.height(3.dp))
-
-                                                        val details = when (cell.type.uppercase()) {
-                                                            "LTE" -> "TAC: ${cell.tac}  •  CI: ${cell.ci}  •  PCI: ${cell.pci}  •  ${cell.dbm} dBm"
-                                                            "NR" -> "TAC: ${cell.tac}  •  NCI: ${cell.nci}  •  PCI: ${cell.pci}  •  ${cell.dbm} dBm"
-                                                            "GSM" -> "LAC: ${cell.lac}  •  CID: ${cell.cid}  •  ${cell.dbm} dBm"
-                                                            "WCDMA" -> "LAC: ${cell.lac}  •  CID: ${cell.cid}  •  PSC: ${cell.psc}  •  ${cell.dbm} dBm"
-                                                            else -> "Key: ${cell.cellKey}  •  ${cell.dbm} dBm"
-                                                        }
-
-                                                        Text(
-                                                            text = details,
-                                                            fontSize = 11.5.sp,
-                                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                                                        )
-                                                    }
-
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(28.dp)
-                                                            .clip(CircleShape)
-                                                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-                                                            .noRippleClickable {
-                                                                cellBeingEdited = cell
-                                                                isNewCellDialog = false
-                                                            },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(Icons.Rounded.Edit, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(13.dp))
-                                                    }
-
-                                                    Spacer(Modifier.width(6.dp))
-
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(28.dp)
-                                                            .clip(CircleShape)
-                                                            .background(Color(0xFFE53935).copy(alpha = 0.08f))
-                                                            .noRippleClickable { cellToDelete = cell.cellKey },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(14.dp))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            ManageCellTabContent(
+                                cellList = cellList,
+                                selectedCellKey = selectedCellKey,
+                                isDark = isDark,
+                                onSelectCellKey = { selectedCellKey = it },
+                                onAddCell = {
+                                    isNewCellDialog = true
+                                    cellBeingEdited = null
+                                },
+                                onEditCell = { cell ->
+                                    cellBeingEdited = cell
+                                    isNewCellDialog = false
+                                },
+                                onDeleteCell = { cellKey -> cellToDelete = cellKey }
+                            )
                         }
 
                         EditDataTab.BLUETOOTH -> {
-                            // 模拟蓝牙选项与数据库管理模块
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.03f))
-                                    .border(0.8.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.12f else 0.06f), RoundedCornerShape(16.dp))
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Rounded.Bluetooth, contentDescription = null, tint = Color(0xFF9C27B0), modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(text = stringResource(R.string.manage_bt_list_title), fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF9C27B0).copy(alpha = 0.12f))
-                                            .noRippleClickable {
-                                                isNewBtDialog = true
-                                                btBeingEdited = null
-                                            }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Rounded.Add, contentDescription = null, tint = Color(0xFF9C27B0), modifier = Modifier.size(14.dp))
-                                            Spacer(Modifier.width(3.dp))
-                                            Text(text = stringResource(R.string.add_bt_btn), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF9C27B0))
-                                        }
-                                    }
-                                }
-
-                                Text(
-                                    text = stringResource(R.string.designated_bt_tip),
-                                    fontSize = 11.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.48f),
-                                    lineHeight = 16.sp
-                                )
-
-                                val isAutoSelected = selectedBluetoothAddress == null
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(if (isAutoSelected) Color(0xFF9C27B0).copy(alpha = 0.08f) else Color.Transparent)
-                                        .border(0.8.dp, if (isAutoSelected) Color(0xFF9C27B0).copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(10.dp))
-                                        .noRippleClickable { selectedBluetoothAddress = null }
-                                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = if (isAutoSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                        contentDescription = null,
-                                        tint = if (isAutoSelected) Color(0xFF9C27B0) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.no_designated_bt),
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isAutoSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (isAutoSelected) Color(0xFF9C27B0) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                                    )
-                                }
-
-                                if (btList.isEmpty()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 12.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(text = stringResource(R.string.no_bt_data_in_record), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                                    }
-                                } else {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        btList.forEach { bt ->
-                                            val isSelected = selectedBluetoothAddress?.equals(bt.address, ignoreCase = true) == true
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .background(
-                                                        if (isSelected) Color(0xFF9C27B0).copy(alpha = 0.09f)
-                                                        else if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f)
-                                                    )
-                                                    .border(
-                                                        0.8.dp,
-                                                        if (isSelected) Color(0xFF9C27B0).copy(alpha = 0.4f)
-                                                        else MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.08f else 0.04f),
-                                                        RoundedCornerShape(12.dp)
-                                                    )
-                                                    .noRippleClickable { selectedBluetoothAddress = bt.address }
-                                                    .padding(horizontal = 10.dp, vertical = 9.dp)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (isSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                                        contentDescription = null,
-                                                        tint = if (isSelected) Color(0xFF9C27B0) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                                        modifier = Modifier.size(17.dp)
-                                                    )
-                                                    Spacer(Modifier.width(8.dp))
-
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = bt.name.ifBlank { "<Unknown Device>" },
-                                                                fontSize = 13.5.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.onSurface
-                                                            )
-
-                                                            if (isSelected) {
-                                                                Box(
-                                                                    modifier = Modifier
-                                                                        .clip(RoundedCornerShape(4.dp))
-                                                                        .background(AccentBlue.copy(alpha = 0.15f))
-                                                                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                                                                ) {
-                                                                    Text(
-                                                                        text = stringResource(R.string.designated_bt_badge),
-                                                                        fontSize = 9.5.sp,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        color = AccentBlue
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-
-                                                        Spacer(Modifier.height(3.dp))
-
-                                                        Text(
-                                                            text = "${bt.address}  •  ${bt.rssi} dBm",
-                                                            fontSize = 11.5.sp,
-                                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                                                        )
-
-                                                        if (bt.scanRecordHex.isNotBlank()) {
-                                                            Text(
-                                                                text = "Hex: ${bt.scanRecordHex}",
-                                                                fontSize = 10.sp,
-                                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                                                                maxLines = 1
-                                                            )
-                                                        }
-                                                    }
-
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(28.dp)
-                                                            .clip(CircleShape)
-                                                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-                                                            .noRippleClickable {
-                                                                btBeingEdited = bt
-                                                                isNewBtDialog = false
-                                                            },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color(0xFF9C27B0), modifier = Modifier.size(13.dp))
-                                                    }
-
-                                                    Spacer(Modifier.width(6.dp))
-
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(28.dp)
-                                                            .clip(CircleShape)
-                                                            .background(Color(0xFFE53935).copy(alpha = 0.08f))
-                                                            .noRippleClickable { btToDelete = bt.address },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(14.dp))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            ManageBluetoothTabContent(
+                                btList = btList,
+                                selectedBluetoothAddress = selectedBluetoothAddress,
+                                isDark = isDark,
+                                onSelectAddress = { selectedBluetoothAddress = it },
+                                onAddBluetooth = {
+                                    isNewBtDialog = true
+                                    btBeingEdited = null
+                                },
+                                onEditBluetooth = { bt ->
+                                    btBeingEdited = bt
+                                    isNewBtDialog = false
+                                },
+                                onDeleteBluetooth = { address -> btToDelete = address }
+                            )
                         }
                     }
                 }
@@ -1192,68 +628,18 @@ fun ModernEditDataDialog(
     // 删除单项 Wi-Fi 二次确认
     if (wifiToDelete != null) {
         val targetBssid = wifiToDelete!!
-        Dialog(onDismissRequest = { wifiToDelete = null }) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.delete),
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.delete_wifi_confirm, targetBssid),
-                        fontSize = 13.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
-                                .noRippleClickable { wifiToDelete = null },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = stringResource(R.string.cancel), fontSize = 13.5.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                onDeleteWifi(targetBssid)
-                                if (selectedWifiBssid?.equals(targetBssid, ignoreCase = true) == true) {
-                                    selectedWifiBssid = null
-                                }
-                                wifiToDelete = null
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .height(40.dp)
-                        ) {
-                            Text(text = stringResource(R.string.delete), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+        ManageDeleteConfirmDialog(
+            message = stringResource(R.string.delete_wifi_confirm, targetBssid),
+            isDark = isDark,
+            onDismiss = { wifiToDelete = null },
+            onConfirm = {
+                onDeleteWifi(targetBssid)
+                if (selectedWifiBssid?.equals(targetBssid, ignoreCase = true) == true) {
+                    selectedWifiBssid = null
                 }
+                wifiToDelete = null
             }
-        }
+        )
     }
 
     // 编辑或新增基站详细参数弹窗
@@ -1279,68 +665,18 @@ fun ModernEditDataDialog(
     // 删除单项基站二次确认
     if (cellToDelete != null) {
         val targetCellKey = cellToDelete!!
-        Dialog(onDismissRequest = { cellToDelete = null }) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.delete),
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.delete_cell_confirm, targetCellKey),
-                        fontSize = 13.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
-                            .noRippleClickable { cellToDelete = null },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = stringResource(R.string.cancel), fontSize = 13.5.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                onDeleteCell(targetCellKey)
-                                if (selectedCellKey?.equals(targetCellKey, ignoreCase = true) == true) {
-                                    selectedCellKey = null
-                                }
-                                cellToDelete = null
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .height(40.dp)
-                        ) {
-                            Text(text = stringResource(R.string.delete), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+        ManageDeleteConfirmDialog(
+            message = stringResource(R.string.delete_cell_confirm, targetCellKey),
+            isDark = isDark,
+            onDismiss = { cellToDelete = null },
+            onConfirm = {
+                onDeleteCell(targetCellKey)
+                if (selectedCellKey?.equals(targetCellKey, ignoreCase = true) == true) {
+                    selectedCellKey = null
                 }
+                cellToDelete = null
             }
-        }
+        )
     }
 
     // 编辑或新增蓝牙详细参数弹窗
@@ -1366,67 +702,17 @@ fun ModernEditDataDialog(
     // 删除单项蓝牙二次确认
     if (btToDelete != null) {
         val targetAddress = btToDelete!!
-        Dialog(onDismissRequest = { btToDelete = null }) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.delete),
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.delete_bt_confirm, targetAddress),
-                        fontSize = 13.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
-                            .noRippleClickable { btToDelete = null },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = stringResource(R.string.cancel), fontSize = 13.5.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                onDeleteBluetooth(targetAddress)
-                                if (selectedBluetoothAddress?.equals(targetAddress, ignoreCase = true) == true) {
-                                    selectedBluetoothAddress = null
-                                }
-                                btToDelete = null
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .height(40.dp)
-                        ) {
-                            Text(text = stringResource(R.string.delete), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+        ManageDeleteConfirmDialog(
+            message = stringResource(R.string.delete_bt_confirm, targetAddress),
+            isDark = isDark,
+            onDismiss = { btToDelete = null },
+            onConfirm = {
+                onDeleteBluetooth(targetAddress)
+                if (selectedBluetoothAddress?.equals(targetAddress, ignoreCase = true) == true) {
+                    selectedBluetoothAddress = null
                 }
+                btToDelete = null
             }
-        }
+        )
     }
 }
