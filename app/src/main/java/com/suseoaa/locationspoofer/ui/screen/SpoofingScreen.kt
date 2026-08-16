@@ -346,10 +346,10 @@ fun SpoofingScreen(
 
                     Icon(
                         Icons.Rounded.AddLocationAlt, null,
-                        tint = AccentBlue.copy(alpha = 0.8f),
+                        tint = AccentBlue,
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .size(32.dp)
+                            .size(36.dp)
                             .padding(bottom = 16.dp)
                     )
 

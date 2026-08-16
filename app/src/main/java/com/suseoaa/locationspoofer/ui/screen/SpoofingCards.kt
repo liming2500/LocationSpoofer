@@ -623,13 +623,13 @@ fun ManageDataCard(isDark: Boolean, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(38.dp)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
+                    .background(AccentOrange.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Rounded.DeleteOutline,
+                    Icons.Rounded.FolderShared,
                     null,
-                    tint = MaterialTheme.colorScheme.error,
+                    tint = AccentOrange,
                     modifier = Modifier.size(20.dp)
                 )
             }

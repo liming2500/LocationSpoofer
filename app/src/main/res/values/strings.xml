@@ -131,12 +131,12 @@
     <string name="custom_coordinate_algo">Custom Coordinate Algorithm</string>
     <string name="config_app_coordinate">Configure App Coordinate System</string>
     <string name="config_app_coordinate_desc">Fix static offsets and customize underlying coordinates per app</string>
-    <string name="spatial_env_collection">Spatial Environment Collection</string>
-    <string name="env_map_scan">Environment Map &amp; Street Scan</string>
+    <string name="spatial_env_collection">Local Environment Collection</string>
+    <string name="env_map_scan">Collect Local Data</string>
     <string name="scanning_reference_points">Scanning... %1$d reference points collected</string>
-    <string name="view_heatmap_start_scan">View environment heatmap and start continuous scan</string>
-    <string name="env_data_sharing">Environment Data Sharing</string>
-    <string name="env_data_sharing_desc">Export map or import and merge others\' data</string>
+    <string name="view_heatmap_start_scan">Scan and collect nearby cell tower &amp; Wi-Fi signals in real time</string>
+    <string name="env_data_sharing">Import &amp; Export Data</string>
+    <string name="env_data_sharing_desc">Backup or merge local environmental data in JSON format</string>
     <string name="import_data">Import</string>
     <string name="export_data">Export</string>
     <string name="show_system_apps">Show System Apps</string>

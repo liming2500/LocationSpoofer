@@ -1,6 +1,12 @@
 package com.suseoaa.locationspoofer.ui.components
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.os.Bundle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -55,6 +61,15 @@ interface AppMapController {
     fun addMarker(lat: Double, lng: Double, title: String, type: MarkerType): AppMapMarker
     fun animateCamera(lat: Double, lng: Double, zoom: Float? = null)
     fun fitBounds(points: List<Pair<Double, Double>>, padding: Int)
+    fun fitBounds(
+        points: List<Pair<Double, Double>>,
+        paddingLeft: Int,
+        paddingTop: Int,
+        paddingRight: Int,
+        paddingBottom: Int
+    ) {
+        fitBounds(points, maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom))
+    }
     fun moveCamera(lat: Double, lng: Double, zoom: Float? = null)
     val cameraTargetLat: Double?
     val cameraTargetLng: Double?
@@ -128,7 +143,115 @@ private fun transformLon(x: Double, y: Double): Double {
     return r
 }
 
-class AMapControllerImpl(private val map: AMap) : AppMapController {
+object GaodeMarkerHelper {
+    private val bitmapCache = mutableMapOf<String, Bitmap>()
+
+    fun getMarkerBitmap(
+        context: Context,
+        text: String,
+        type: MarkerType
+    ): Bitmap {
+        val cacheKey = "${type.name}_$text"
+        bitmapCache[cacheKey]?.let {
+            if (!it.isRecycled) return it
+        }
+
+        val density = context.resources.displayMetrics.density
+        val width = (32 * density).toInt().coerceAtLeast(1)
+        val height = (44 * density).toInt().coerceAtLeast(1)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val mainColor = when (type) {
+            MarkerType.GREEN -> android.graphics.Color.parseColor("#00B578")  // 高德起点绿
+            MarkerType.RED -> android.graphics.Color.parseColor("#FA5151")    // 高德终点红
+            MarkerType.ORANGE -> android.graphics.Color.parseColor("#FF7A00") // 高德导航橙
+            MarkerType.DEFAULT -> android.graphics.Color.parseColor("#0084FF")// 高德途经蓝
+        }
+
+        // 1. 底部微阴影
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#33000000")
+            style = Paint.Style.FILL
+        }
+        val shadowRect = RectF(
+            width * 0.22f,
+            height - 5 * density,
+            width * 0.78f,
+            height - 1 * density
+        )
+        canvas.drawOval(shadowRect, shadowPaint)
+
+        // 2. 高德经典水滴图钉主体路径 (Pin Body)
+        val headRadius = width * 0.44f
+        val headCenterX = width / 2f
+        val headCenterY = headRadius + 2 * density
+        val bottomTipY = height - 4.5f * density
+
+        val path = Path().apply {
+            val ovalRect = RectF(
+                headCenterX - headRadius,
+                headCenterY - headRadius,
+                headCenterX + headRadius,
+                headCenterY + headRadius
+            )
+            arcTo(ovalRect, 145f, 250f, false)
+            lineTo(headCenterX, bottomTipY)
+            close()
+        }
+
+        // 填充图钉主体
+        val pinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = mainColor
+            style = Paint.Style.FILL
+        }
+        canvas.drawPath(path, pinPaint)
+
+        // 绘制图钉纯白外描边
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f * density
+        }
+        canvas.drawPath(path, strokePaint)
+
+        // 3. 中心白色圆形徽章
+        val innerRadius = headRadius * 0.60f
+        val innerCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(headCenterX, headCenterY, innerRadius, innerCirclePaint)
+
+        // 4. 中心内容（文字或小圆点）
+        if (type == MarkerType.ORANGE || text.isBlank()) {
+            val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = mainColor
+                style = Paint.Style.FILL
+            }
+            canvas.drawCircle(headCenterX, headCenterY, innerRadius * 0.52f, dotPaint)
+        } else {
+            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = mainColor
+                textSize = if (text.length > 1) innerRadius * 1.05f else innerRadius * 1.28f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            val fontMetrics = textPaint.fontMetrics
+            val baseline = headCenterY - (fontMetrics.ascent + fontMetrics.descent) / 2f
+            canvas.drawText(text, headCenterX, baseline, textPaint)
+        }
+
+        bitmapCache[cacheKey] = bitmap
+        return bitmap
+    }
+}
+
+class AMapControllerImpl(
+    private val map: AMap,
+    private val context: Context
+) : AppMapController {
     private var isDarkMode: Boolean = false
     private var currentMapType: AppMapType = AppMapType.NORMAL
 
@@ -173,17 +296,13 @@ class AMapControllerImpl(private val map: AMap) : AppMapController {
         title: String,
         type: MarkerType
     ): AppMapMarker {
-        val hue = when (type) {
-            MarkerType.GREEN -> BitmapDescriptorFactory.HUE_GREEN
-            MarkerType.RED -> BitmapDescriptorFactory.HUE_RED
-            MarkerType.ORANGE -> BitmapDescriptorFactory.HUE_ORANGE
-            else -> BitmapDescriptorFactory.HUE_RED
-        }
+        val bitmap = GaodeMarkerHelper.getMarkerBitmap(context, title, type)
         val marker = map.addMarker(
             AMapMarkerOptions()
                 .position(AMapLatLng(lat, lng))
                 .title(title)
-                .icon(BitmapDescriptorFactory.defaultMarker(hue))
+                .icon(BitmapDescriptorFactory.fromBitmap(bitmap))
+                .anchor(0.5f, 0.9f)
         )
         return object : AppMapMarker {
             override fun setPosition(lat: Double, lng: Double) {
@@ -193,21 +312,44 @@ class AMapControllerImpl(private val map: AMap) : AppMapController {
     }
 
     override fun animateCamera(lat: Double, lng: Double, zoom: Float?) {
-        if (zoom != null) map.moveCamera(
+        if (zoom != null) map.animateCamera(
             CameraUpdateFactory.newLatLngZoom(
                 AMapLatLng(lat, lng),
                 zoom
             )
         )
-        else map.moveCamera(CameraUpdateFactory.newLatLng(AMapLatLng(lat, lng)))
+        else map.animateCamera(CameraUpdateFactory.newLatLng(AMapLatLng(lat, lng)))
     }
 
     override fun fitBounds(points: List<Pair<Double, Double>>, padding: Int) {
+        fitBounds(points, padding, padding, padding, padding)
+    }
+
+    override fun fitBounds(
+        points: List<Pair<Double, Double>>,
+        paddingLeft: Int,
+        paddingTop: Int,
+        paddingRight: Int,
+        paddingBottom: Int
+    ) {
         if (points.isEmpty()) return
         val builder = com.amap.api.maps.model.LatLngBounds.Builder()
         points.forEach { builder.include(AMapLatLng(it.first, it.second)) }
         try {
-            map.moveCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), padding))
+            val bounds = builder.build()
+            try {
+                map.animateCamera(
+                    CameraUpdateFactory.newLatLngBoundsRect(
+                        bounds,
+                        paddingLeft,
+                        paddingRight,
+                        paddingTop,
+                        paddingBottom
+                    )
+                )
+            } catch (t: Throwable) {
+                map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom)))
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -297,7 +439,10 @@ class AMapControllerImpl(private val map: AMap) : AppMapController {
     }
 }
 
-class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
+class GMapControllerImpl(
+    private val map: GoogleMap,
+    private val context: Context
+) : AppMapController {
     private var isDarkMode: Boolean = false
     private var currentMapType: AppMapType = AppMapType.NORMAL
 
@@ -360,18 +505,14 @@ class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
         title: String,
         type: MarkerType
     ): AppMapMarker {
-        val hue = when (type) {
-            MarkerType.GREEN -> GBitmapDescriptorFactory.HUE_GREEN
-            MarkerType.RED -> GBitmapDescriptorFactory.HUE_RED
-            MarkerType.ORANGE -> GBitmapDescriptorFactory.HUE_ORANGE
-            else -> GBitmapDescriptorFactory.HUE_RED
-        }
+        val bitmap = GaodeMarkerHelper.getMarkerBitmap(context, title, type)
         val wgs = gcj02ToWgs84(lat, lng)
         val marker = map.addMarker(
             GMarkerOptions()
                 .position(GLatLng(wgs.first, wgs.second))
                 .title(title)
-                .icon(GBitmapDescriptorFactory.defaultMarker(hue))
+                .icon(GBitmapDescriptorFactory.fromBitmap(bitmap))
+                .anchor(0.5f, 0.9f)
         )
         return object : AppMapMarker {
             override fun setPosition(lat: Double, lng: Double) {
@@ -393,6 +534,16 @@ class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
     }
 
     override fun fitBounds(points: List<Pair<Double, Double>>, padding: Int) {
+        fitBounds(points, padding, padding, padding, padding)
+    }
+
+    override fun fitBounds(
+        points: List<Pair<Double, Double>>,
+        paddingLeft: Int,
+        paddingTop: Int,
+        paddingRight: Int,
+        paddingBottom: Int
+    ) {
         if (points.isEmpty()) return
         val builder = LatLngBounds.Builder()
         points.forEach {
@@ -400,7 +551,13 @@ class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
             builder.include(GLatLng(wgs.first, wgs.second))
         }
         try {
-            map.animateCamera(GCameraUpdateFactory.newLatLngBounds(builder.build(), padding))
+            val bounds = builder.build()
+            try {
+                map.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom)
+                map.animateCamera(GCameraUpdateFactory.newLatLngBounds(bounds, 0))
+            } catch (t: Throwable) {
+                map.animateCamera(GCameraUpdateFactory.newLatLngBounds(bounds, maxOf(paddingLeft, paddingRight, paddingTop, paddingBottom)))
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -506,7 +663,8 @@ class GMapControllerImpl(private val map: GoogleMap) : AppMapController {
 
 class BaiduMapControllerImpl(
     private val map: com.baidu.mapapi.map.BaiduMap,
-    private val mapView: com.baidu.mapapi.map.TextureMapView
+    private val mapView: com.baidu.mapapi.map.TextureMapView,
+    private val context: Context
 ) : AppMapController {
     private var isDarkMode: Boolean = false
     private var currentMapType: AppMapType = AppMapType.NORMAL
@@ -576,17 +734,14 @@ class BaiduMapControllerImpl(
         title: String,
         type: MarkerType
     ): AppMapMarker {
-        val colorResource = when (type) {
-            MarkerType.GREEN -> com.baidu.mapapi.map.BitmapDescriptorFactory.fromResource(android.R.drawable.ic_menu_mylocation)
-            MarkerType.RED -> com.baidu.mapapi.map.BitmapDescriptorFactory.fromResource(android.R.drawable.ic_menu_mylocation)
-            MarkerType.ORANGE -> com.baidu.mapapi.map.BitmapDescriptorFactory.fromResource(android.R.drawable.ic_menu_mylocation)
-            else -> com.baidu.mapapi.map.BitmapDescriptorFactory.fromResource(android.R.drawable.ic_menu_mylocation)
-        }
+        val bitmap = GaodeMarkerHelper.getMarkerBitmap(context, title, type)
+        val descriptor = com.baidu.mapapi.map.BitmapDescriptorFactory.fromBitmap(bitmap)
         val marker = map.addOverlay(
             com.baidu.mapapi.map.MarkerOptions()
                 .position(LatLng(lat, lng))
                 .title(title)
-                .icon(colorResource)
+                .icon(descriptor)
+                .anchor(0.5f, 0.9f)
         ) as? com.baidu.mapapi.map.Marker
         return object : AppMapMarker {
             override fun setPosition(lat: Double, lng: Double) {
@@ -606,6 +761,16 @@ class BaiduMapControllerImpl(
     }
 
     override fun fitBounds(points: List<Pair<Double, Double>>, padding: Int) {
+        fitBounds(points, padding, padding, padding, padding)
+    }
+
+    override fun fitBounds(
+        points: List<Pair<Double, Double>>,
+        paddingLeft: Int,
+        paddingTop: Int,
+        paddingRight: Int,
+        paddingBottom: Int
+    ) {
         if (points.isEmpty()) return
         try {
             var minLat = 90.0
@@ -618,34 +783,26 @@ class BaiduMapControllerImpl(
                 if (it.second < minLng) minLng = it.second
                 if (it.second > maxLng) maxLng = it.second
             }
-            val centerLat = (minLat + maxLat) / 2
+            val verticalDiff = maxLat - minLat
+            val centerLat = (minLat + maxLat) / 2 - (if (paddingBottom > paddingTop) verticalDiff * 0.15 else 0.0)
             val centerLng = (minLng + maxLng) / 2
 
             val results = FloatArray(1)
             android.location.Location.distanceBetween(minLat, minLng, maxLat, maxLng, results)
             val distance = results[0]
 
-            // 百度地图距离与缩放级别的经验映射
-            // 如果处于小窗模式 (padding 较小)，适当缩小缩放级别以显示更多内容
-            val paddingFactor = if (padding < 50) 1.5f else 1.0f
-            val adjustedDistance = distance * paddingFactor
-
             val zoom = when {
-                adjustedDistance < 50 -> 20f
-                adjustedDistance < 200 -> 18f
-                adjustedDistance < 500 -> 17f
-                adjustedDistance < 1000 -> 16f
-                adjustedDistance < 2000 -> 15f
-                adjustedDistance < 5000 -> 14f
-                adjustedDistance < 10000 -> 13f
-                adjustedDistance < 20000 -> 12f
-                adjustedDistance < 50000 -> 11f
-                adjustedDistance < 100000 -> 10f
-                adjustedDistance < 200000 -> 9f
-                adjustedDistance < 500000 -> 8f
-                adjustedDistance < 1000000 -> 7f
-                adjustedDistance < 2000000 -> 6f
-                else -> 5f
+                distance < 80 -> 18.5f
+                distance < 250 -> 17.5f
+                distance < 600 -> 16.5f
+                distance < 1500 -> 15.5f
+                distance < 3500 -> 14.5f
+                distance < 8000 -> 13.5f
+                distance < 18000 -> 12.5f
+                distance < 45000 -> 11.5f
+                distance < 100000 -> 10.5f
+                distance < 250000 -> 9.5f
+                else -> 8.5f
             }
 
             val update = com.baidu.mapapi.map.MapStatusUpdateFactory.newLatLngZoom(
@@ -788,7 +945,7 @@ fun AppMapView(
                 amapView.apply {
                     setOnTouchListener { v, _ -> v.parent?.requestDisallowInterceptTouchEvent(true); false }
                     map.setOnMapLoadedListener {
-                        val controller = AMapControllerImpl(map)
+                        val controller = AMapControllerImpl(map, context)
                         mapController = controller
                         controller.setDarkMode(isDark, context)
                         onMapReady(controller)
@@ -824,7 +981,7 @@ fun AppMapView(
                 baiduMapView.apply {
                     setOnTouchListener { v, _ -> v.parent?.requestDisallowInterceptTouchEvent(true); false }
                     map.setOnMapLoadedCallback {
-                        val controller = BaiduMapControllerImpl(map, this)
+                        val controller = BaiduMapControllerImpl(map, this, context)
                         mapController = controller
                         controller.setDarkMode(isDark, context)
                         onMapReady(controller)
@@ -861,7 +1018,7 @@ fun AppMapView(
                 gmapView.apply {
                     setOnTouchListener { v, _ -> v.parent?.requestDisallowInterceptTouchEvent(true); false }
                     getMapAsync { map ->
-                        val controller = GMapControllerImpl(map)
+                        val controller = GMapControllerImpl(map, context)
                         mapController = controller
                         controller.setDarkMode(isDark, context)
                         onMapReady(controller)

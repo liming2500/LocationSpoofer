@@ -49,7 +49,8 @@ enum class MainSubScreen {
     CoordinateConfig,
     ScannerMap,
     ManageData,
-    Update
+    Update,
+    Settings
 }
 
 @Composable
@@ -201,9 +202,9 @@ fun MainScaffoldScreen(
                     Icon(
                         Icons.Rounded.AddLocationAlt,
                         contentDescription = null,
-                        tint = AccentBlue.copy(alpha = 0.8f),
+                        tint = AccentBlue,
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(36.dp)
                             .padding(bottom = 16.dp)
                     )
                 }
@@ -251,7 +252,8 @@ fun MainScaffoldScreen(
                         uiState = uiState,
                         updateUiState = updateUiState,
                         tabBarHeight = paddingValues.calculateBottomPadding(),
-                        onNavigateToUpdate = { currentSubScreen = MainSubScreen.Update }
+                        onNavigateToUpdate = { currentSubScreen = MainSubScreen.Update },
+                        onNavigateToSettings = { currentSubScreen = MainSubScreen.Settings }
                     )
                 }
             }
@@ -292,6 +294,12 @@ fun MainScaffoldScreen(
                         viewModel = viewModel,
                         isDark = isDark,
                         onBack = { currentSubScreen = MainSubScreen.None }
+                    )
+                    MainSubScreen.Settings -> SettingsScreen(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        isDark = isDark,
+                        onClose = { currentSubScreen = MainSubScreen.None }
                     )
                     MainSubScreen.None -> Unit
                 }

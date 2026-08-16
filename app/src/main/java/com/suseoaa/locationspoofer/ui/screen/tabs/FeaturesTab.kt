@@ -104,13 +104,7 @@ fun FeaturesTab(
                 contentPadding = PaddingValues(bottom = tabBarHeight + 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                item {
-                    AppCoordinateConfigCard(
-                        isDark = isDark,
-                        onClick = onNavigateToCoordinate
-                    )
-                }
-
+                // 1. 采集本地数据
                 item {
                     ScannerMapCard(
                         uiState = uiState,
@@ -118,14 +112,24 @@ fun FeaturesTab(
                         onClick = onNavigateToScanner
                     )
                 }
-                
+
+                // 2. 管理本地数据
                 item {
                     ManageDataCard(
                         isDark = isDark,
                         onClick = onNavigateToManageData
                     )
                 }
-                
+
+                // 3. 配置应用坐标系
+                item {
+                    AppCoordinateConfigCard(
+                        isDark = isDark,
+                        onClick = onNavigateToCoordinate
+                    )
+                }
+
+                // 4. 导入与导出数据
                 item {
                     ImportExportDataCard(
                         isDark = isDark,
@@ -136,11 +140,6 @@ fun FeaturesTab(
                             exportLauncher.launch("environment_data.json")
                         }
                     )
-                }
-
-                item {
-                    Spacer(Modifier.height(10.dp))
-                    FooterLinks(isDark = isDark)
                 }
             }
         }

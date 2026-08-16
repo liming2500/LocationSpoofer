@@ -204,47 +204,41 @@ fun LocationTab(
             ).onGloballyPositioned { searchBounds = it.boundsInRoot() }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                // 悬浮功能按钮（主动避让底部面板与搜索状态，搜索激活时平滑隐退，面板下沉时平滑跟随下落）
-                AnimatedVisibility(
-                    visible = !searchActive,
-                    enter = fadeIn(tween(180)),
-                    exit = fadeOut(tween(140)),
+                // 悬浮功能按钮（主动避让底部面板，在面板高度变化时平滑跟随）
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = fabBottomPadding)
+                        .padding(end = 16.dp, bottom = fabBottomPadding),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.End
                 ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        MapControlButton(
-                            icon = Icons.Rounded.MyLocation,
-                            onClick = {
-                                viewModel.fetchCurrentLocation(context) { lat, lng ->
-                                    mapController?.animateCamera(lat, lng, 16f)
-                                }
+                    MapControlButton(
+                        icon = Icons.Rounded.MyLocation,
+                        onClick = {
+                            viewModel.fetchCurrentLocation(context) { lat, lng ->
+                                mapController?.animateCamera(lat, lng, 16f)
                             }
-                        )
-                        MapControlButton(
-                            icon = Icons.Rounded.Layers,
-                            onClick = {
-                                onIntent(SpoofingIntent.SetMapTypeDialogVisible(true))
-                            }
-                        )
-                        MapControlButton(
-                            icon = Icons.Rounded.Star,
-                            onClick = {
-                                onIntent(SpoofingIntent.SetSavedLocationsVisible(true))
-                            }
-                        )
-                        MapControlButton(
-                            icon = Icons.Rounded.Storage,
-                            onClick = {
-                                viewModel.loadManageData()
-                                showLocalDataDialog = true
-                            }
-                        )
-                    }
+                        }
+                    )
+                    MapControlButton(
+                        icon = Icons.Rounded.Layers,
+                        onClick = {
+                            onIntent(SpoofingIntent.SetMapTypeDialogVisible(true))
+                        }
+                    )
+                    MapControlButton(
+                        icon = Icons.Rounded.Star,
+                        onClick = {
+                            onIntent(SpoofingIntent.SetSavedLocationsVisible(true))
+                        }
+                    )
+                    MapControlButton(
+                        icon = Icons.Rounded.Storage,
+                        onClick = {
+                            viewModel.loadManageData()
+                            showLocalDataDialog = true
+                        }
+                    )
                 }
 
                 LocationControlPanel(
@@ -341,7 +335,7 @@ fun LocationTab(
                                                 .noRippleClickable {
                                                     viewModel.updateLatitude(poi.lat.toString())
                                                     viewModel.updateLongitude(poi.lng.toString())
-                                                    mapController?.animateCamera(poi.lat, poi.lng, 16f)
+                                                    mapController?.animateCamera(poi.lat, poi.lng, 17.5f)
                                                     onIntent(SpoofingIntent.HideSearchResults)
                                                     onIntent(SpoofingIntent.SetSearchActive(false))
                                                 }
@@ -396,7 +390,7 @@ fun LocationTab(
                 val lng = item.location.lng
                 viewModel.updateLatitude(lat.toString())
                 viewModel.updateLongitude(lng.toString())
-                mapController?.animateCamera(lat, lng, 16f)
+                mapController?.animateCamera(lat, lng, 17.5f)
                 val label = when {
                     item.location.remark.isNotBlank() -> item.location.remark
                     item.location.placeName.isNotBlank() -> item.location.placeName
@@ -421,7 +415,7 @@ fun LocationTab(
             onDismiss = { onIntent(SpoofingIntent.SetSavedLocationsVisible(false)) },
             onSelect = { location ->
                 viewModel.loadSavedLocation(location)
-                mapController?.animateCamera(location.lat, location.lng, 16f)
+                mapController?.animateCamera(location.lat, location.lng, 17.5f)
                 onIntent(SpoofingIntent.SetSavedLocationsVisible(false))
                 Toast.makeText(
                     context,
@@ -473,7 +467,7 @@ fun LocationTab(
                 viewModel.updateLongitude(lng)
                 lat.toDoubleOrNull()?.let { latVal ->
                     lng.toDoubleOrNull()?.let { lngVal ->
-                        mapController?.animateCamera(latVal, lngVal, 16f)
+                        mapController?.animateCamera(latVal, lngVal, 17.5f)
                     }
                 }
                 onIntent(SpoofingIntent.SetCustomCoordDialogVisible(false))

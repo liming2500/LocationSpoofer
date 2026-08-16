@@ -117,9 +117,9 @@ fun FullScreenMapPage(
             )
         }
         routePoints.forEachIndexed { idx, p ->
-            val type = when (idx) {
-                0 -> MarkerType.GREEN
-                routePoints.lastIndex -> MarkerType.RED
+            val type = when {
+                idx == 0 -> MarkerType.GREEN
+                idx == routePoints.lastIndex && routePoints.size > 1 -> MarkerType.RED
                 else -> MarkerType.DEFAULT
             }
 
@@ -128,10 +128,16 @@ fun FullScreenMapPage(
                 return@forEachIndexed
             }
 
+            val label = when (type) {
+                MarkerType.GREEN -> "起"
+                MarkerType.RED -> "终"
+                else -> "$idx"
+            }
+
             map.addMarker(
                 p.lat,
                 p.lng,
-                if (type == MarkerType.RED && uiState.useRealRoute && uiState.routePlanStage == RoutePlanStage.RUNNING) "终点" else "${idx + 1}",
+                label,
                 type
             )
         }
@@ -188,11 +194,6 @@ fun FullScreenMapPage(
         }
     }
 
-    // 就绪时弹出配置弹窗
-    LaunchedEffect(stage) {
-        if (stage == RoutePlanStage.READY) showConfigDialog = true
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
 
         // 地图
@@ -212,10 +213,10 @@ fun FullScreenMapPage(
         if (!isInPipMode && (stage == RoutePlanStage.SELECTING || stage == RoutePlanStage.IDLE)) {
             Icon(
                 Icons.Rounded.AddLocationAlt, null,
-                tint = AccentBlue.copy(alpha = 0.8f),
+                tint = AccentBlue,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .size(40.dp)
+                    .size(36.dp)
                     .padding(bottom = 16.dp)
             )
         }
@@ -512,10 +513,6 @@ fun FullScreenMapPage(
             uiState = uiState,
             onDismiss = {
                 showConfigDialog = false
-                // 如果还没开始，回退到 READY
-                if (stage == RoutePlanStage.READY) {
-                    viewModel.restartSelectingPoints()
-                }
             },
             onStartRoute = {
                 showConfigDialog = false
