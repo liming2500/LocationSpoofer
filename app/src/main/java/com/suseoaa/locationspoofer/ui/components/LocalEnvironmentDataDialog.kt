@@ -395,8 +395,9 @@ private fun LocalDataItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (item.wifis.isNotEmpty()) {
-                        SignalTag("Wi-Fi ${item.wifis.size}")
+                    val totalWifi = (if (item.connectedWifi != null) 1 else 0) + item.wifis.size
+                    if (totalWifi > 0) {
+                        SignalTag("Wi-Fi $totalWifi")
                     }
                     if (item.cells.isNotEmpty()) {
                         SignalTag(stringResource(R.string.cells_count_label, item.cells.size))

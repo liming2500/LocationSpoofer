@@ -1521,12 +1521,24 @@ class MainViewModel(
         _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
     }
 
-    fun loadSavedLocation(loc: SavedLocation) {
-        val wifiCount = try {
-            org.json.JSONArray(loc.wifiJson).length()
+    private fun parseWifiCount(wifiJson: String?): Int {
+        if (wifiJson.isNullOrBlank()) return 0
+        return try {
+            val obj = org.json.JSONObject(wifiJson)
+            val nearbyCount = obj.optJSONArray("nearbyWifi")?.length() ?: 0
+            val connectedCount = if (obj.optBoolean("isConnected", false) && !obj.isNull("connectedWifi")) 1 else 0
+            nearbyCount + connectedCount
         } catch (e: Exception) {
-            0
+            try {
+                org.json.JSONArray(wifiJson).length()
+            } catch (e2: Exception) {
+                0
+            }
         }
+    }
+
+    fun loadSavedLocation(loc: SavedLocation) {
+        val wifiCount = parseWifiCount(loc.wifiJson)
         _uiState.update {
             it.copy(
                 latitudeInput = String.format(java.util.Locale.US, "%.6f", loc.lat),
@@ -1905,11 +1917,7 @@ class MainViewModel(
                         val cellJson = environmentScanner.scanCell()
                         val bluetoothJson = environmentScanner.scanBluetooth()
 
-                        val wCount = try {
-                            org.json.JSONArray(wifiJson).length()
-                        } catch (e: Exception) {
-                            0
-                        }
+                        val wCount = parseWifiCount(wifiJson)
                         val cCount = try {
                             org.json.JSONArray(cellJson).length()
                         } catch (e: Exception) {

@@ -59,6 +59,10 @@ class EnvironmentScanner(private val context: Context) {
 
             val connectionInfo = wifiManager.connectionInfo
             val connectedBssid = if (isWifiConnected) connectionInfo?.bssid else null
+            try {
+                wifiManager.startScan()
+            } catch (e: Throwable) {
+            }
             val results = wifiManager.scanResults ?: emptyList()
 
             // 1. 优先提取当前正在连接的 Wi-Fi 信息

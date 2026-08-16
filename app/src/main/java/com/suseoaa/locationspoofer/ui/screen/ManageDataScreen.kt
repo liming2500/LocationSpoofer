@@ -476,7 +476,7 @@ private fun SwipeableDataListItem(
     val timeStr =
         remember(item.location.timestamp) { dateFormat.format(Date(item.location.timestamp)) }
 
-    val wifiCount = item.wifis.size
+    val wifiCount = (if (item.connectedWifi != null) 1 else 0) + item.wifis.size
     val cellCount = item.cells.size
     val btCount = item.bluetooths.size
 
@@ -930,8 +930,9 @@ private fun ModernEditDataDialog(
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            val totalWifi = (if (item.connectedWifi != null) 1 else 0) + item.wifis.size
                             Text(
-                                text = "${item.wifis.size} Wi-Fi",
+                                text = "$totalWifi Wi-Fi",
                                 fontSize = 11.sp,
                                 color = AccentBlue,
                                 fontWeight = FontWeight.SemiBold
