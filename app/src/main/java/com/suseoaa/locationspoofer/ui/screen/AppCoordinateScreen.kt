@@ -75,8 +75,7 @@ fun AppCoordinateScreen(
     // 统计已自定义坐标系的应用数量
     val customConfiguredCount = remember(uiState.hookedApps, uiState.appCoordinateSystems) {
         uiState.hookedApps.count { app ->
-            val sys = uiState.appCoordinateSystems[app.packageName]
-            sys != null && sys != "GCJ-02"
+            uiState.appCoordinateSystems.containsKey(app.packageName)
         }
     }
 
@@ -89,8 +88,7 @@ fun AppCoordinateScreen(
 
                 if (!matchesSearch) return@filter false
 
-                val currentSys = uiState.appCoordinateSystems[app.packageName]
-                val isCustom = currentSys != null && currentSys != "GCJ-02"
+                val isCustom = uiState.appCoordinateSystems.containsKey(app.packageName)
 
                 when (selectedFilter) {
                     CoordinateFilterTab.All -> true
@@ -361,15 +359,11 @@ fun AppCoordinateScreen(
     selectedApp?.let { app ->
         CoordinateSelectionDialog(
             appInfo = app,
-            currentSystem = uiState.appCoordinateSystems[app.packageName] ?: "GCJ-02",
+            currentSystem = uiState.appCoordinateSystems[app.packageName] ?: "AUTO",
             isDark = isDark,
             onDismiss = { selectedApp = null },
             onSelect = { sys ->
-                if (sys == "GCJ-02") {
-                    viewModel.removeAppCoordinateSystem(app.packageName)
-                } else {
-                    viewModel.setAppCoordinateSystem(app.packageName, sys)
-                }
+                viewModel.setAppCoordinateSystem(app.packageName, sys)
                 selectedApp = null
             }
         )
@@ -383,8 +377,8 @@ private fun AppItemCard(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val isCustom = currentCoordinateSystem != null && currentCoordinateSystem != "GCJ-02"
-    val displaySystem = currentCoordinateSystem ?: "GCJ-02"
+    val isCustom = currentCoordinateSystem != null
+    val displaySystem = currentCoordinateSystem ?: "AUTO"
 
     MiuixCard(
         modifier = Modifier
@@ -531,16 +525,22 @@ private fun CoordinateSelectionDialog(
 
     val options = listOf(
         CoordinateOption(
-            key = "GCJ-02",
-            name = stringResource(R.string.gcj02_title),
+            key = "AUTO",
+            name = stringResource(R.string.auto_coord_algo),
             tag = stringResource(R.string.default_recommended),
-            desc = stringResource(R.string.gcj02_desc)
+            desc = stringResource(R.string.auto_coord_desc)
         ),
         CoordinateOption(
             key = "WGS-84",
             name = stringResource(R.string.wgs84_title),
             tag = null,
             desc = stringResource(R.string.wgs84_desc)
+        ),
+        CoordinateOption(
+            key = "GCJ-02",
+            name = stringResource(R.string.gcj02_title),
+            tag = null,
+            desc = stringResource(R.string.gcj02_desc)
         ),
         CoordinateOption(
             key = "BD-09",

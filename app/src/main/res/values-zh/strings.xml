@@ -276,6 +276,8 @@
     <string name="search_no_match_hint">请尝试修改搜索词或选择「系统应用」标签</string>
     <string name="system_tag">系统</string>
     <string name="select_coord_algo_title">选择该应用接收的坐标系算法</string>
+    <string name="auto_coord_algo">智能自适应 (默认推荐)</string>
+    <string name="auto_coord_desc">全自动匹配：原生GPS返回WGS-84，高德/腾讯返回GCJ-02，百度返回BD-09</string>
     <string name="gcj02_title">GCJ-02 (火星坐标系)</string>
     <string name="default_recommended">默认推荐</string>
     <string name="wgs84_title">WGS-84 (地球大地坐标系)</string>

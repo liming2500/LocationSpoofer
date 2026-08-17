@@ -268,6 +268,8 @@
     <string name="search_no_match_hint">جرب تغيير مصطلحات البحث أو حدد علامة تبويب تطبيقات النظام</string>
     <string name="system_tag">النظام</string>
     <string name="select_coord_algo_title">حدد خوارزمية الإحداثيات لهذا التطبيق</string>
+    <string name="auto_coord_algo">تلقائي ذكي (موصى به)</string>
+    <string name="auto_coord_desc">تكييف تلقائي: يُرجع GPS نظام WGS-84، وAMap/Tencent نظام GCJ-02، وBaidu نظام BD-09</string>
     <string name="gcj02_title">GCJ-02 (إحداثيات المريخ)</string>
     <string name="default_recommended">الموصى به افتراضيًا</string>
     <string name="wgs84_title">WGS-84 (نظام الإحداثيات العالمي)</string>

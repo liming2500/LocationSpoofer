@@ -277,9 +277,11 @@
     <string name="search_no_match_hint">Try changing search terms or select the System Apps tab</string>
     <string name="system_tag">System</string>
     <string name="select_coord_algo_title">Select coordinate algorithm for this app</string>
+    <string name="auto_coord_algo">Smart Auto</string>
+    <string name="auto_coord_desc">Automatically adapts: GPS returns WGS-84, AMap/Tencent returns GCJ-02, Baidu returns BD-09</string>
     <string name="gcj02_title">GCJ-02 (Mars Coordinates)</string>
     <string name="default_recommended">Default Recommended</string>
-    <string name="wgs84_title">WGS-84 (Earth Geodetic Coordinates)</string>
+    <string name="wgs84_title">WGS-84 (Earth GPS Coordinates)</string>
     <string name="bd09_title">BD-09 (Baidu Coordinates)</string>
     <string name="app_coordinate_setting">App Settings</string>
     <string name="total_collected_data_count">%d records collected total</string>

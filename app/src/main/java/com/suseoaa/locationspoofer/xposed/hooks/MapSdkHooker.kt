@@ -125,21 +125,17 @@ internal fun LocationHooker.hookTencentLocationClass(clazz: Class<*>, classLoade
         // hookAllMethods: 不管方法签名如何变化,只要方法名匹配就Hook
         XposedHelpers.hookAllMethods(clazz, "getLatitude") { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val motion = RouteEngine.calculateCurrentPosition(config)
-                val jittered = getJitteredLocation(motion.lat, motion.lng)
-                result = jittered.first
+            val motion = getCurrentSpoofedMotion("GCJ-02")
+            if (motion != null) {
+                result = motion.lat
             }
             return@hookAllMethods result
         }
         XposedHelpers.hookAllMethods(clazz, "getLongitude") { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val motion = RouteEngine.calculateCurrentPosition(config)
-                val jittered = getJitteredLocation(motion.lat, motion.lng)
-                result = jittered.second
+            val motion = getCurrentSpoofedMotion("GCJ-02")
+            if (motion != null) {
+                result = motion.lng
             }
             return@hookAllMethods result
         }
@@ -243,37 +239,30 @@ internal fun LocationHooker.hookTencentLocationCallback(classLoader: ClassLoader
         // hookAllMethods可以Hook接口的所有实现类中的方法
         XposedHelpers.hookAllMethods(listenerClass, "onLocationChanged") { chain, method ->
             val config = readConfig()
-            if (config == null || !config.optBoolean(
-                    "active",
-                    false
-                )
-            ) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-            if (chain.args.isEmpty()) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-
+            if (config == null || !config.optBoolean("active", false)) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
             val tencentLoc =
-                chain.args[0] ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-            val motion = RouteEngine.calculateCurrentPosition(config)
-            val jittered = getJitteredLocation(motion.lat, motion.lng)
+                chain.args.getOrNull(0) ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            val motion = getCurrentSpoofedMotion("GCJ-02") ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
 
             // 通过反射直接写入TencentLocation实现类的经纬度字段
             try {
-                XposedHelpers.callMethod(tencentLoc, "setLatitude", jittered.first)
+                XposedHelpers.callMethod(tencentLoc, "setLatitude", motion.lat)
             } catch (e: Throwable) {
                 try {
-                    XposedHelpers.setDoubleField(tencentLoc, "latitude", jittered.first)
+                    XposedHelpers.setDoubleField(tencentLoc, "latitude", motion.lat)
                 } catch (e2: Throwable) {
                     try {
                         XposedHelpers.setDoubleField(
                             tencentLoc,
                             "mLatitude",
-                            jittered.first
+                            motion.lat
                         )
                     } catch (e3: Throwable) {
                         try {
                             XposedHelpers.setDoubleField(
                                 tencentLoc,
                                 "a",
-                                jittered.first
+                                motion.lat
                             )
                         } catch (e4: Throwable) {
                         }
@@ -281,27 +270,27 @@ internal fun LocationHooker.hookTencentLocationCallback(classLoader: ClassLoader
                 }
             }
             try {
-                XposedHelpers.callMethod(tencentLoc, "setLongitude", jittered.second)
+                XposedHelpers.callMethod(tencentLoc, "setLongitude", motion.lng)
             } catch (e: Throwable) {
                 try {
                     XposedHelpers.setDoubleField(
                         tencentLoc,
                         "longitude",
-                        jittered.second
+                        motion.lng
                     )
                 } catch (e2: Throwable) {
                     try {
                         XposedHelpers.setDoubleField(
                             tencentLoc,
                             "mLongitude",
-                            jittered.second
+                            motion.lng
                         )
                     } catch (e3: Throwable) {
                         try {
                             XposedHelpers.setDoubleField(
                                 tencentLoc,
                                 "b",
-                                jittered.second
+                                motion.lng
                             )
                         } catch (e4: Throwable) {
                         }
@@ -345,42 +334,38 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
         // 使用hookAllMethods: BDLocation在不同版本中可能有多个getLatitude重载
         XposedHelpers.hookAllMethods(baiduClazz, "getLatitude") { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val motion = RouteEngine.calculateCurrentPosition(config)
-                val coorType = try {
-                    XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
-                } catch (e: Throwable) {
-                    null
+            val defaultSys = try {
+                val coorType = XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
+                when (coorType) {
+                    "wgs84" -> "WGS-84"
+                    "gcj02" -> "GCJ-02"
+                    else -> "BD-09"
                 }
-                val (targetLat, targetLng) = when (coorType) {
-                    "wgs84" -> gcj02ToWgs84(motion.lat, motion.lng)
-                    "gcj02" -> Pair(motion.lat, motion.lng)
-                    else -> gcj02ToBd09(motion.lat, motion.lng) // bd09ll, bd09mc, bd09 或默认
-                }
-                val jittered = getJitteredLocation(targetLat, targetLng)
-                result = jittered.first
+            } catch (e: Throwable) {
+                "BD-09"
+            }
+            val motion = getCurrentSpoofedMotion(defaultSys)
+            if (motion != null) {
+                result = motion.lat
             }
             return@hookAllMethods result
         }
 
         XposedHelpers.hookAllMethods(baiduClazz, "getLongitude") { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
-            val config = readConfig()
-            if (config != null && config.optBoolean("active", false)) {
-                val motion = RouteEngine.calculateCurrentPosition(config)
-                val coorType = try {
-                    XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
-                } catch (e: Throwable) {
-                    null
+            val defaultSys = try {
+                val coorType = XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
+                when (coorType) {
+                    "wgs84" -> "WGS-84"
+                    "gcj02" -> "GCJ-02"
+                    else -> "BD-09"
                 }
-                val (targetLat, targetLng) = when (coorType) {
-                    "wgs84" -> gcj02ToWgs84(motion.lat, motion.lng)
-                    "gcj02" -> Pair(motion.lat, motion.lng)
-                    else -> gcj02ToBd09(motion.lat, motion.lng)
-                }
-                val jittered = getJitteredLocation(targetLat, targetLng)
-                result = jittered.second
+            } catch (e: Throwable) {
+                "BD-09"
+            }
+            val motion = getCurrentSpoofedMotion(defaultSys)
+            if (motion != null) {
+                result = motion.lng
             }
             return@hookAllMethods result
         }
@@ -509,32 +494,30 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
                     null
                 }
 
-                val motion = RouteEngine.calculateCurrentPosition(config)
-                val (targetLat, targetLng) = when (coorType) {
-                    "wgs84" -> gcj02ToWgs84(motion.lat, motion.lng)
-                    "gcj02" -> Pair(motion.lat, motion.lng)
-                    else -> gcj02ToBd09(motion.lat, motion.lng)
+                val defaultSys = when (coorType) {
+                    "wgs84" -> "WGS-84"
+                    "gcj02" -> "GCJ-02"
+                    else -> "BD-09"
                 }
-
-                val jittered = getJitteredLocation(targetLat, targetLng)
+                val motion = getCurrentSpoofedMotion(defaultSys) ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
 
                 // 通过反射直接写入BDLocation实例的经纬度
                 try {
-                    XposedHelpers.callMethod(bdLoc, "setLatitude", jittered.first)
+                    XposedHelpers.callMethod(bdLoc, "setLatitude", motion.lat)
                 } catch (e: Throwable) {
                     try {
-                        XposedHelpers.setDoubleField(bdLoc, "mLatitude", jittered.first)
+                        XposedHelpers.setDoubleField(bdLoc, "mLatitude", motion.lat)
                     } catch (e2: Throwable) {
                     }
                 }
                 try {
-                    XposedHelpers.callMethod(bdLoc, "setLongitude", jittered.second)
+                    XposedHelpers.callMethod(bdLoc, "setLongitude", motion.lng)
                 } catch (e: Throwable) {
                     try {
                         XposedHelpers.setDoubleField(
                             bdLoc,
                             "mLongitude",
-                            jittered.second
+                            motion.lng
                         )
                     } catch (e2: Throwable) {
                     }

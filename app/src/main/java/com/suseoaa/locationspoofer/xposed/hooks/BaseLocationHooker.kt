@@ -45,39 +45,21 @@ import io.github.libxposed.api.*
  */
 
 
-internal fun LocationHooker.getCurrentSpoofedMotion(): SpoofedMotion? {
+internal fun LocationHooker.getCurrentSpoofedMotion(defaultSystem: String = "WGS-84"): SpoofedMotion? {
     val config = readConfig() ?: return null
     if (!config.optBoolean("active", false)) return null
 
     val rawMotion = RouteEngine.calculateCurrentPosition(config)
-    val appSystems = config.optJSONObject("app_coordinate_systems")
-    val basePkg = currentPackageName.substringBefore(":")
-    val targetSys = if (appSystems?.has(basePkg) == true) {
-        appSystems.optString(basePkg, "GCJ-02")
-    } else {
-        "GCJ-02"
-    }
-
-    val finalCoords = when (targetSys) {
-        "WGS-84" -> gcj02ToWgs84(rawMotion.lat, rawMotion.lng)
-        "BD-09" -> gcj02ToBd09(rawMotion.lat, rawMotion.lng)
-        else -> Pair(rawMotion.lat, rawMotion.lng)
-    }
-
+    val finalCoords = getAppTargetCoordinate(rawMotion.lat, rawMotion.lng, config, defaultSystem)
     val jittered = getJitteredLocation(finalCoords.first, finalCoords.second)
     return SpoofedMotion(jittered.first, jittered.second, rawMotion.bearing, rawMotion.speed)
 }
 
 internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPkg: String) {
     try {
-        // android.location.Location 标准接口: 返回GCJ-02坐标
-        // 在中国大陆,系统GPS HAL层已内置GCJ-02强制加偏(国家测绘法规要求)。
-        // 因此android.location.Location.getLatitude()在中国设备上实际返回的是GCJ-02坐标,
-        // 它们从Location拿到坐标后不会再做WGS-84到GCJ-02的转换,而是直接使用。
-        // 如果我们返回真正的WGS-84,App会把它当GCJ-02直接传给地图SDK渲染,
-        // 由于WGS-84与GCJ-02之间存在约300-500米的非线性偏移,地图上会出现固定偏移。
-
-
+        // android.location.Location 标准接口: GPS 默认规范输出 WGS-84 坐标
+        // 当高德、腾讯、百度或各应用内部 SDK 获取底层 Location 时，会按 WGS-84 进行内部转换加偏。
+        // 若应用直接读取则也可在「自定义坐标算法」中强制指定其目标坐标系。
         XposedHelpers.hookMethod(
             "android.location.Location",
             classLoader,
@@ -86,7 +68,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             var result = chain.proceed(chain.args.toTypedArray())
 
             if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-            val motion = getCurrentSpoofedMotion()
+            val motion = getCurrentSpoofedMotion("WGS-84")
             if (motion != null) {
                 result = motion.lat
             }
@@ -102,7 +84,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             var result = chain.proceed(chain.args.toTypedArray())
 
             if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-            val motion = getCurrentSpoofedMotion()
+            val motion = getCurrentSpoofedMotion("WGS-84")
             if (motion != null) {
                 result = motion.lng
             }
@@ -545,7 +527,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             ) { chain, method ->
                 val config = readConfig()
                 if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
-                    val motion = getCurrentSpoofedMotion()
+                    val motion = getCurrentSpoofedMotion("WGS-84")
                     if (motion != null) {
                         var consumerArg: Any? = null
                         var executorArg: java.util.concurrent.Executor? = null
@@ -611,7 +593,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                         false
                     )
                 ) return@hookAllMethods result
-                val motion = getCurrentSpoofedMotion() ?: return@hookAllMethods result
+                val motion = getCurrentSpoofedMotion("WGS-84") ?: return@hookAllMethods result
                 try {
                     val locClass = Class.forName("android.location.Location", false, classLoader)
                     val fakeLoc = locClass.getConstructor(String::class.java)
@@ -665,7 +647,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
 
                     // 宿主 App 使用 AMapLocationClient 获取真实位置，不拦截
                     if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-                    val motion = getCurrentSpoofedMotion()
+                    val motion = getCurrentSpoofedMotion("GCJ-02")
                     if (motion != null) {
                         result = motion.lat
                     }
@@ -681,7 +663,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
 
                     // 宿主 App 使用 AMapLocationClient 获取真实位置，不拦截
                     if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-                    val motion = getCurrentSpoofedMotion()
+                    val motion = getCurrentSpoofedMotion("GCJ-02")
                     if (motion != null) {
                         result = motion.lng
                     }
@@ -708,7 +690,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 ) { chain, method ->
                     var result = chain.proceed(chain.args.toTypedArray())
                     if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-                    val motion = getCurrentSpoofedMotion()
+                    val motion = getCurrentSpoofedMotion("GCJ-02")
                     if (motion != null) {
                         result = motion.speed
                     }
@@ -721,7 +703,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 ) { chain, method ->
                     var result = chain.proceed(chain.args.toTypedArray())
                     if (currentPkg.substringBefore(":") == "com.suseoaa.locationspoofer") return@hookMethod result
-                    val motion = getCurrentSpoofedMotion()
+                    val motion = getCurrentSpoofedMotion("GCJ-02")
                     if (motion != null) {
                         result = motion.bearing
                     }
@@ -1270,9 +1252,9 @@ internal fun LocationHooker.spoofNmeaMessage(sentence: String): String? {
         if (!config.optBoolean("active", false)) return sentence
 
         val motion = RouteEngine.calculateCurrentPosition(config)
-        val wgs84 = gcj02ToWgs84(motion.lat, motion.lng)
-        val targetLat = wgs84.first
-        val targetLng = wgs84.second
+        val targetCoords = getAppTargetCoordinate(motion.lat, motion.lng, config, "WGS-84")
+        val targetLat = targetCoords.first
+        val targetLng = targetCoords.second
 
         val parts = sentence.split("*")
         val mainPart = parts[0]

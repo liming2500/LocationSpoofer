@@ -17,13 +17,8 @@
 package com.suseoaa.locationspoofer.xposed.utils
 
 import com.suseoaa.locationspoofer.xposed.LocationHooker
-import com.suseoaa.locationspoofer.xposed.utils.*
-import com.suseoaa.locationspoofer.xposed.hooks.*
 import org.json.JSONObject
-import java.util.concurrent.ConcurrentHashMap
-import java.lang.reflect.Member
 import kotlin.math.*
-import io.github.libxposed.api.*
 
 /**
  * 坐标系转换工具类 (Coordinate Converter)
@@ -35,25 +30,36 @@ import io.github.libxposed.api.*
  * 
  * 作用:
  * 提供各个坐标系之间的精确数学转换。
- * 关键部分解释:
- * 1. WGS-84 和 GCJ-02 之间存在 300~500 米的非线性偏移。通过一套复杂的克拉索夫斯基椭球体参数进行转换。
- * 2. Ornstein-Uhlenbeck (OU) 随机过程: 真实人在走路时，GPS 坐标会有自然的抖动和漂移，绝对不可能静止不动。
- *    这里的 `getJitteredLocation` 函数就是用来生成极其逼真、服从物理学运动规律的随机微小偏移，对抗后台的大数据防作弊分析。
  */
 
-
-internal fun LocationHooker.gcj02ToWgs84(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {
-    if (gcjLng < 72.004 || gcjLng > 137.8347 || gcjLat < 0.8293 || gcjLat > 55.8271)
-        return Pair(gcjLat, gcjLng)
-    val dLat = gcjTransformLat(gcjLng - 105.0, gcjLat - 35.0)
-    val dLng = gcjTransformLng(gcjLng - 105.0, gcjLat - 35.0)
-    val radLat = gcjLat / 180.0 * Math.PI
+internal fun LocationHooker.wgs84ToGcj02(wgsLat: Double, wgsLng: Double): Pair<Double, Double> {
+    if (wgsLng < 72.004 || wgsLng > 137.8347 || wgsLat < 0.8293 || wgsLat > 55.8271)
+        return Pair(wgsLat, wgsLng)
+    val dLat = gcjTransformLat(wgsLng - 105.0, wgsLat - 35.0)
+    val dLng = gcjTransformLng(wgsLng - 105.0, wgsLat - 35.0)
+    val radLat = wgsLat / 180.0 * Math.PI
     var magic = sin(radLat)
     magic = 1 - GCJ_EE * magic * magic
     val sqrtMagic = sqrt(magic)
     val mLat = (dLat * 180.0) / ((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic) * Math.PI)
     val mLng = (dLng * 180.0) / (GCJ_A / sqrtMagic * cos(radLat) * Math.PI)
-    return Pair(gcjLat - mLat, gcjLng - mLng)
+    return Pair(wgsLat + mLat, wgsLng + mLng)
+}
+
+/**
+ * GCJ-02 转 WGS-84（采用高精度反向迭代逼近算法，误差小于 0.5 毫米）
+ */
+internal fun LocationHooker.gcj02ToWgs84(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {
+    if (gcjLng < 72.004 || gcjLng > 137.8347 || gcjLat < 0.8293 || gcjLat > 55.8271)
+        return Pair(gcjLat, gcjLng)
+    var wgsLat = gcjLat
+    var wgsLng = gcjLng
+    for (i in 0 until 3) {
+        val (currGcjLat, currGcjLng) = wgs84ToGcj02(wgsLat, wgsLng)
+        wgsLat -= (currGcjLat - gcjLat)
+        wgsLng -= (currGcjLng - gcjLng)
+    }
+    return Pair(wgsLat, wgsLng)
 }
 
 internal fun LocationHooker.gcjTransformLat(x: Double, y: Double): Double {
@@ -73,46 +79,67 @@ internal fun LocationHooker.gcjTransformLng(x: Double, y: Double): Double {
 }
 
 // GCJ-02 转 BD-09 转换(百度坐标系)
-// BD-09 是百度在 GCJ-02 基础上施加的二次偏移坐标系。百度地图/百度定位 SDK (BDLocation)
-// 内部期望接收 BD-09 坐标，若直接传入 GCJ-02 会产生约 100-500 米的固定偏移。
-//
-// 算法原理:
-// 1. 将 GCJ-02 坐标解释为以 (0,0) 为中心的直角坐标 (x=lng, y=lat)
-// 2. 施加百度公开的偏移常量 (x偏移 0.0065度, y偏移 0.006度)
-// 3. 将偏移后的直角坐标转为极坐标 (r, theta)，其中 r=sqrt(x^2+y^2), theta=atan2(y,x)
-// 4. 对极角 theta 叠加一个与 r 相关的微小旋转量: theta += BD_PI * sin(r * BD_PI) * 0.000003
-//    BD_PI = pi * 3000/180 ≈ 52.3598...，这是百度定义的旋转频率系数
-// 5. 对极径 r 叠加微小伸缩: r += BD_PI * cos(r * BD_PI) * 0.00002
-// 6. 将修正后的极坐标转回直角坐标，即为 BD-09 经纬度
-//
-// 为何不能省略此转换:
-// BDLocation.getLatitude() 被 Hook 后如果返回 GCJ-02 坐标，百度 SDK 内部不会再做转换，
-// 直接将该值作为 BD-09 渲染到地图上，导致显示位置相对真实位置偏移数百米。
-
 /** 百度坐标系旋转频率常量: pi * 3000 / 180 */
 internal fun LocationHooker.gcj02ToBd09(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {
     val x = gcjLng
     val y = gcjLat
     val z = sqrt(x * x + y * y) + 0.00002 * sin(y * BD_PI)
-    val theta = Math.atan2(y, x) + 0.000003 * cos(x * BD_PI)
+    val theta = atan2(y, x) + 0.000003 * cos(x * BD_PI)
     val bdLng = z * cos(theta) + 0.0065
     val bdLat = z * sin(theta) + 0.006
     return Pair(bdLat, bdLng)
 }
 
-/**
- * 高斯随机游走状态(Xposed进程内独立维护)
- * 使用Ornstein-Uhlenbeck过程: X(t+dt) = X(t) + sigma*sqrt(dt)*N(0,1) - alpha*X(t)*dt
- * 产生白噪声频谱,FFT检测无法发现单频峰
- */
 internal fun LocationHooker.bd09ToGcj02(bdLat: Double, bdLng: Double): Pair<Double, Double> {
     val x = bdLng - 0.0065
     val y = bdLat - 0.006
-    val z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * Math.PI)
-    val theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * Math.PI)
-    val gcjLng = z * Math.cos(theta)
-    val gcjLat = z * Math.sin(theta)
+    val z = sqrt(x * x + y * y) - 0.00002 * sin(y * BD_PI)
+    val theta = atan2(y, x) - 0.000003 * cos(x * BD_PI)
+    val gcjLng = z * cos(theta)
+    val gcjLat = z * sin(theta)
     return Pair(gcjLat, gcjLng)
+}
+
+/**
+ * 根据应用包名及用户自定义算法配置，动态获取目标坐标
+ *
+ * @param rawGcjLat 基础 GCJ-02 纬度
+ * @param rawGcjLng 基础 GCJ-02 经度
+ * @param config 全局配置 JSON
+ * @param defaultSystem 当未配置自定义算法时的默认坐标系（如高德/腾讯默认 GCJ-02，百度默认 BD-09）
+ */
+internal fun LocationHooker.getAppTargetCoordinate(
+    rawGcjLat: Double,
+    rawGcjLng: Double,
+    config: JSONObject?,
+    defaultSystem: String = "WGS-84"
+): Pair<Double, Double> {
+    if (config == null) return when (defaultSystem) {
+        "WGS-84" -> gcj02ToWgs84(rawGcjLat, rawGcjLng)
+        "BD-09" -> gcj02ToBd09(rawGcjLat, rawGcjLng)
+        else -> Pair(rawGcjLat, rawGcjLng)
+    }
+    val appSystems = config.optJSONObject("app_coordinate_systems")
+    val basePkg = currentPackageName.substringBefore(":")
+
+    // 优先读取用户在“自定义坐标算法”页面针对当前包名的个性化配置
+    val targetSys = if (appSystems?.has(basePkg) == true) {
+        val configured = appSystems.optString(basePkg, defaultSystem)
+        if (configured == "AUTO" || configured.isBlank()) defaultSystem else configured
+    } else {
+        defaultSystem
+    }
+
+    return when (targetSys) {
+        "WGS-84" -> gcj02ToWgs84(rawGcjLat, rawGcjLng)
+        "BD-09" -> gcj02ToBd09(rawGcjLat, rawGcjLng)
+        "GCJ-02" -> Pair(rawGcjLat, rawGcjLng)
+        else -> when (defaultSystem) {
+            "WGS-84" -> gcj02ToWgs84(rawGcjLat, rawGcjLng)
+            "BD-09" -> gcj02ToBd09(rawGcjLat, rawGcjLng)
+            else -> Pair(rawGcjLat, rawGcjLng)
+        }
+    }
 }
 
 internal fun LocationHooker.getJitteredLocation(
@@ -148,5 +175,3 @@ internal fun LocationHooker.getJitteredAccuracy(): Float {
     hookAccuracyDrift += 0.1 * rng.nextGaussian() - 0.05 * hookAccuracyDrift
     return (2.2 + hookAccuracyDrift).coerceIn(1.5, 3.5).toFloat()
 }
-
-
