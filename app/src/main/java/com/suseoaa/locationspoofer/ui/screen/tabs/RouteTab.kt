@@ -4,10 +4,12 @@ import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -16,9 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.*
@@ -28,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -39,9 +37,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,15 +48,18 @@ import com.suseoaa.locationspoofer.ui.components.AppMapMarker
 import com.suseoaa.locationspoofer.ui.components.MapTypeDialog
 import com.suseoaa.locationspoofer.ui.components.MarkerType
 import com.suseoaa.locationspoofer.ui.screen.AppPoiItem
+import com.suseoaa.locationspoofer.ui.screen.HomeSearchBar
 import com.suseoaa.locationspoofer.ui.screen.JoystickPanel
 import com.suseoaa.locationspoofer.ui.screen.performPoiSearch
 import com.suseoaa.locationspoofer.ui.screen.tabs.route.*
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentOrange
+import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.utils.MapCoverageHelper
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
 fun RouteTab(
@@ -235,327 +234,304 @@ fun RouteTab(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(isSearchActive, showSearchResults, searchBounds, searchResultBounds) {
-                if (isSearchActive || showSearchResults) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val pos = down.position
-                        val inSearch = searchBounds.contains(pos)
-                        val inResults = showSearchResults && searchResultBounds.contains(pos)
-                        if (!inSearch && !inResults) {
-                            val up = waitForUpOrCancellation()
-                            if (up != null) {
-                                isSearchActive = false
-                                showSearchResults = false
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                            }
+    SharedTransitionLayout {
+        AnimatedContent(
+            targetState = isSearchActive,
+            transitionSpec = {
+                androidx.compose.animation.EnterTransition.None togetherWith
+                        androidx.compose.animation.ExitTransition.None
+            },
+            label = "route_search_transition"
+        ) content@{ searchActive ->
+            val searchModifier = Modifier
+                .sharedElement(
+                    sharedContentState = rememberSharedContentState(key = "route_search_bar"),
+                    animatedVisibilityScope = this@content,
+                    boundsTransform = { initialBounds, targetBounds ->
+                        val isTopSearchTransition = (initialBounds.top < 350f && targetBounds.top > 350f) ||
+                                (initialBounds.top > 350f && targetBounds.top < 350f)
+                        if (isTopSearchTransition) {
+                            spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        } else {
+                            snap()
                         }
                     }
-                }
-            }
-    ) {
-        // 顶部操作卡片：包含路径点统计与撤销操作
-        if (routePoints.isNotEmpty() && (stage == RoutePlanStage.IDLE || stage == RoutePlanStage.SELECTING)) {
-            Surface(
+                )
+                .onGloballyPositioned { searchBounds = it.boundsInRoot() }
+
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 12.dp)
-                    .animateContentSize(),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(AccentBlue.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "${routePoints.size}",
-                            color = AccentBlue,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    Text(
-                        stringResource(R.string.selected_waypoints_count, routePoints.size),
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    VerticalDivider(
-                        modifier = Modifier.height(18.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-
-                    // 撤销上一个点
-                    IconButton(
-                        onClick = { viewModel.undoLastRoutePoint() },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.Undo,
-                            contentDescription = stringResource(R.string.undo),
-                            tint = AccentOrange,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // 全部清除 / 重新选点
-                    IconButton(
-                        onClick = { viewModel.restartSelectingPoints() },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            Icons.Rounded.DeleteSweep,
-                            contentDescription = stringResource(R.string.reselect),
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // 摇杆控制面板（手动模拟时显示）
-        if (isRunning && isManual) {
-            JoystickPanel(
-                viewModel = viewModel,
-                maxSpeedMs = uiState.routeSimMode.speedMs.toFloat()
-            )
-        }
-
-        // 右侧悬浮地图控制按钮组
-        val animatedBottomPadding by animateDpAsState(
-            targetValue = bottomBarHeight + bottomActionHeightDp + 16.dp,
-            animationSpec = tween(durationMillis = 200),
-            label = "fab_padding"
-        )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = animatedBottomPadding)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                RouteControlButton(
-                    icon = Icons.Rounded.Layers,
-                    onClick = { showMapTypeDialog = true }
-                )
-                RouteControlButton(
-                    icon = Icons.Rounded.Bookmarks,
-                    onClick = { showSavedRoutesDialog = true }
-                )
-                RouteControlButton(
-                    icon = Icons.Rounded.MyLocation,
-                    onClick = {
-                        viewModel.fetchCurrentLocation(context) { lat, lng ->
-                            mapController?.animateCamera(lat, lng, 16f)
-                        }
-                    }
-                )
-            }
-        }
-
-        // 底部多状态操作面板
-        RouteBottomPanel(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = bottomBarHeight + 6.dp, start = 14.dp, end = 14.dp)
-                .onGloballyPositioned { coordinates ->
-                    bottomActionHeightPx = coordinates.size.height
-                },
-            stage = stage,
-            routePoints = routePoints,
-            uiState = uiState,
-            onConfirmPoint = {
-                val tLat = mapController?.cameraTargetLat
-                val tLng = mapController?.cameraTargetLng
-                if (tLat != null && tLng != null) {
-                    viewModel.addRoutePoint(tLat, tLng)
-                }
-            },
-            onFinishSelecting = {
-                viewModel.finishSelectingPoints()
-            },
-            onRestartSelecting = {
-                viewModel.restartSelectingPoints()
-            },
-            onSaveRoute = { showSaveRouteDialog = true },
-            onStartPlanning = { showConfigDialog = true },
-            onStopRoute = {
-                viewModel.stopRoutePlanning()
-            },
-            searchBar = if (stage == RoutePlanStage.IDLE || stage == RoutePlanStage.SELECTING) {
-                { searchModifier ->
-                    val searchActive = isSearchActive
-
-                    Box(modifier = searchModifier) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                                .onGloballyPositioned { coords ->
-                                    searchBounds = coords.boundsInRoot()
-                                },
-                            shape = RoundedCornerShape(23.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            shadowElevation = 4.dp
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable {
-                                        if (!searchActive) isSearchActive = true
+                    .fillMaxSize()
+                    .pointerInput(searchActive, showSearchResults, searchBounds, searchResultBounds) {
+                        if (searchActive || showSearchResults) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val pos = down.position
+                                val inSearch = searchBounds.contains(pos)
+                                val inResults = showSearchResults && searchResultBounds.contains(pos)
+                                if (!inSearch && !inResults) {
+                                    val up = waitForUpOrCancellation()
+                                    if (up != null) {
+                                        isSearchActive = false
+                                        showSearchResults = false
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                     }
-                                    .padding(horizontal = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Search,
-                                    contentDescription = null,
-                                    tint = if (searchActive) AccentBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(10.dp))
-
-                                if (searchActive) {
-                                    BasicTextField(
-                                        value = searchQuery,
-                                        onValueChange = { searchQuery = it },
-                                        textStyle = TextStyle(
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                        keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .focusRequester(searchFocusRequester),
-                                        decorationBox = { innerTextField ->
-                                            if (searchQuery.isEmpty()) {
-                                                Text(
-                                                    stringResource(R.string.search_location_hint),
-                                                    fontSize = 13.5.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                                                )
-                                            }
-                                            innerTextField()
-                                        }
-                                    )
-
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(
-                                            onClick = {
-                                                searchQuery = ""
-                                                showSearchResults = false
-                                            },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Rounded.Close,
-                                                null,
-                                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Text(
-                                        stringResource(R.string.search_location_hint),
-                                        fontSize = 13.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        modifier = Modifier.weight(1f)
-                                    )
                                 }
                             }
                         }
+                    }
+            ) {
+                // 顶部操作卡片：包含路径点统计与撤销操作（搜索激活时隐藏，避免与顶部搜索栏发生遮挡）
+                if (routePoints.isNotEmpty() && (stage == RoutePlanStage.IDLE || stage == RoutePlanStage.SELECTING) && !searchActive) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            .padding(top = 12.dp)
+                            .animateContentSize(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                        shadowElevation = 8.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentBlue.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "${routePoints.size}",
+                                    color = AccentBlue,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
 
-                        // 搜索结果下拉弹出列表
+                            Text(
+                                stringResource(R.string.selected_waypoints_count, routePoints.size),
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            VerticalDivider(
+                                modifier = Modifier.height(18.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                            )
+
+                            // 撤销上一个点
+                            IconButton(
+                                onClick = { viewModel.undoLastRoutePoint() },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Rounded.Undo,
+                                    contentDescription = stringResource(R.string.undo),
+                                    tint = AccentOrange,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // 全部清除 / 重新选点
+                            IconButton(
+                                onClick = { viewModel.restartSelectingPoints() },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Rounded.DeleteSweep,
+                                    contentDescription = stringResource(R.string.reselect),
+                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 摇杆控制面板（手动模拟时显示）
+                if (isRunning && isManual) {
+                    JoystickPanel(
+                        viewModel = viewModel,
+                        maxSpeedMs = uiState.routeSimMode.speedMs.toFloat()
+                    )
+                }
+
+                // 右侧悬浮地图控制按钮组
+                val animatedBottomPadding by animateDpAsState(
+                    targetValue = bottomBarHeight + bottomActionHeightDp + 16.dp,
+                    animationSpec = tween(durationMillis = 200),
+                    label = "fab_padding"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = animatedBottomPadding)
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        RouteControlButton(
+                            icon = Icons.Rounded.Layers,
+                            onClick = { showMapTypeDialog = true }
+                        )
+                        RouteControlButton(
+                            icon = Icons.Rounded.Bookmarks,
+                            onClick = { showSavedRoutesDialog = true }
+                        )
+                        RouteControlButton(
+                            icon = Icons.Rounded.MyLocation,
+                            onClick = {
+                                viewModel.fetchCurrentLocation(context) { lat, lng ->
+                                    mapController?.animateCamera(lat, lng, 16f)
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // 底部多状态操作面板
+                RouteBottomPanel(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = bottomBarHeight + 6.dp, start = 14.dp, end = 14.dp)
+                        .onGloballyPositioned { coordinates ->
+                            bottomActionHeightPx = coordinates.size.height
+                        },
+                    stage = stage,
+                    routePoints = routePoints,
+                    uiState = uiState,
+                    onConfirmPoint = {
+                        val tLat = mapController?.cameraTargetLat
+                        val tLng = mapController?.cameraTargetLng
+                        if (tLat != null && tLng != null) {
+                            viewModel.addRoutePoint(tLat, tLng)
+                        } else {
+                            val fallbackLat = uiState.latitudeInput.toDoubleOrNull()
+                            val fallbackLng = uiState.longitudeInput.toDoubleOrNull()
+                            if (fallbackLat != null && fallbackLng != null) {
+                                viewModel.addRoutePoint(fallbackLat, fallbackLng)
+                            }
+                        }
+                    },
+                    onFinishSelecting = {
+                        viewModel.finishSelectingPoints()
+                    },
+                    onRestartSelecting = {
+                        viewModel.restartSelectingPoints()
+                    },
+                    onSaveRoute = { showSaveRouteDialog = true },
+                    onStartPlanning = { showConfigDialog = true },
+                    onStopRoute = {
+                        viewModel.stopRoutePlanning()
+                    },
+                    searchBar = if (stage == RoutePlanStage.IDLE || stage == RoutePlanStage.SELECTING) {
+                        { barModifier ->
+                            if (!searchActive) {
+                                HomeSearchBar(
+                                    query = searchQuery,
+                                    searchMode = uiState.searchMode,
+                                    onSearchModeChange = viewModel::setSearchMode,
+                                    onQueryChange = { searchQuery = it },
+                                    onSearch = submitSearch,
+                                    onFocus = { isSearchActive = true },
+                                    modifier = searchModifier.then(barModifier),
+                                    focusRequester = searchFocusRequester
+                                )
+                            } else {
+                                Spacer(modifier = barModifier.height(52.dp))
+                            }
+                        }
+                    } else null
+                )
+
+                // 搜索激活时：顶部搜索栏与联想结果卡片
+                if (searchActive) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(top = 8.dp)
+                    ) {
+                        HomeSearchBar(
+                            query = searchQuery,
+                            searchMode = uiState.searchMode,
+                            onSearchModeChange = viewModel::setSearchMode,
+                            onQueryChange = { searchQuery = it },
+                            onSearch = submitSearch,
+                            onFocus = { isSearchActive = true },
+                            modifier = searchModifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp),
+                            focusRequester = searchFocusRequester
+                        )
+
                         AnimatedVisibility(
                             visible = showSearchResults && searchResults.isNotEmpty(),
-                            enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
-                            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom),
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .offset(y = (-56).dp)
+                            enter = fadeIn(tween(160)) + expandVertically(tween(220)),
+                            exit = fadeOut(tween(120)) + shrinkVertically(tween(160))
                         ) {
-                            Surface(
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(max = 240.dp)
-                                    .onGloballyPositioned { coords ->
-                                        searchResultBounds = coords.boundsInRoot()
-                                    },
-                                shape = RoundedCornerShape(18.dp),
-                                color = MaterialTheme.colorScheme.surface,
-                                shadowElevation = 10.dp
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    .onGloballyPositioned { searchResultBounds = it.boundsInRoot() }
                             ) {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentPadding = PaddingValues(vertical = 6.dp)
-                                ) {
+                                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
                                     items(searchResults) { poi ->
-                                        Surface(
-                                            onClick = {
-                                                mapController?.animateCamera(poi.lat, poi.lng, 17f)
-                                                isSearchActive = false
-                                                showSearchResults = false
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                            },
-                                            color = Color.Transparent,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(36.dp)
-                                                        .clip(RoundedCornerShape(10.dp))
-                                                        .background(AccentBlue.copy(alpha = 0.12f)),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        Icons.Rounded.Place,
-                                                        contentDescription = null,
-                                                        tint = AccentBlue,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .noRippleClickable {
+                                                    mapController?.animateCamera(poi.lat, poi.lng, 17f)
+                                                    isSearchActive = false
+                                                    showSearchResults = false
+                                                    focusManager.clearFocus()
+                                                    keyboardController?.hide()
                                                 }
-                                                Spacer(Modifier.width(12.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        poi.title,
-                                                        fontSize = 14.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = MaterialTheme.colorScheme.onSurface
-                                                    )
+                                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(AccentBlue.copy(alpha = 0.12f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Rounded.Place,
+                                                    null,
+                                                    tint = AccentBlue,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                            Spacer(Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    poi.title,
+                                                    fontWeight = FontWeight.Medium,
+                                                    fontSize = 14.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                if (poi.snippet.isNotBlank()) {
                                                     Text(
                                                         poi.snippet,
-                                                        fontSize = 11.5.sp,
+                                                        fontSize = 12.sp,
                                                         color = MaterialTheme.colorScheme.onSurface.copy(
                                                             alpha = 0.6f
                                                         )
@@ -569,8 +545,8 @@ fun RouteTab(
                         }
                     }
                 }
-            } else null
-        )
+            }
+        }
     }
 
     if (showConfigDialog) {
