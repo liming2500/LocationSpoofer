@@ -524,6 +524,7 @@ fun LocationTab(
     if (spoofingUiState.showSaveDialog) {
         SaveNameDialog(
             title = stringResource(R.string.save_current_location),
+            isDark = isDark,
             onConfirm = { name ->
                 viewModel.saveCurrentLocation(name)
                 onIntent(SpoofingIntent.SetSaveDialogVisible(false))
