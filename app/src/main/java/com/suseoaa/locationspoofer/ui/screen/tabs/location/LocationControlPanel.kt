@@ -75,13 +75,13 @@ fun LocationControlPanel(
                 dragAccumulator += dragAmount
             },
             onDragEnd = {
-                if (dragAccumulator > 36f) {
+                if (dragAccumulator > 28f) {
                     when (panelState) {
                         LocationPanelState.EXPANDED -> onPanelStateChange(LocationPanelState.DEFAULT)
                         LocationPanelState.DEFAULT -> onPanelStateChange(LocationPanelState.COLLAPSED)
                         LocationPanelState.COLLAPSED -> {}
                     }
-                } else if (dragAccumulator < -36f) {
+                } else if (dragAccumulator < -28f) {
                     when (panelState) {
                         LocationPanelState.COLLAPSED -> onPanelStateChange(LocationPanelState.DEFAULT)
                         LocationPanelState.DEFAULT -> onPanelStateChange(LocationPanelState.EXPANDED)
@@ -119,7 +119,6 @@ fun LocationControlPanel(
             .padding(horizontal = 14.dp)
             .padding(bottom = (tabBarHeight + 10.dp).coerceAtLeast(0.dp))
             .offset { IntOffset(0, drawerOffsetYPx.roundToInt()) }
-            .then(dragGestureModifier)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -131,6 +130,7 @@ fun LocationControlPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 2.dp, bottom = 4.dp)
+                    .then(dragGestureModifier)
                     .noRippleClickable {
                         val next = when (panelState) {
                             LocationPanelState.COLLAPSED -> LocationPanelState.DEFAULT
@@ -156,7 +156,8 @@ fun LocationControlPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 2.dp),
+                    .padding(vertical = 2.dp)
+                    .then(dragGestureModifier),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 searchBar(
@@ -281,7 +282,8 @@ fun LocationControlPanel(
                         if (it.size.height > 0) {
                             onCoordCardHeightMeasured(it.size.height)
                         }
-                    },
+                    }
+                    .then(dragGestureModifier),
                 shape = RoundedCornerShape(22.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 8.dp
@@ -310,7 +312,7 @@ fun LocationControlPanel(
                 }
             }
 
-            // 收藏地点卡片：高度完全根据数量动态伸缩，不设固定限制，支持抽拉下沉
+            // 收藏地点卡片：支持海量坐标平滑滚动，并支持抽拉下沉
             SavedLocationsCard(
                 modifier = Modifier.onGloballyPositioned {
                     if (it.size.height > 0) {
@@ -330,7 +332,8 @@ fun LocationControlPanel(
                     }
                     onPanelStateChange(next)
                 },
-                onOpenManageDialog = onOpenManageSavedLocations
+                onOpenManageDialog = onOpenManageSavedLocations,
+                dragGestureModifier = dragGestureModifier
             )
         }
     }

@@ -2,6 +2,8 @@ package com.suseoaa.locationspoofer.ui.screen.tabs.location
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -30,7 +32,7 @@ import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
-// 动态高度的收藏地点卡片（高度随点位数量自然延伸，不限制在固定高度盒子内）
+// 动态可滑动高度的收藏地点卡片（支持无限数量坐标平滑滚动，并支持抽拉下沉）
 @Composable
 fun SavedLocationsCard(
     modifier: Modifier = Modifier,
@@ -40,7 +42,8 @@ fun SavedLocationsCard(
     onSelect: (SavedLocation) -> Unit,
     onDelete: (SavedLocation) -> Unit,
     onToggleExpand: () -> Unit,
-    onOpenManageDialog: () -> Unit
+    onOpenManageDialog: () -> Unit,
+    dragGestureModifier: Modifier = Modifier
 ) {
     val textSecondary = AppColors.textSecondary(isDark)
 
@@ -53,9 +56,11 @@ fun SavedLocationsCard(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // 卡片头部
+            // 卡片头部（支持拖拽展开/折叠）
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(dragGestureModifier),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -125,7 +130,7 @@ fun SavedLocationsCard(
                 }
             }
 
-            // 卡片主体内容（根据点位数量自然延伸高度，无多余空隙，无限制滑动容器）
+            // 卡片主体内容（海量坐标平滑滚动，限制最大高度避免溢出屏幕）
             if (savedLocations.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -134,7 +139,8 @@ fun SavedLocationsCard(
                         .background(
                             if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f)
                         )
-                        .padding(vertical = 14.dp, horizontal = 12.dp),
+                        .padding(vertical = 14.dp, horizontal = 12.dp)
+                        .then(dragGestureModifier),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -155,11 +161,16 @@ fun SavedLocationsCard(
                     }
                 }
             } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 260.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    savedLocations.forEach { loc ->
+                    items(
+                        items = savedLocations,
+                        key = { "${it.name}_${it.lat}_${it.lng}" }
+                    ) { loc ->
                         SavedLocationItemRow(
                             location = loc,
                             isDark = isDark,
