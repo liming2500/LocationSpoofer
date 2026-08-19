@@ -128,7 +128,10 @@ data class AppState(
 
     // 锁定选中的本地采集点位
     val pinnedCollectedLocationId: Long? = null,
-    val pinnedLocationName: String? = null
+    val pinnedLocationName: String? = null,
+
+    // 是否接收测试版更新 (Beta 通道)
+    val checkBetaUpdates: Boolean = false
 )
 
 data class AppInfoItem(

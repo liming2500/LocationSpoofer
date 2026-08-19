@@ -41,9 +41,19 @@ jobs:
             exit 0
           fi
           
+          # 判断是否是 Beta 预发布版本
+          if echo "$VERSION_NAME" | grep -qi 'beta'; then
+            echo "当前版本为 Beta 测试版 (Pre-release)"
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "当前版本为正式版本 (Stable Release)"
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+          
           echo "检测到新版本，将构建并发布 $TAG_NAME。"
           echo "changed=true" >> $GITHUB_OUTPUT
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
 
       - name: Generate Changelog
         if: steps.check_version.outputs.changed == 'true'
@@ -135,6 +145,7 @@ jobs:
           tag_name: ${{ steps.check_version.outputs.tag }}
           name: LocationSpoofer ${{ steps.check_version.outputs.tag }}
           body_path: changelog.txt
+          prerelease: ${{ steps.check_version.outputs.is_prerelease == 'true' }}
           files: app/build/outputs/apk/release/LocationSpoofer-*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

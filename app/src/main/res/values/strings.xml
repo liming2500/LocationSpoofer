@@ -248,6 +248,9 @@
     <string name="start_route_simulation">Start Route Simulation</string>
     <string name="software_update">Software Update</string>
     <string name="software_update_desc">Check and get latest releases and improvements</string>
+    <string name="check_beta_channel_title">Receive Beta Updates</string>
+    <string name="check_beta_channel_desc">Check and receive the latest Beta releases</string>
+    <string name="prerelease_badge">Beta</string>
     <string name="changelog">Changelog</string>
     <string name="version_history">Version History</string>
     <string name="checking_latest_release">Checking server for latest release...</string>

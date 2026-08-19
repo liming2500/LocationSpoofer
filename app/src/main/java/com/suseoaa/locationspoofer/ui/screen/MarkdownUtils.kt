@@ -161,21 +161,55 @@ fun generateMergedMarkdown(
     return sb.toString().trim()
 }
 
-fun isNewerVersion(versionStr: String, currentStr: String): Boolean {
-    val v1 = versionStr.lowercase().removePrefix("v").trim()
-    val v2 = currentStr.lowercase().removePrefix("v").trim()
+data class SemVer(
+    val major: Int = 0,
+    val minor: Int = 0,
+    val patch: Int = 0,
+    val isBeta: Boolean = false,
+    val betaNumber: Int = 0
+) : Comparable<SemVer> {
+    companion object {
+        fun parse(version: String): SemVer {
+            val clean = version.lowercase().removePrefix("v").trim()
+            val dashIndex = clean.indexOf('-').let { if (it >= 0) it else clean.indexOf('_') }
+            val coreStr = if (dashIndex >= 0) clean.substring(0, dashIndex) else clean
+            val suffix = if (dashIndex >= 0) clean.substring(dashIndex + 1) else ""
 
-    val parts1 = v1.split(".")
-    val parts2 = v2.split(".")
+            val coreParts = coreStr.split('.').map { it.toIntOrNull() ?: 0 }
+            val major = coreParts.getOrElse(0) { 0 }
+            val minor = coreParts.getOrElse(1) { 0 }
+            val patch = coreParts.getOrElse(2) { 0 }
 
-    val length = maxOf(parts1.size, parts2.size)
-    for (i in 0 until length) {
-        val p1 = parts1.getOrNull(i)?.toIntOrNull() ?: 0
-        val p2 = parts2.getOrNull(i)?.toIntOrNull() ?: 0
-        if (p1 > p2) return true
-        if (p1 < p2) return false
+            val isBeta = suffix.contains("beta")
+            val betaNumber = if (isBeta) {
+                Regex("""\d+""").find(suffix)?.value?.toIntOrNull() ?: 1
+            } else 0
+
+            return SemVer(major, minor, patch, isBeta, betaNumber)
+        }
     }
-    return false
+
+    override fun compareTo(other: SemVer): Int {
+        if (major != other.major) return major.compareTo(other.major)
+        if (minor != other.minor) return minor.compareTo(other.minor)
+        if (patch != other.patch) return patch.compareTo(other.patch)
+
+        // 正式版优先于同一版本的 Beta 版 (例如 2.1.0 > 2.1.0-beta-1)
+        if (!isBeta && other.isBeta) return 1
+        if (isBeta && !other.isBeta) return -1
+        if (!isBeta && !other.isBeta) return 0
+
+        // 都是 Beta 版，比较 Beta 序号 (例如 beta-2 > beta-1)
+        return betaNumber.compareTo(other.betaNumber)
+    }
+}
+
+fun isNewerVersion(versionStr: String, currentStr: String): Boolean {
+    return try {
+        SemVer.parse(versionStr) > SemVer.parse(currentStr)
+    } catch (e: Exception) {
+        false
+    }
 }
 
 fun parseMarkdownBlocks(rawText: String): List<MarkdownBlock> {

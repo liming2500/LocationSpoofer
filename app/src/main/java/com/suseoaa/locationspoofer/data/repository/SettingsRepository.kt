@@ -138,4 +138,10 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
         set(value) {
             settingsManager.satelliteCount = value
         }
+
+    var checkBetaUpdates: Boolean
+        get() = settingsManager.checkBetaUpdates
+        set(value) {
+            settingsManager.checkBetaUpdates = value
+        }
 }

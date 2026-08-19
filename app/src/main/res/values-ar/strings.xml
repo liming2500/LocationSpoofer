@@ -239,6 +239,9 @@
     <string name="start_route_simulation">بدء محاكاة المسار</string>
     <string name="software_update">تحديث البرنامج</string>
     <string name="software_update_desc">التحقق من التحديثات وأحدث التحسينات</string>
+    <string name="check_beta_channel_title">تلقي تحديثات بيتا (Beta)</string>
+    <string name="check_beta_channel_desc">التحقق وتلقي أحدث إصدارات بيتا التجريبية</string>
+    <string name="prerelease_badge">Beta</string>
     <string name="changelog">سجل التغييرات</string>
     <string name="version_history">تاريخ الإصدارات</string>
     <string name="checking_latest_release">جارٍ التحقق من الخادم لأحدث إصدار...</string>

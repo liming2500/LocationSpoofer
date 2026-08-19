@@ -139,7 +139,8 @@ class MainViewModel(
                     amapApiKey = settingsRepository.getAmapApiKey(),
                     baiduApiKey = settingsRepository.getBaiduApiKey(),
                     googleApiKey = settingsRepository.getGoogleApiKey(),
-                    appSha1 = getAppSignatureSHA1()
+                    appSha1 = getAppSignatureSHA1(),
+                    checkBetaUpdates = settingsRepository.checkBetaUpdates
                 )
             }
             if (!settingsRepository.isSpoofingActive) {
@@ -2949,6 +2950,11 @@ class MainViewModel(
 
     fun setIgnoredVersion(version: String) {
         settingsRepository.setIgnoredVersion(version)
+    }
+
+    fun setCheckBetaUpdates(enabled: Boolean) {
+        settingsRepository.checkBetaUpdates = enabled
+        _uiState.update { it.copy(checkBetaUpdates = enabled) }
     }
 
     fun handleSpoofingIntent(intent: SpoofingIntent) {

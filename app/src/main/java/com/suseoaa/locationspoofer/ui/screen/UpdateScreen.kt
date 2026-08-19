@@ -51,6 +51,7 @@ fun UpdateScreen(
 ) {
     val context = LocalContext.current
     val uiState by updateViewModel.uiState.collectAsState()
+    val appState by viewModel.uiState.collectAsState()
     val currentVersion = BuildConfig.VERSION_NAME
     val listState = rememberLazyListState()
     val backdrop = rememberLayerBackdrop()
@@ -64,24 +65,33 @@ fun UpdateScreen(
         }
     }
 
+    // 根据是否接收 Beta 通道过滤候选版本
+    val filteredReleases = remember(uiState.releases, appState.checkBetaUpdates) {
+        if (appState.checkBetaUpdates) {
+            uiState.releases
+        } else {
+            uiState.releases.filter { !it.isPrerelease }
+        }
+    }
+
     // 查找比当前版本更新的未升级版本
-    val missed = remember(uiState.releases) {
-        uiState.releases.filter { isNewerVersion(it.versionName, currentVersion) }
+    val missed = remember(filteredReleases, currentVersion) {
+        filteredReleases.filter { isNewerVersion(it.versionName, currentVersion) }
     }
 
     val hasNewVersion = missed.isNotEmpty()
-    val latestRelease = uiState.releases.firstOrNull()
+    val latestRelease = filteredReleases.firstOrNull()
 
-    val displayList = remember(uiState.releases, missed) {
+    val displayList = remember(filteredReleases, missed) {
         if (missed.size > 1) {
             val latest = missed.first()
             val grouped = parseAndCategorizeReleaseNotes(missed)
             val mergedBody = generateMergedMarkdown(context, grouped)
             val mergedRelease = latest.copy(body = mergedBody)
-            val historical = uiState.releases.filter { it !in missed }
+            val historical = filteredReleases.filter { it !in missed }
             listOf(mergedRelease) + historical
         } else {
-            uiState.releases
+            filteredReleases
         }
     }
 
@@ -139,6 +149,44 @@ fun UpdateScreen(
                         onBack()
                     }
                 )
+            }
+
+            // Beta 测试版通道开关
+            item {
+                MiuixCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 18.dp,
+                    insideMargin = PaddingValues(horizontal = 18.dp, vertical = 14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 12.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.check_beta_channel_title),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = stringResource(R.string.check_beta_channel_desc),
+                                fontSize = 12.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                        top.yukonga.miuix.kmp.basic.Switch(
+                            checked = appState.checkBetaUpdates,
+                            onCheckedChange = { viewModel.setCheckBetaUpdates(it) }
+                        )
+                    }
+                }
             }
 
             // 更新日志及历史版本列表
@@ -330,6 +378,22 @@ private fun CurrentVersionHeroCard(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFE53935)
                     )
+                    if (latestRelease.isPrerelease) {
+                        Spacer(Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFFFF9800).copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.prerelease_badge),
+                                fontSize = 10.5.sp,
+                                color = Color(0xFFFF9800),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 } else {
                     Box(
                         modifier = Modifier
@@ -523,6 +587,23 @@ private fun ReleaseItemCard(
                                 text = stringResource(R.string.merged_count_badge, mergedCount),
                                 fontSize = 10.5.sp,
                                 color = AccentBlue,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (release.isPrerelease) {
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFFF9800).copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.prerelease_badge),
+                                fontSize = 10.5.sp,
+                                color = Color(0xFFFF9800),
                                 fontWeight = FontWeight.Bold
                             )
                         }

@@ -56,8 +56,12 @@ fun InfoTab(
     val isDark = isSystemInDarkTheme()
 
     val currentVersion = BuildConfig.VERSION_NAME
-    val latestRelease = updateUiState?.releases?.firstOrNull()
-    val hasNewVersion = remember(updateUiState?.releases) {
+    val targetReleases = remember(updateUiState?.releases, uiState.checkBetaUpdates) {
+        val list = updateUiState?.releases ?: emptyList()
+        if (uiState.checkBetaUpdates) list else list.filter { !it.isPrerelease }
+    }
+    val latestRelease = targetReleases.firstOrNull()
+    val hasNewVersion = remember(targetReleases) {
         latestRelease != null && isNewerVersion(latestRelease.versionName, currentVersion)
     }
 

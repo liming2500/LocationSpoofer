@@ -247,6 +247,9 @@
     <string name="start_route_simulation">开始路线模拟</string>
     <string name="software_update">软件更新</string>
     <string name="software_update_desc">检查并获取最新发布版本与功能改进</string>
+    <string name="check_beta_channel_title">接收 Beta 测试版更新</string>
+    <string name="check_beta_channel_desc">检查并获取最新的 Beta 测试版本</string>
+    <string name="prerelease_badge">Beta</string>
     <string name="changelog">更新日志</string>
     <string name="version_history">版本历史</string>
     <string name="checking_latest_release">正在检索服务器最新发布版本...</string>

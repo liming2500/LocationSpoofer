@@ -84,7 +84,10 @@ fun MainScaffoldScreen(
     val updateUiState by updateViewModel.uiState.collectAsState()
     var hasAutoCheckedUpdates by remember { mutableStateOf(false) }
     var showStartupUpdateDialog by remember { mutableStateOf(false) }
-    val latestRelease = updateUiState.releases.firstOrNull()
+    val targetReleases = remember(updateUiState.releases, uiState.checkBetaUpdates) {
+        if (uiState.checkBetaUpdates) updateUiState.releases else updateUiState.releases.filter { !it.isPrerelease }
+    }
+    val latestRelease = targetReleases.firstOrNull()
 
     // 软件启动进入主界面时，立即在后台检索是否有新版本发布
     LaunchedEffect(Unit) {
@@ -92,8 +95,8 @@ fun MainScaffoldScreen(
     }
 
     // 检测到未被忽略的新版本时弹出启动更新提示框
-    LaunchedEffect(updateUiState.releases, updateUiState.isLoading) {
-        if (!hasAutoCheckedUpdates && !updateUiState.isLoading && updateUiState.releases.isNotEmpty()) {
+    LaunchedEffect(targetReleases, updateUiState.isLoading) {
+        if (!hasAutoCheckedUpdates && !updateUiState.isLoading && targetReleases.isNotEmpty()) {
             if (latestRelease != null) {
                 val latestVersion = latestRelease.versionName
                 val currentVersion = BuildConfig.VERSION_NAME
