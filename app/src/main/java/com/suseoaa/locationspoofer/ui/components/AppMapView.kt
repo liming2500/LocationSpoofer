@@ -75,23 +75,12 @@ fun AppMapView(
     }
 
     val activeEngine = if (mapEngine == MapEngine.AUTO) {
-        if (isDomestic) MapEngine.AMAP else MapEngine.GOOGLE
+        MapEngine.AMAP
     } else {
         mapEngine
     }
 
     when (activeEngine) {
-        MapEngine.AMAP -> {
-            AMapViewContainer(
-                context = context,
-                lifecycleOwner = lifecycleOwner,
-                isDark = isDark,
-                modifier = modifier,
-                onMapReady = onMapReady,
-                onControllerCreated = { mapController = it }
-            )
-        }
-
         MapEngine.BAIDU -> {
             BaiduMapViewContainer(
                 context = context,
@@ -103,8 +92,19 @@ fun AppMapView(
             )
         }
 
-        else -> {
+        MapEngine.GOOGLE -> {
             GoogleMapViewContainer(
+                context = context,
+                lifecycleOwner = lifecycleOwner,
+                isDark = isDark,
+                modifier = modifier,
+                onMapReady = onMapReady,
+                onControllerCreated = { mapController = it }
+            )
+        }
+
+        else -> {
+            AMapViewContainer(
                 context = context,
                 lifecycleOwner = lifecycleOwner,
                 isDark = isDark,

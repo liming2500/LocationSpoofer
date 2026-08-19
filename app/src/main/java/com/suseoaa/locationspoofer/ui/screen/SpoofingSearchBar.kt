@@ -213,7 +213,7 @@ fun performPoiSearch(
     context: Context,
     mapEngine: MapEngine,
     keyword: String,
-    isDomestic: Boolean,
+    isDomestic: Boolean = true,
     onResult: (List<AppPoiItem>) -> Unit
 ) {
     if (mapEngine == MapEngine.BAIDU) {
@@ -253,7 +253,81 @@ fun performPoiSearch(
             e.printStackTrace()
             onResult(emptyList())
         }
-    } else if (isDomestic) {
+    } else if (mapEngine == MapEngine.GOOGLE) {
+        try {
+            val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            val key = prefs.getString("google_api_key", "")
+            if (key.isNullOrBlank()) {
+                Toast.makeText(context, context.getString(R.string.google_key_required_hint), Toast.LENGTH_LONG).show()
+                onResult(emptyList())
+                return
+            }
+            if (!com.google.android.libraries.places.api.Places.isInitialized()) {
+                com.google.android.libraries.places.api.Places.initialize(context.applicationContext, key)
+            }
+            val placesClient = cachedPlacesClient ?: com.google.android.libraries.places.api.Places.createClient(context.applicationContext).also { cachedPlacesClient = it }
+            val sessionToken = com.google.android.libraries.places.api.model.AutocompleteSessionToken.newInstance()
+            val worldBounds = com.google.android.libraries.places.api.model.RectangularBounds.newInstance(
+                com.google.android.gms.maps.model.LatLng(-90.0, -180.0),
+                com.google.android.gms.maps.model.LatLng(90.0, 180.0)
+            )
+            val autocompleteRequest = com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest.builder()
+                .setQuery(keyword)
+                .setLocationBias(worldBounds)
+                .setSessionToken(sessionToken)
+                .build()
+
+            placesClient.findAutocompletePredictions(autocompleteRequest)
+                .addOnSuccessListener { autocompleteResponse ->
+                    val predictions = autocompleteResponse.autocompletePredictions
+                    if (predictions.isEmpty()) {
+                        Toast.makeText(context, context.getString(R.string.no_search_results), Toast.LENGTH_SHORT).show()
+                        onResult(emptyList())
+                        return@addOnSuccessListener
+                    }
+                    val fetchFields = listOf(
+                        com.google.android.libraries.places.api.model.Place.Field.ID,
+                        com.google.android.libraries.places.api.model.Place.Field.NAME,
+                        com.google.android.libraries.places.api.model.Place.Field.LAT_LNG,
+                        com.google.android.libraries.places.api.model.Place.Field.ADDRESS
+                    )
+                    val resultList = mutableListOf<AppPoiItem>()
+                    val topPredictions = predictions.take(5)
+                    var completedCount = 0
+                    topPredictions.forEach { prediction ->
+                        val fetchRequest = com.google.android.libraries.places.api.net.FetchPlaceRequest.newInstance(prediction.placeId, fetchFields)
+                        placesClient.fetchPlace(fetchRequest)
+                            .addOnSuccessListener { fetchResponse ->
+                                val place = fetchResponse.place
+                                val latLng = place.latLng
+                                if (latLng != null) {
+                                    resultList.add(
+                                        AppPoiItem(
+                                            title = place.name ?: prediction.getPrimaryText(null).toString(),
+                                            snippet = place.address ?: prediction.getSecondaryText(null).toString(),
+                                            lat = latLng.latitude,
+                                            lng = latLng.longitude
+                                        )
+                                    )
+                                }
+                            }
+                            .addOnCompleteListener {
+                                completedCount++
+                                if (completedCount == topPredictions.size) {
+                                    onResult(resultList)
+                                }
+                            }
+                    }
+                }
+                .addOnFailureListener { exception ->
+                    Toast.makeText(context, "Google Search Error: ${exception.message}", Toast.LENGTH_LONG).show()
+                    onResult(emptyList())
+                }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Google Search Catch Error: ${e.message}", Toast.LENGTH_LONG).show()
+            onResult(emptyList())
+        }
+    } else {
         try {
             val query = PoiSearch.Query(keyword, "", "")
             query.pageSize = 10
@@ -308,106 +382,6 @@ fun performPoiSearch(
                     Toast.LENGTH_LONG
                 ).show()
             }
-            onResult(emptyList())
-        }
-    } else {
-        try {
-            val placesClient =
-                cachedPlacesClient ?: Places.createClient(
-                    context.applicationContext
-                ).also {
-                    cachedPlacesClient = it
-                }
-            // 使用 Autocomplete 接口：全球关键词搜索，不限制国家/地区
-            // 通过 sessionToken 分组请求，避免重复计费；不设置 country 限制以支持全球搜索
-            val sessionToken =
-                AutocompleteSessionToken.newInstance()
-            // 设置覆盖全球的矩形偏移，阻止服务器根据 IP 推断区域，实现真正全球搜索
-            val worldBounds =
-                RectangularBounds.newInstance(
-                    com.google.android.gms.maps.model.LatLng(-90.0, -180.0),
-                    com.google.android.gms.maps.model.LatLng(90.0, 180.0)
-                )
-            val autocompleteRequest =
-                FindAutocompletePredictionsRequest.builder()
-                    .setQuery(keyword)
-                    .setLocationBias(worldBounds)
-                    .setSessionToken(sessionToken)
-                    .build()
-
-            placesClient.findAutocompletePredictions(autocompleteRequest)
-                .addOnSuccessListener { autocompleteResponse ->
-                    val predictions = autocompleteResponse.autocompletePredictions
-                    if (predictions.isEmpty()) {
-                        Toast.makeText(
-                            context,
-                            "No predictions found for: $keyword",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        onResult(emptyList())
-                        return@addOnSuccessListener
-                    }
-                    // 批量获取前5条预测结果的详情（坐标）
-                    val fetchFields = listOf(
-                        Place.Field.ID,
-                        Place.Field.NAME,
-                        Place.Field.LAT_LNG,
-                        Place.Field.ADDRESS
-                    )
-                    val resultList = mutableListOf<AppPoiItem>()
-                    val topPredictions = predictions.take(5)
-                    var completedCount = 0
-                    topPredictions.forEach { prediction ->
-                        val fetchRequest =
-                            FetchPlaceRequest.newInstance(
-                                prediction.placeId,
-                                fetchFields
-                            )
-                        placesClient.fetchPlace(fetchRequest)
-                            .addOnSuccessListener { fetchResponse ->
-                                val place = fetchResponse.place
-                                val latLng = place.latLng
-                                if (latLng != null) {
-                                    resultList.add(
-                                        AppPoiItem(
-                                            title = place.name ?: prediction.getPrimaryText(null)
-                                                .toString(),
-                                            snippet = place.address ?: prediction.getSecondaryText(
-                                                null
-                                            ).toString(),
-                                            lat = latLng.latitude,
-                                            lng = latLng.longitude
-                                        )
-                                    )
-                                }
-                            }
-                            .addOnCompleteListener {
-                                completedCount++
-                                if (completedCount == topPredictions.size) {
-                                    Toast.makeText(
-                                        context,
-                                        "Search Success: ${resultList.size} results",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    onResult(resultList)
-                                }
-                            }
-                    }
-                }
-                .addOnFailureListener { exception ->
-                    Toast.makeText(
-                        context,
-                        "Search Error: ${exception.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    onResult(emptyList())
-                }
-        } catch (e: Exception) {
-            Toast.makeText(
-                context,
-                "Search Catch Error: ${e.message}",
-                Toast.LENGTH_LONG
-            ).show()
             onResult(emptyList())
         }
     }

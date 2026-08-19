@@ -349,10 +349,9 @@
     <string name="app_description">وحدة تزييف الموقع</string>
     <string name="select_all">تحديد الكل</string>
     <string name="selected_items">تم تحديد %d</string>
-    <string name="custom_google_key_hint">أدخل مفتاح خرائط Google...</string>
-    <string name="title_manage_data">إدارة البيانات المجمعة</string>
-    <string name="custom_baidu_key_hint">أدخل مفتاح خرائط Baidu...</string>
     <string name="custom_google_key">مفتاح Google API المخصص</string>
+    <string name="custom_google_key_hint">أدخل مفتاح خرائط Google...</string>
+    <string name="google_key_required_hint">يرجى تكوين مفتاح Google Maps API في الإعدادات أولاً</string>
     <string name="custom_baidu_key">مفتاح Baidu API المخصص</string>
     <string name="manage_collected_data_desc">عرض وتحديد وحذف البيانات البيئية المجمعة محليًا</string>
 

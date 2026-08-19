@@ -51,7 +51,7 @@
         │                            │                            │
         ▼                            ▼                            ▼
   【空间定位与物理仿真】       【无线电与传感器模拟】         【反检测套件】
-  • 三地图引擎无缝切换         • Wi-Fi 扫描与连接态伪装       • Xposed 堆栈调用帧清洗
+  • 三地图引擎自由切换         • Wi-Fi 扫描与连接态伪装       • Xposed 堆栈调用帧清洗
   • WGS-84/GCJ-02/BD-09 自适应 • 2G-5G NR 蜂窝基站小区模拟   • ClassLoader 探测隔离
   • Ornstein-Uhlenbeck 抖动    • BLE 蓝牙信标扫描过滤         • isFromMockProvider 抹除
   • 步态横向摇摆与高斯噪声     • WiGLE / OpenCellID 云端导入  • AppOps OP_MOCK_LOCATION 隐藏
@@ -60,7 +60,9 @@
 ```
 
 ### 1. 多地图引擎与坐标系适配
-* **三引擎切换**：集成高德 3D 地图 (AMap)、百度地图 (BaiduMap) 与 Google Maps，实现国内外路网检索与 POI 选点。
+* **三引擎自由切换**：集成高德 3D 地图 (AMap)、百度地图 (BaiduMap) 与 Google Maps，满足境内外不同场景下的路网检索与 POI 选点需求。
+* **开箱即用与全语言支持**：默认“自动匹配”在所有语言（包括中文、英文、阿拉伯语等）环境下均稳定选用高德地图，无需 Google 服务或特殊网络即可顺畅使用。
+* **Google 地图自定义 Key**：App 不内置任何 Google Maps 默认密钥；如需使用 Google 地图渲染与 Places 全球搜索，只需在“设置”中填入您自行申请的 Google API Key 即可。
 * **智能坐标系自适应（Smart Auto）**：
   * 系统原生接口统一输出标准 `WGS-84` 物理坐标与卫星数据；
   * 各大地图定位 SDK（高德/腾讯/百度）及视图渲染层（如百度地图蓝点 `MyLocationData`）自动映射对应坐标系（`GCJ-02` / `BD-09`），规避坐标偏移与 `(0.0, 0.0)` 兜底问题；

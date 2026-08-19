@@ -344,49 +344,41 @@ class MainViewModel(
 
     // 当前位置获取
 
-    fun isDomesticEnvironment(): Boolean {
-        val lang = getSavedLanguage()
-        return lang == "zh" || (lang.isEmpty() && java.util.Locale.getDefault().language == "zh")
-    }
+    fun isDomesticEnvironment(): Boolean = true
 
     fun fetchCurrentLocation(ctx: Context, forceCallback: ((Double, Double) -> Unit)? = null) {
         viewModelScope.launch(Dispatchers.Main) {
-            val isDomestic = isDomesticEnvironment()
-            if (isDomestic) {
-                val client = try {
-                    AMapLocationClient(ctx.applicationContext)
-                } catch (e: Exception) {
-                    return@launch
-                }
-                client.setLocationOption(AMapLocationClientOption().apply {
-                    locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
-                    isOnceLocation = true
-                    isNeedAddress = false // 禁用逆地理编码，防止因未开通Web服务导致 SERVICE_NOT_EXIST 鉴权错误
-                })
-                client.setLocationListener { loc ->
-                    if (loc != null && loc.errorCode == 0) {
-                        if (_uiState.value.longitudeInput.isEmpty() || _uiState.value.latitudeInput.isEmpty() || forceCallback != null) {
-                            _uiState.update {
-                                it.copy(
-                                    latitudeInput = String.format("%.6f", loc.latitude),
-                                    longitudeInput = String.format("%.6f", loc.longitude),
-                                    showCoordinateError = false
-                                )
-                            }
-                            forceCallback?.invoke(loc.latitude, loc.longitude)
-                        }
-                    } else {
-                        // 如果鉴权失败(如 SERVICE_NOT_EXIST)或其他错误，回退到原生定位
-                        fallbackToNativeLocation(ctx, forceCallback, true)
-                    }
-                    client.stopLocation()
-                    client.onDestroy()
-                }
-                client.startLocation()
-            } else {
-                // 海外直接使用原生定位(WGS84)
-                fallbackToNativeLocation(ctx, forceCallback, false)
+            val client = try {
+                AMapLocationClient(ctx.applicationContext)
+            } catch (e: Exception) {
+                fallbackToNativeLocation(ctx, forceCallback, true)
+                return@launch
             }
+            client.setLocationOption(AMapLocationClientOption().apply {
+                locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
+                isOnceLocation = true
+                isNeedAddress = false // 禁用逆地理编码，防止因未开通Web服务导致 SERVICE_NOT_EXIST 鉴权错误
+            })
+            client.setLocationListener { loc ->
+                if (loc != null && loc.errorCode == 0) {
+                    if (_uiState.value.longitudeInput.isEmpty() || _uiState.value.latitudeInput.isEmpty() || forceCallback != null) {
+                        _uiState.update {
+                            it.copy(
+                                latitudeInput = String.format("%.6f", loc.latitude),
+                                longitudeInput = String.format("%.6f", loc.longitude),
+                                showCoordinateError = false
+                            )
+                        }
+                        forceCallback?.invoke(loc.latitude, loc.longitude)
+                    }
+                } else {
+                    // 如果鉴权失败(如 SERVICE_NOT_EXIST)或其他错误，回退到原生定位
+                    fallbackToNativeLocation(ctx, forceCallback, true)
+                }
+                client.stopLocation()
+                client.onDestroy()
+            }
+            client.startLocation()
         }
     }
 
@@ -491,33 +483,28 @@ class MainViewModel(
 
     private suspend fun fetchRealLocationSilent(ctx: Context): Pair<Double, Double>? =
         suspendCoroutine { cont ->
-            val isDomestic = isDomesticEnvironment()
-            if (isDomestic) {
-                val client = try {
-                    com.amap.api.location.AMapLocationClient(ctx.applicationContext)
-                } catch (e: Exception) {
-                    cont.resume(null)
-                    return@suspendCoroutine
-                }
-                client.setLocationOption(com.amap.api.location.AMapLocationClientOption().apply {
-                    locationMode =
-                        com.amap.api.location.AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
-                    isOnceLocation = true
-                    isNeedAddress = false
-                })
-                client.setLocationListener { loc ->
-                    if (loc != null && loc.errorCode == 0) {
-                        cont.resume(Pair(loc.latitude, loc.longitude))
-                    } else {
-                        fallbackToNativeLocationSilent(ctx, true, cont)
-                    }
-                    client.stopLocation()
-                    client.onDestroy()
-                }
-                client.startLocation()
-            } else {
-                fallbackToNativeLocationSilent(ctx, false, cont)
+            val client = try {
+                com.amap.api.location.AMapLocationClient(ctx.applicationContext)
+            } catch (e: Exception) {
+                fallbackToNativeLocationSilent(ctx, true, cont)
+                return@suspendCoroutine
             }
+            client.setLocationOption(com.amap.api.location.AMapLocationClientOption().apply {
+                locationMode =
+                    com.amap.api.location.AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
+                isOnceLocation = true
+                isNeedAddress = false
+            })
+            client.setLocationListener { loc ->
+                if (loc != null && loc.errorCode == 0) {
+                    cont.resume(Pair(loc.latitude, loc.longitude))
+                } else {
+                    fallbackToNativeLocationSilent(ctx, true, cont)
+                }
+                client.stopLocation()
+                client.onDestroy()
+            }
+            client.startLocation()
         }
 
     @android.annotation.SuppressLint("MissingPermission")
