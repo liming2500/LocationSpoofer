@@ -34,20 +34,22 @@ jobs:
           
           TAG_NAME="v$VERSION_NAME"
           
-          # 检查对应的 tag 是否已经存在
-          if git ls-remote --tags origin | grep -q "refs/tags/$TAG_NAME"; then
-            echo "Tag $TAG_NAME 已经存在，说明版本没有更新或已发版，跳过后续操作。"
-            echo "changed=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
           # 判断是否是 Beta 预发布版本
           if echo "$VERSION_NAME" | grep -qi 'beta'; then
             echo "当前版本为 Beta 测试版 (Pre-release)"
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            IS_PRERELEASE="true"
           else
             echo "当前版本为正式版本 (Stable Release)"
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            IS_PRERELEASE="false"
+          fi
+          
+          # 检查对应的 tag 是否已经存在（必须精确匹配行尾，避免 v2.3.6-beta-1 误匹配 v2.3.6）
+          if git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -qE "refs/tags/$TAG_NAME(\^\{\})?$"; then
+            echo "Tag $TAG_NAME 已经存在，说明版本没有更新或已发版，跳过后续操作。"
+            echo "changed=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
           
           echo "检测到新版本，将构建并发布 $TAG_NAME。"
@@ -59,15 +61,27 @@ jobs:
         if: steps.check_version.outputs.changed == 'true'
         id: changelog
         run: |
-          # 获取上一个 tag 的名字
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          TAG_NAME="${{ steps.check_version.outputs.tag }}"
+          IS_PRERELEASE="${{ steps.check_version.outputs.is_prerelease }}"
+          
+          # 获取上一个基准 tag
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            # Beta 版本：对比上一个 tag（包括旧 beta）
+            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          else
+            # 正式版：对比上一个正式版 tag（排除包含 beta 的 tag，保证正式版汇总完整日志）
+            PREV_TAG=$(git tag -l --sort=-v:refname | grep -vE -- '-beta|_beta' | grep -vx "$TAG_NAME" | head -n 1 || echo "")
+            if [ -z "$PREV_TAG" ]; then
+              PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            fi
+          fi
           
           # 获取提交记录
           if [ -z "$PREV_TAG" ]; then
-            echo "没有找到上一个 tag，获取所有提交记录。"
+            echo "没有找到上一个基准 tag，获取所有提交记录。"
             COMMITS=$(git log --no-merges --pretty=format:"%s")
           else
-            echo "上一个 tag: $PREV_TAG"
+            echo "上一个基准 tag: $PREV_TAG"
             COMMITS=$(git log $PREV_TAG..HEAD --no-merges --pretty=format:"%s")
           fi
           
