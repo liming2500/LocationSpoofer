@@ -241,6 +241,24 @@ object XposedHelpers {
             }
         }
     }
+
+    inline fun hookAllConstructors(
+        clazz: Class<*>,
+        crossinline interceptor: (io.github.libxposed.api.XposedInterface.Chain, Executable) -> Any?
+    ) {
+        for (constructor in clazz.declaredConstructors) {
+            try {
+                module.hook(constructor)
+                    .intercept(object : io.github.libxposed.api.XposedInterface.Hooker {
+                        override fun intercept(chain: io.github.libxposed.api.XposedInterface.Chain): Any? {
+                            return interceptor(chain, constructor)
+                        }
+                    })
+            } catch (e: Throwable) {
+                // 忽略
+            }
+        }
+    }
 }
 
 object XposedBridge {

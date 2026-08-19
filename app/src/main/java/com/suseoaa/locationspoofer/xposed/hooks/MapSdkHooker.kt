@@ -325,24 +325,44 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
 
     // 安全探测: 当前进程是否加载了百度定位SDK
     val baiduClazz = XposedHelpers.findClassIfExists(baiduLocClass, classLoader)
-    if (baiduClazz == null) {
-        XposedBridge.log("[LocationSpoofer] BDLocation class not found, skipping")
-        return
-    }
+    if (baiduClazz != null && hookedCallbackClasses.putIfAbsent(baiduClazz, true) == null) {
+        try {
+            // 1. 构造函数级拦截：确保任何实例一经创建即填充正确的 BD-09 坐标，防止未初始化或失败默认值 (0.0, 0.0) 泄露
+            try {
+                XposedHelpers.hookAllConstructors(baiduClazz) { chain, constructor ->
+                    val result = chain.proceed(chain.args.toTypedArray())
+                    val bdLoc = chain.thisObject
+                    if (bdLoc != null) {
+                        val config = readConfig()
+                    if (config != null && config.optBoolean("active", false)) {
+                        val motion = getCurrentSpoofedMotion("BD-09")
+                        if (motion != null) {
+                            try { XposedHelpers.setDoubleField(bdLoc, "mLatitude", motion.lat) } catch (_: Throwable) {}
+                            try { XposedHelpers.setDoubleField(bdLoc, "mLongitude", motion.lng) } catch (_: Throwable) {}
+                            try { XposedHelpers.setDoubleField(bdLoc, "latitude", motion.lat) } catch (_: Throwable) {}
+                            try { XposedHelpers.setDoubleField(bdLoc, "longitude", motion.lng) } catch (_: Throwable) {}
+                            try { XposedHelpers.setObjectField(bdLoc, "mCoorType", "bd09ll") } catch (_: Throwable) {}
+                            try { XposedHelpers.setIntField(bdLoc, "mLocType", 61) } catch (_: Throwable) {}
+                            try { XposedHelpers.setIntField(bdLoc, "locType", 61) } catch (_: Throwable) {}
+                        }
+                    }
+                }
+                return@hookAllConstructors result
+            }
+        } catch (_: Throwable) {}
 
-    try {
-        // 使用hookAllMethods: BDLocation在不同版本中可能有多个getLatitude重载
+        // 2. Getter 方法级拦截：BDLocation.getLatitude() / getLongitude() 强制返回标准度数
         XposedHelpers.hookAllMethods(baiduClazz, "getLatitude") { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
-            val defaultSys = try {
-                val coorType = XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
-                when (coorType) {
-                    "wgs84" -> "WGS-84"
-                    "gcj02" -> "GCJ-02"
-                    else -> "BD-09"
-                }
+            val coorType = try {
+                XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
             } catch (e: Throwable) {
-                "BD-09"
+                null
+            }
+            val defaultSys = when (coorType?.lowercase()) {
+                "wgs84" -> "WGS-84"
+                "gcj02" -> "GCJ-02"
+                else -> "BD-09"
             }
             val motion = getCurrentSpoofedMotion(defaultSys)
             if (motion != null) {
@@ -353,15 +373,15 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
 
         XposedHelpers.hookAllMethods(baiduClazz, "getLongitude") { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
-            val defaultSys = try {
-                val coorType = XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
-                when (coorType) {
-                    "wgs84" -> "WGS-84"
-                    "gcj02" -> "GCJ-02"
-                    else -> "BD-09"
-                }
+            val coorType = try {
+                XposedHelpers.callMethod(chain.thisObject!!, "getCoorType") as? String
             } catch (e: Throwable) {
-                "BD-09"
+                null
+            }
+            val defaultSys = when (coorType?.lowercase()) {
+                "wgs84" -> "WGS-84"
+                "gcj02" -> "GCJ-02"
+                else -> "BD-09"
             }
             val motion = getCurrentSpoofedMotion(defaultSys)
             if (motion != null) {
@@ -370,7 +390,23 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
             return@hookAllMethods result
         }
 
-        // getLocType -> 动态保留网络定位类型，适配百度SDK的161和601类型，否则强制返回GPS定位(61)
+        // getCoorType -> 确保返回有效的度数坐标系标识 (bd09ll / gcj02 / wgs84)
+        try {
+            XposedHelpers.hookAllMethods(baiduClazz, "getCoorType") { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    val currentCoor = result as? String
+                    if (currentCoor.isNullOrEmpty() || currentCoor == "null" || currentCoor.equals("bd09mc", ignoreCase = true)) {
+                        result = "bd09ll"
+                    }
+                }
+                return@hookAllMethods result
+            }
+        } catch (_: Throwable) {
+        }
+
+        // getLocType -> 确保永远返回定位成功(GPS=61或网络=161)，避免百度地图触发兜底回拉
         XposedHelpers.hookAllMethods(baiduClazz, "getLocType") { chain, method ->
             var result = chain.proceed(chain.args.toTypedArray())
             val config = readConfig()
@@ -379,7 +415,7 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
                 if (originalLocationType == 161 || originalLocationType == 601) {
                     result = originalLocationType
                 } else {
-                    result = 61 // 默认强制修改为GPS定位（61）
+                    result = 61 // 默认强制修改为GPS定位成功（61）
                 }
             }
             return@hookAllMethods result
@@ -421,6 +457,18 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
             XposedHelpers.hookAllMethods(baiduClazz, "getGpsCheckStatus") { chain, _ ->
                 val config = readConfig()
                 if (config != null && config.optBoolean("active", false)) 1 else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(baiduClazz, "getGpsAccuracyStatus") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) 1 else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(baiduClazz, "hasAddr") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) true else chain.proceed(chain.args.toTypedArray())
+            }
+            XposedHelpers.hookAllMethods(baiduClazz, "hasAddress") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) true else chain.proceed(chain.args.toTypedArray())
             }
             XposedHelpers.hookAllMethods(baiduClazz, "getTime") { chain, _ ->
                 val config = readConfig()
@@ -464,6 +512,7 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
     } catch (e: Throwable) {
         XposedBridge.log("[LocationSpoofer] BDLocation method hook failed: $e")
     }
+    }
 
     // 方案2(补充): Hook百度定位回调,在App接收BDLocation前修改其内部字段
     // BDAbstractLocationListener是百度SDK 7.0+推荐的回调基类
@@ -494,44 +543,37 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
                     null
                 }
 
-                val defaultSys = when (coorType) {
+                val defaultSys = when (coorType?.lowercase()) {
                     "wgs84" -> "WGS-84"
                     "gcj02" -> "GCJ-02"
                     else -> "BD-09"
                 }
                 val motion = getCurrentSpoofedMotion(defaultSys) ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
 
-                // 通过反射直接写入BDLocation实例的经纬度
-                try {
-                    XposedHelpers.callMethod(bdLoc, "setLatitude", motion.lat)
-                } catch (e: Throwable) {
-                    try {
-                        XposedHelpers.setDoubleField(bdLoc, "mLatitude", motion.lat)
-                    } catch (e2: Throwable) {
-                    }
-                }
-                try {
-                    XposedHelpers.callMethod(bdLoc, "setLongitude", motion.lng)
-                } catch (e: Throwable) {
-                    try {
-                        XposedHelpers.setDoubleField(
-                            bdLoc,
-                            "mLongitude",
-                            motion.lng
-                        )
-                    } catch (e2: Throwable) {
-                    }
-                }
-                // 动态设置定位类型：保留网络定位类型（161和601），其余强制覆盖为GPS定位（61）
-                try {
-                    val currentLocationType =
-                        XposedHelpers.callMethod(bdLoc, "getLocType") as? Int ?: 61
-                    // 如果当前回调原本就是网络定位，那么我们不修改类型，只替换了上面的经纬度坐标
-                    if (currentLocationType != 161 && currentLocationType != 601) {
-                        XposedHelpers.callMethod(bdLoc, "setLocType", 61)
-                    }
-                } catch (e: Throwable) { /* 忽略反射调用可能出现的异常 */
-                }
+                // 1. 经纬度
+                try { XposedHelpers.callMethod(bdLoc, "setLatitude", motion.lat) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setLongitude", motion.lng) } catch (_: Throwable) {}
+                try { XposedHelpers.setDoubleField(bdLoc, "mLatitude", motion.lat) } catch (_: Throwable) {}
+                try { XposedHelpers.setDoubleField(bdLoc, "mLongitude", motion.lng) } catch (_: Throwable) {}
+                try { XposedHelpers.setDoubleField(bdLoc, "latitude", motion.lat) } catch (_: Throwable) {}
+                try { XposedHelpers.setDoubleField(bdLoc, "longitude", motion.lng) } catch (_: Throwable) {}
+
+                // 2. 状态码与坐标系
+                try { XposedHelpers.callMethod(bdLoc, "setLocType", 61) } catch (_: Throwable) {}
+                try { XposedHelpers.setIntField(bdLoc, "mLocType", 61) } catch (_: Throwable) {}
+                try { XposedHelpers.setIntField(bdLoc, "locType", 61) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setCoorType", "bd09ll") } catch (_: Throwable) {}
+                try { XposedHelpers.setObjectField(bdLoc, "mCoorType", "bd09ll") } catch (_: Throwable) {}
+
+                // 3. 卫星、精度与时间
+                try { XposedHelpers.callMethod(bdLoc, "setRadius", getJitteredAccuracy()) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setSpeed", motion.speed * 3.6f) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setDirection", motion.bearing) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setSatelliteNumber", 20) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setGpsCheckStatus", 1) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setMockGps", 0) } catch (_: Throwable) {}
+                try { XposedHelpers.callMethod(bdLoc, "setTime", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())) } catch (_: Throwable) {}
+
                 return@hookAllMethods chain.proceed(chain.args.toTypedArray())
             }
             XposedBridge.log("[LocationSpoofer] $listenerClassName callback hook installed")
@@ -552,14 +594,43 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
                 val listener = chain.args[0]
                 if (listener != null) {
                     try {
+                        val listenerClazz = listener.javaClass
+                        if (hookedCallbackClasses.putIfAbsent(listenerClazz, true) == null) {
+                            try {
+                                XposedHelpers.hookAllMethods(listenerClazz, "onReceiveLocation") { innerChain, innerMethod ->
+                                    val config = readConfig() ?: return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                                    if (!config.optBoolean("active", false) || innerChain.args.isEmpty()) return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                                    val bdLoc = innerChain.args[0] ?: return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                                    val coorType = try { XposedHelpers.callMethod(bdLoc, "getCoorType") as? String } catch (_: Throwable) { null }
+                                    val defaultSys = when (coorType?.lowercase()) {
+                                        "wgs84" -> "WGS-84"
+                                        "gcj02" -> "GCJ-02"
+                                        else -> "BD-09"
+                                    }
+                                    val motion = getCurrentSpoofedMotion(defaultSys) ?: return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                                    try { XposedHelpers.callMethod(bdLoc, "setLatitude", motion.lat) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setLongitude", motion.lng) } catch (_: Throwable) {}
+                                    try { XposedHelpers.setDoubleField(bdLoc, "mLatitude", motion.lat) } catch (_: Throwable) {}
+                                    try { XposedHelpers.setDoubleField(bdLoc, "mLongitude", motion.lng) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setLocType", 61) } catch (_: Throwable) {}
+                                    try { XposedHelpers.setIntField(bdLoc, "mLocType", 61) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setCoorType", "bd09ll") } catch (_: Throwable) {}
+                                    try { XposedHelpers.setObjectField(bdLoc, "mCoorType", "bd09ll") } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setRadius", getJitteredAccuracy()) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setSpeed", motion.speed * 3.6f) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setDirection", motion.bearing) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setSatelliteNumber", 20) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setGpsCheckStatus", 1) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setMockGps", 0) } catch (_: Throwable) {}
+                                    try { XposedHelpers.callMethod(bdLoc, "setTime", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())) } catch (_: Throwable) {}
+                                    return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                                }
+                            } catch (_: Throwable) {}
+                        }
                         if (LocationHooker.hasTypeByName(
                                 listener.javaClass,
                                 "com.baidu.location.BDAbstractLocationListener"
-                            )
-                        ) {
-                            capturedBaiduListeners.addIfAbsent(listener)
-                        }
-                        if (LocationHooker.hasTypeByName(
+                            ) || LocationHooker.hasTypeByName(
                                 listener.javaClass,
                                 "com.baidu.location.BDLocationListener"
                             )
@@ -581,8 +652,80 @@ internal fun LocationHooker.hookBaiduSDK(classLoader: ClassLoader) {
                 }
                 return@hookAllMethods chain.proceed(chain.args.toTypedArray())
             }
+            XposedHelpers.hookAllMethods(
+                locationClientClass,
+                "getLastKnownLocation"
+            ) { chain, method ->
+                val result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false)) {
+                    val motion = getCurrentSpoofedMotion("BD-09")
+                    if (motion != null) {
+                        val bdLoc = result ?: try {
+                            val bdLocClass = XposedHelpers.findClass("com.baidu.location.BDLocation", classLoader)
+                            bdLocClass.getConstructor().newInstance()
+                        } catch (_: Throwable) { null }
+                        if (bdLoc != null) {
+                            try { XposedHelpers.callMethod(bdLoc, "setLatitude", motion.lat) } catch (_: Throwable) {}
+                            try { XposedHelpers.callMethod(bdLoc, "setLongitude", motion.lng) } catch (_: Throwable) {}
+                            try { XposedHelpers.setDoubleField(bdLoc, "mLatitude", motion.lat) } catch (_: Throwable) {}
+                            try { XposedHelpers.setDoubleField(bdLoc, "mLongitude", motion.lng) } catch (_: Throwable) {}
+                            try { XposedHelpers.callMethod(bdLoc, "setLocType", 61) } catch (_: Throwable) {}
+                            try { XposedHelpers.setIntField(bdLoc, "mLocType", 61) } catch (_: Throwable) {}
+                            try { XposedHelpers.callMethod(bdLoc, "setCoorType", "bd09ll") } catch (_: Throwable) {}
+                            try { XposedHelpers.setObjectField(bdLoc, "mCoorType", "bd09ll") } catch (_: Throwable) {}
+                            try { XposedHelpers.callMethod(bdLoc, "setRadius", getJitteredAccuracy()) } catch (_: Throwable) {}
+                            try { XposedHelpers.callMethod(bdLoc, "setSatelliteNumber", 20) } catch (_: Throwable) {}
+                            return@hookAllMethods bdLoc
+                        }
+                    }
+                }
+                return@hookAllMethods result
+            }
         } catch (e: Throwable) {
         }
+    }
+
+    // 4. Hook com.baidu.mapapi.map.MyLocationData 与 BaiduMap.setMyLocationData (百度地图视图层直接绘制)
+    val myLocationDataClass = XposedHelpers.findClassIfExists("com.baidu.mapapi.map.MyLocationData", classLoader)
+    if (myLocationDataClass != null && hookedCallbackClasses.putIfAbsent(myLocationDataClass, true) == null) {
+        try {
+            XposedHelpers.hookAllConstructors(myLocationDataClass) { chain, _ ->
+                val result = chain.proceed(chain.args.toTypedArray())
+                val obj = chain.thisObject
+                if (obj != null) {
+                    val config = readConfig()
+                    if (config != null && config.optBoolean("active", false)) {
+                        val motion = getCurrentSpoofedMotion("BD-09")
+                        if (motion != null) {
+                            try { XposedHelpers.setDoubleField(obj, "latitude", motion.lat) } catch (_: Throwable) {}
+                            try { XposedHelpers.setDoubleField(obj, "longitude", motion.lng) } catch (_: Throwable) {}
+                        }
+                    }
+                }
+                return@hookAllConstructors result
+            }
+        } catch (_: Throwable) {}
+    }
+
+    val baiduMapClass = XposedHelpers.findClassIfExists("com.baidu.mapapi.map.BaiduMap", classLoader)
+    if (baiduMapClass != null && hookedCallbackClasses.putIfAbsent(baiduMapClass, true) == null) {
+        try {
+            XposedHelpers.hookAllMethods(baiduMapClass, "setMyLocationData") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && chain.args.isNotEmpty()) {
+                    val data = chain.args[0]
+                    if (data != null) {
+                        val motion = getCurrentSpoofedMotion("BD-09")
+                        if (motion != null) {
+                            try { XposedHelpers.setDoubleField(data, "latitude", motion.lat) } catch (_: Throwable) {}
+                            try { XposedHelpers.setDoubleField(data, "longitude", motion.lng) } catch (_: Throwable) {}
+                        }
+                    }
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+        } catch (_: Throwable) {}
     }
 }
 

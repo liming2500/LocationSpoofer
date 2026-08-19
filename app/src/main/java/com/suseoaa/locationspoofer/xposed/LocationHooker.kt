@@ -119,24 +119,26 @@ class LocationHooker : XposedModule() {
     }
 
     fun handleLoadPackage(pkg: String, classLoader: ClassLoader) {
-        currentPackageName = pkg
-        currentClassLoader = classLoader
-
-        // 宿主App如果需要测试自身地图的摇杆效果，不能return
-        // if (pkg == "com.suseoaa.locationspoofer") {
-        //     return 
-        // }
+        val processName = try {
+            File("/proc/self/cmdline").readText().trim('\u0000', ' ', '\n')
+        } catch (e: Exception) {
+            pkg
+        }
+        val actualHostPkg = processName.substringBefore(":")
+        if (actualHostPkg.isNotBlank() && !actualHostPkg.startsWith("android") && actualHostPkg != "system_server" && actualHostPkg != "system") {
+            currentPackageName = actualHostPkg
+        } else if (currentPackageName.isEmpty()) {
+            currentPackageName = pkg
+        }
+        if (currentClassLoader == null || (pkg == currentPackageName)) {
+            currentClassLoader = classLoader
+        }
 
         // 防止注入到 SystemUI 导致崩溃
         if (pkg == "com.android.systemui") {
             return
         }
 
-        val processName = try {
-            File("/proc/self/cmdline").readText().trim('\u0000', ' ', '\n')
-        } catch (e: Exception) {
-            pkg
-        }
         val isSystemServer =
             (pkg == "android") || (processName == "android") || (processName == "system_server")
 
@@ -164,6 +166,41 @@ class LocationHooker : XposedModule() {
 
         hookLocationAPIs(classLoader, pkg)
         hookGnssStatus(classLoader)
+        hookAllMapSdks(classLoader)
+
+        // 兼容 MultiDex 与二次动态 DexClassLoader (例如百度地图 classes16.dex)
+        try {
+            XposedHelpers.hookMethod(
+                "android.app.Application",
+                classLoader,
+                "attachBaseContext",
+                android.content.Context::class.java
+            ) { chain, method ->
+                val result = chain.proceed(chain.args.toTypedArray())
+                val app = chain.thisObject as? android.app.Application
+                val appCl = app?.classLoader
+                if (appCl != null) {
+                    hookAllMapSdks(appCl)
+                }
+                return@hookMethod result
+            }
+        } catch (_: Throwable) {}
+
+        try {
+            XposedHelpers.hookMethod(
+                "android.app.Application",
+                classLoader,
+                "onCreate"
+            ) { chain, method ->
+                val result = chain.proceed(chain.args.toTypedArray())
+                val app = chain.thisObject as? android.app.Application
+                val appCl = app?.classLoader
+                if (appCl != null) {
+                    hookAllMapSdks(appCl)
+                }
+                return@hookMethod result
+            }
+        } catch (_: Throwable) {}
 
         hookWifiEnvironment(classLoader, isCoreSystemProcess)
         hookCellEnvironment(classLoader, isCoreSystemProcess)
@@ -176,6 +213,11 @@ class LocationHooker : XposedModule() {
         // (如高德地图自身不调用 AMapLocationClient.getLatitude())，ConfigPoller 就永远不会启动
         // 现在改为在注入时就立即启动，确保每个被注入的进程都有 ConfigPoller 在运行
         readConfig()
+    }
+
+    internal fun hookAllMapSdks(cl: ClassLoader) {
+        try { hookTencentSDK(cl) } catch (_: Throwable) {}
+        try { hookBaiduSDK(cl) } catch (_: Throwable) {}
     }
 
     /**
@@ -460,6 +502,17 @@ class LocationHooker : XposedModule() {
                                                     elapsedNanos
                                                 )
                                                 try {
+                                                    val extras = android.os.Bundle().apply {
+                                                        val satCount = newConfig.optInt("satellite_count", 20)
+                                                        putInt("satellites", satCount)
+                                                        putInt("satellites_in_view", satCount)
+                                                        putInt("satellites_used_in_fix", satCount.coerceAtLeast(12))
+                                                        putInt("satellites_visible", satCount)
+                                                        putBoolean("mockLocation", false)
+                                                    }
+                                                    XposedHelpers.callMethod(mockLoc, "setExtras", extras)
+                                                } catch (_: Throwable) {}
+                                                try {
                                                     XposedHelpers.callMethod(
                                                         mockLoc,
                                                         "setIsFromMockProvider",
@@ -592,12 +645,18 @@ class LocationHooker : XposedModule() {
                                                     "setLongitude",
                                                     baiduJittered.second
                                                 )
+                                                try { XposedHelpers.setDoubleField(mockBDLoc, "mLatitude", baiduJittered.first) } catch (_: Throwable) {}
+                                                try { XposedHelpers.setDoubleField(mockBDLoc, "mLongitude", baiduJittered.second) } catch (_: Throwable) {}
+                                                try { XposedHelpers.callMethod(mockBDLoc, "setCoorType", "bd09ll") } catch (_: Throwable) {}
+                                                try { XposedHelpers.setObjectField(mockBDLoc, "mCoorType", "bd09ll") } catch (_: Throwable) {}
                                                 XposedHelpers.callMethod(mockBDLoc, "setRadius", pushAccuracy)
                                                 XposedHelpers.callMethod(mockBDLoc, "setSpeed", pushSpeed * 3.6f)
                                                 XposedHelpers.callMethod(mockBDLoc, "setDirection", pushBearing)
                                                 XposedHelpers.callMethod(mockBDLoc, "setLocType", 61)
                                                 XposedHelpers.callMethod(mockBDLoc, "setSatelliteNumber", 20)
                                                 XposedHelpers.callMethod(mockBDLoc, "setGpsCheckStatus", 1)
+                                                try { XposedHelpers.callMethod(mockBDLoc, "setMockGps", 0) } catch (_: Throwable) {}
+                                                try { XposedHelpers.callMethod(mockBDLoc, "setTime", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())) } catch (_: Throwable) {}
                                                 XposedHelpers.callMethod(
                                                     listener,
                                                     "onReceiveLocation",

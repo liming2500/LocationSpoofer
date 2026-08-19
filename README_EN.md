@@ -2,12 +2,14 @@
 
 <h1>LocationSpoofer</h1>
 
-<p>High-fidelity Android system-level location spoofing and wireless environment simulation module based on KernelSU + LSPosed</p>
+<p>Android system-level location spoofing and wireless environment simulation framework based on KernelSU + LSPosed</p>
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-8.0%2B-green.svg)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0%2B-purple.svg)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Jetpack-Compose-4285F4.svg)](https://developer.android.com/jetpack/compose)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-orange.svg)](https://kernelsu.org)
-[![LSPosed](https://img.shields.io/badge/Framework-LSPosed-purple.svg)](https://github.com/LSPosed/LSPosed)
+[![LSPosed](https://img.shields.io/badge/LSPosed-API%20101%2B-purple.svg)](https://github.com/LSPosed/LSPosed)
 [![Telegram](https://img.shields.io/badge/Telegram-Group-blue.svg)](https://t.me/+CsxZGItXdW40ZWVl)
 
 [简体中文](README.md) | [English](README_EN.md)
@@ -22,187 +24,221 @@
 
 ---
 
-## 📖 Introduction
+## Introduction
 
-In modern Android risk control environments, the standard developer options feature "Mock Location" has long been flagged as a high-risk indicator by major anti-cheat SDKs (such as AMap risk control, Tencent Security, NetEase EasyShield, etc.). These SDKs do not merely verify the standard `isFromMockProvider` API flag; they also gather environmental signals such as:
+In modern Android risk control and anti-cheating environments, standard developer options ("Mock Location") have long been classified as a critical risk factor by commercial positioning and fraud detection SDKs (such as AMap Security, Tencent Positioning, Baidu Maps SDK, NetEase EasyShield, and enterprise attendance verification systems). These detection frameworks do not merely check the `isFromMockProvider` / `isMock` API flags; they actively collect and cross-verify ambient physical signals:
 
-*   **Surrounding Wi-Fi BSSID lists**
-*   **Cellular tower cell IDs (cellular fingerprints)**
-*   **Local BLE beacons**
-*   Furthermore, they perform Fast Fourier Transform (FFT) analysis on location coordinate sequences to detect artificial static coordinates or deterministic linear trajectory patterns.
+*   **Nearby Wi-Fi access points and BSSID lists** (cross-checked against global Wi-Fi fingerprint databases)
+*   **Cellular base stations** (GSM / WCDMA / LTE / 5G NR cell identifiers and carrier profiles)
+*   **Local Bluetooth BLE beacons**
+*   **Underlying GNSS satellite constellations and visible ephemeris matrices**
+*   **Accelerometer and step-counter hardware sensor linkage**
+*   Time-series coordinate analysis (FFT and variance checks) to detect artificial static coordinates or deterministic linear trajectories.
 
-**LocationSpoofer** is a **system-level virtual positioning and radio environment cloning solution** designed specifically to counter these deep anti-cheating mechanisms. 
-By leveraging **KernelSU / Magisk / APatch** for root privileges and the **LSPosed (libxposed)** framework to inject hook routines into targeted processes, LocationSpoofer intercepts and fakes all positioning and wireless networking API responses with high physical fidelity. This ensures the target apps receive highly consistent location fingerprints without detecting any virtualization.
-
-> [!TIP]
-> **🌟 Major Update in Latest Version**
-> 
-> The latest version adds more complete **Wi-Fi environment simulation** and **cell tower simulation**. It can build realistic radio fingerprints around the spoofed coordinates from local street-scan records, WiGLE cloud Wi-Fi data, and OpenCellID cell tower data, then inject consistent responses into target app processes through `WifiManager`, `TelephonyManager`, `PhoneStateListener`, and `TelephonyCallback` APIs.
+**LocationSpoofer** is a **system-level virtual positioning and wireless environment simulation framework** engineered specifically to counter deep anti-cheating detections.
+Powered by **KernelSU / APatch / Magisk** for root privileges and **LSPosed (libxposed API 101+)** to hook target processes in the Zygote stage, LocationSpoofer intercepts and fakes all positioning, wireless networking, and motion sensor API responses with physical fidelity. This guarantees that target apps obtain self-consistent, realistic location and radio fingerprints without detecting virtualization.
 
 ---
 
-## ✨ Core Features & Technical Deep Dive
-
-### 1. 🌐 Map Engine & Adaptive Coordinate Translator
-* **Map Swapping**: Automatically boots the AMap 3D SDK or Baidu Maps SDK on devices located within Mainland China, and switches to Google Maps & Places SDK overseas for visual crosshair adjustments and route planning.
-* **Per-App Coordinate System Adapter**: Different applications (such as WeChat, XuexiTong, Baidu Maps, etc.) expect different coordinate systems. Throwing raw GCJ-02 coordinates directly to Baidu Maps causes a fixed offset of 300-500 meters. LocationSpoofer lets you specify `GCJ-02` (Mars Coordinates), `WGS-84` (Standard GPS Coordinates), or `BD-09` (Baidu Coordinates) on a per-app basis.
-* **Zero-Latency Calculations**: Coordinate translation is computed on-the-fly inside the Xposed hooks by fetching pre-calculated values from the host app, bypassing expensive trigonometric calls in high-frequency callback contexts.
-
-### 2. 🛰️ High-Fidelity GPS Physics Engine with Random Walks
-Raw GPS receivers output coordinates that naturally contain Gaussian white noise due to ionospheric scintillations, multipath propagation, and clock offsets. Static or straight-line mock sequences are easily identified by FFT spectrum analysis.
-* **Ornstein-Uhlenbeck Process**: We implement a mathematical model of physical random walks to generate natural location jitters:
-  $$\mathrm{d}X_t = -\alpha X_t \mathrm{d}t + \sigma \mathrm{d}W_t$$
-  where $\sigma$ is the jitter intensity, and $\alpha$ is the mean-reversion coefficient (configured to `0.05` to pull the drift back towards the true coordinate by 5% every second). This creates realistic low-frequency slowly-varying drift characteristics while keeping the displacement bounded within 3-Sigma limits (hard-clamped to a maximum of 4 meters) to prevent location jumps.
-* **Gait Lateral Jitter**: When walking or running, the engine automatically calculates step-frequency statistical intervals and applies a perpendicular lateral displacement of `0.15 * N(0,1)` meters. This perfectly simulates the natural left-right swaying motion of a walking human.
-* **Altitude & Accuracy (GDOP) Drift**: Horizontal accuracy (Accuracy) and vertical elevation (Altitude) are no longer locked as static numbers. They fluctuate slowly in a Brownian motion pattern to simulate tropospheric delay changes and changes in satellite geometries.
-
-### 3. 🛡️ Stealth & Anti-Detection Suite
-* **Deep Call Stack Cleaning**: Intercepts `Throwable.getStackTrace` and `Thread.getStackTrace` to scan stack frames. Any calling frames referencing `de.robv.android.xposed`, `io.github.libxposed`, or `lsposed` are dynamically expunged to prevent SDK trace detections.
-* **Classloader Isolation**: Hooks `Class.forName` and `ClassLoader.loadClass` to throw a `ClassNotFoundException` whenever an application attempts to probe for Xposed classes.
-* **Mock Flag Eraser**:
-  * Forces `Location.isFromMockProvider()` and `Location.isMock()` to always return `false`.
-  * Reflectively overwrites the private internal fields `mMock` and `mIsFromMockProvider` in the `Location` class to `false` (Android 12/13+ compatibility), while wiping custom mock values from the location Extras Bundle.
-  * Intercepts `AppOpsManager`'s `OP_MOCK_LOCATION (58)` operation checks and forces a return value of `MODE_IGNORED (1)`.
-  * Hooks secure settings queries (e.g. `mock_location`, `allow_mock_location`) in `Settings.Secure` to return `0` (disabled status).
-  * Replaces test/mock providers in `LocationManager` and forces them to report as native `gps` signals.
-
-### 4. 📶 Radio Environment Cloning & Spatial Heatmap Interpolation
-Anti-cheat engines compare your GPS coordinates against the Wi-Fi scan results reported by your device. If you are virtually located in Beijing, but your device reports Wi-Fi BSSIDs from your home in Shanghai, you will be flagged immediately.
-* **On-Site Environment Scanner**: Background sweep utility collects and logs Wi-Fi networks (SSID/BSSID/RSSI/frequency/channel/WiFi standard), Cell Towers (GSM, WCDMA, CDMA, LTE, and 5G NR configurations containing MCC/MNC/LAC/CID/TAC/PCI/NCI and signal dbm), and BLE Bluetooth beacons.
-* **Spatial Inverse Distance Weighting (IDW) Interpolation**: During virtual movements, the Xposed module searches the local Room SQLite DB for physical records within a 50-meter radius of the target coordinates. It computes weights based on the inverse square distance:
-  $$w_i = \frac{1}{d_i^2}$$
-  to interpolate nearby Wi-Fi RSSI, Cell signal strength dbm, and BLE Bluetooth RSSI. As you move, the signals dynamically fade and strengthen in a smooth gradient, avoiding abrupt jumps that trigger fraud alerts.
-* **Wi-Fi Scan and Connection-State Simulation**: Hooks `WifiManager.getScanResults()`, `getConnectionInfo()`, `getConfiguredNetworks()`, `getDhcpInfo()`, and related APIs to return coordinate-matched SSID/BSSID/RSSI/frequency/channel/capability data, along with consistent Wi-Fi enabled state, connected network, gateway, and DHCP details.
-* **Brand OUI Prefix Matching**: When generating fake scans in non-recorded zones, the generator assigns real MAC prefixes (OUI) belonging to mainstream network manufacturers (e.g. TP-Link, Huawei, ZTE, Xiaomi, Cisco, Netgear) instead of random MAC addresses.
-* **Cloud WiGLE API Integration**: Integrates WiGLE developer API tokens to pull real Wi-Fi network coordinates around the spoofed latitude and longitude in real-time, then stores them locally for later offline replay.
-* **OpenCellID Cell Tower Import**: Supports OpenCellID API keys to query real nearby cellular towers for the target coordinates, with GCJ-02 to WGS-84 coordinate conversion, bbox expansion, field normalization, and local caching.
-* **Cellular and Carrier API Simulation**: Covers `TelephonyManager.getAllCellInfo()`, `getCellLocation()`, `getNetworkOperator()`, `getServiceState()`, `getSignalStrength()`, `listen()`, `requestCellInfoUpdate()`, `registerTelephonyCallback()`, and related read paths. It supports GSM/WCDMA/LTE/NR identities, MCC/MNC/LAC/CID/TAC/PCI/NCI, RSRP/dbm signal strength, and carrier name spoofing. When cloud data lacks LTE/NR records, the module prepends a synthetic LTE primary cell for apps that only inspect 4G cell information.
-
-### 5. 🛰️ Satellite Sky Matrix & NMEA Protocol Generator
-* **GNSS Status Hijacking**: Hooks `GnssStatus` to simulate a fully populated constellation of 20+ active satellites (GPS, BeiDou, GLONASS) detailing unique PRN IDs, signal-to-noise ratios (CNR/SNR), elevations, azimuths, and Used-In-Fix status flags.
-* **Dynamic NMEA Naming & Calculations**: Intercepts `OnNmeaMessageListener` and constructs matching raw NMEA-0183 sentences (such as `\$GPGGA`, `\$GPRMC`, `\$GPGSA`, `\$GPGSV`) in memory based on current coordinates, velocities, and bearing inputs, calculating the proper Checksum to bypass deep hardware queries.
-
-### 6. 🔀 Smart Route Navigation & Traffic Light Waits
-* **Road Network Snapping**: Fits custom multi-point routes to physical roads using routing APIs, preventing straight-line navigation through buildings.
-* **Traffic Light Simulator**: Analyzes route segments and populates nodes with traffic light tags. The route simulator will **automatically pause for 15 seconds** at these coordinates to replicate real driving waits.
-* **Compose Floating Joystick**: A float window containing an interactive joystick overlay to fine-tune coords on-the-fly. Leverages smooth bearing transitions and steering damping adjustments.
-
----
-
-## 🏛️ System Architecture
-
-This project is built on the **MVVM** architecture, implementing a custom Root-privileged IPC mechanism to bypass sandboxing restrictions and package visibility limits on Android 11+:
+## Features
 
 ```
-┌─────────────────────────────────────────────┐
-│          LocationSpoofer (Host App)         │
-│  ┌──────────┐  ┌──────────────────────────┐ │
-│  │ Dual-Map │  │    RouteStateMachine     │ │
-│  │(AMap/GMap)│  │    (IDLE/READY/RUN...)   │ │
-│  └────┬─────┘  └────────────┬─────────────┘ │
-│       │                     │               │
-│  ┌────▼─────────────────────▼─────────────┐ │
-│  │            ConfigManager                 │ │
-│  │   (Writes serialized config to Temp via  │ │
-│  │    Root permissions)                     │ │
-│  └──────────────────┬───────────────────────┘ │
-│  ┌──────────────────▼─────────────────────┐ │
-│  │           SpoofingService               │ │
-│  │       (Foreground Notification & Engine) │ │
-│  └────────────────────────────────────────┘ │
-└─────────────────────┬───────────────────────┘
-                      │ (Writes Config JSON)
-                      ▼
-        ┌───────────────────────────┐
-        │ /data/local/tmp/ Config   │
-        │    (chmod 777 + chcon)    │
-        └─────────────┬─────────────┘
-                      │ (Reads Config, Daemon Thread 1000ms Cache)
-                      ▼ LSPosed Injection
-┌─────────────────────────────────────────────┐
-│              Target App Process             │
-│  ┌────────────────────────────────────────┐  │
-│  │            LocationHooker              │  │
-│  │  • Location API / Baidu / Tencent SDK  │  │
-│  │  • WiFi & Cellular (2G-5G NR) Injection│  │
-│  │  • Bluetooth BLE Scan Filtering        │  │
-│  │  • Anti-Mock & Xposed Stack Cleaning   │  │
-│  │  • GnssStatus Satellite & NMEA Mocking │  │
-│  └────────────────────────────────────────]  │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                             LocationSpoofer                             │
+│        System-Level Location & Wireless Environment Simulation          │
+└─────────────────────────────────────────────────────────────────────────┘
+        │                            │                            │
+        ▼                            ▼                            ▼
+  【Spatial & Physics】        【Radio & Sensors】            【Anti-Detection】
+  • Triple Map Engine          • Wi-Fi Scan & Connection      • Xposed Stack Frame Scrubbing
+  • WGS-84/GCJ-02/BD-09 Auto   • 2G-5G NR Cell Towers         • ClassLoader Isolation
+  • Ornstein-Uhlenbeck Jitter  • BLE Beacons Filtering        • isFromMockProvider Erased
+  • Gait Noise & Drift         • WiGLE / OpenCellID Import    • AppOps OP_MOCK_LOCATION Masked
+  • Real Road Snapping         • Spatial IDW Interpolation    • Settings.Secure Key Override
+  • Floating Joystick          • Step Counter Sensor Linkage  • MultiDex Dynamic DEX Hooking
+```
+
+### 1. Multi-Map Engines & Coordinate Adaptation
+* **Triple Engine Support**: Natively integrates AMap 3D, Baidu Maps, and Google Maps for worldwide POI search and road-network routing.
+* **Smart Automatic Coordinate Adaptation (Smart Auto)**:
+  * Native Android framework APIs consistently output standard `WGS-84` physical coordinates and satellite metadata;
+  * Third-party map SDKs (AMap, Tencent, Baidu) and rendering layers (e.g., BaiduMap `MyLocationData` blue dot) automatically map to their respective coordinate systems (`GCJ-02` / `BD-09`), eliminating shifts and `(0.0, 0.0)` fallback pulls;
+  * Supports manual per-app coordinate system overrides (`WGS-84`, `GCJ-02`, or `BD-09`).
+* **Zero-Latency Computation**: Coordinate transformations are pre-computed in memory and fetched directly inside Xposed hooks, avoiding repeated trigonometric calculations in high-frequency callback loops.
+
+### 2. GPS Physics Jitter & Gait Simulation
+Real GPS receivers naturally output coordinates with Gaussian white noise caused by ionospheric scintillations, multipath reflections, and clock offsets.
+* **Ornstein-Uhlenbeck Process**: Implements a mean-reverting physical random walk model:
+
+  $$\mathrm{d}X_t = -\alpha X_t \mathrm{d}t + \sigma \mathrm{d}W_t$$
+
+  where $\sigma$ is the noise intensity and $\alpha$ is the mean-reversion coefficient (configured to `0.05` to pull drift back by 5% per second). This produces physical, low-frequency drift while strictly bounding displacement within 3-Sigma limits (clamped to 4 meters maximum) to prevent sudden location jumps.
+
+* **Gait Lateral Jitter**: When in walking or running modes, the engine applies a perpendicular lateral offset:
+
+  $$\Delta L_{\text{lateral}} = 0.15 \cdot \mathcal{N}(0, 1) \quad (\text{meters})$$
+
+  synchronized with step cadence, replicating natural human body sway.
+
+* **Altitude & Accuracy (GDOP) Drift**: Horizontal accuracy and altitude fluctuate dynamically to simulate changing satellite geometries and tropospheric delays.
+
+### 3. Anti-Detection & MultiDex Hooking
+* **Deep Stack Trace Scrubbing**: Dynamically filters `Throwable.getStackTrace` and `Thread.getStackTrace` to expunge calling frames matching `de.robv.android.xposed`, `io.github.libxposed`, `org.lsposed`, preventing anti-cheat SDKs from discovering hook frameworks in exception traces.
+* **ClassLoader Isolation**: Hooks `Class.forName` and `ClassLoader.loadClass` to return `ClassNotFoundException` upon probing for known Xposed classes.
+* **MultiDex Dynamic Awareness**: Intercepts `ClassLoader.loadClass` to dynamically detect and install hooks for positioning components loaded from secondary Dex files (e.g., `classes16.dex`), locked to the process host package name via `/proc/self/cmdline` to prevent in-app WebViews or plugins from corrupting the state.
+* **Mock Flag Eraser**:
+  * Forces `Location.isFromMockProvider()` and `Location.isMock()` to permanently return `false`;
+  * Reflectively overwrites private fields `mMock` and `mIsFromMockProvider` inside `Location` instances to `false` and scrubs `mockLocation` flags from Extra Bundles;
+  * Intercepts `AppOpsManager`'s `OP_MOCK_LOCATION (58)` checks to return `MODE_IGNORED (1)`;
+  * Intercepts `Settings.Secure` queries for `mock_location` and `allow_mock_location` to return `0`;
+  * Replaces test/mock providers in `LocationManager` and presents them as native `gps` signals.
+
+### 4. Wi-Fi, Cell Tower & Bluetooth Simulation
+* **On-Site Environment Scanner**: Background sweep utility scans and logs physical Wi-Fi APs (SSID/BSSID/RSSI/frequency/channel/standard), Cell Towers (GSM, WCDMA, CDMA, LTE, 5G NR configurations with MCC/MNC/LAC/CID/TAC/PCI/NCI and dBm signals), and BLE Bluetooth beacons.
+* **Spatial Inverse Distance Weighting (IDW)**: As coordinates move along a path, the engine retrieves recorded points within 50 meters from the Room database and applies inverse square distance weights:
+
+  $$w_i = \frac{1}{d_i^2}$$
+
+  to smoothly interpolate Wi-Fi RSSI and cell dBm levels, avoiding abrupt signal jumps.
+* **Fine-Grained Radio Management**: Manually select specific Wi-Fi APs, Cell Towers, or Bluetooth beacons to broadcast during simulation.
+* **Full Wireless API Coverage**:
+  * Hooks `WifiManager.getScanResults()`, `getConnectionInfo()`, `getConfiguredNetworks()`, `getDhcpInfo()`;
+  * Hooks `TelephonyManager.getAllCellInfo()`, `getCellLocation()`, `getNetworkOperator()`, `getServiceState()`, `getSignalStrength()`, `PhoneStateListener`, `TelephonyCallback`;
+  * Uses legitimate manufacturer OUIs (TP-Link, Huawei, Xiaomi, Cisco, etc.) for non-scanned areas.
+* **Cloud WiGLE & OpenCellID Integration**: Pulls real-world Wi-Fi and cell tower records around any coordinate globally and stores them locally for offline replay.
+
+### 5. Satellite Matrix & NMEA Generation
+* **GnssStatus Matrix Injection**: Hooks `GnssStatus` to simulate 20+ active satellites (GPS, BeiDou, GLONASS) with valid PRNs, signal-to-noise ratios (CNR/SNR), azimuths, elevations, and `usedInFix` flags.
+* **Dynamic NMEA Protocol Streaming**: Intercepts `OnNmeaMessageListener` / `GpsStatus.NmeaListener` and dynamically generates compliant raw `$GPGGA`, `$GPRMC`, `$GPGSA`, `$GPGSV` sentences in memory with accurate checksums.
+* **Satellite Metadata Keep-Alive**: Injects `satellites=20`, `satellites_in_view=20`, `satellites_used_in_fix=18` into `Location.getExtras()` to prevent map SDKs from discarding GPS signals due to missing satellite locks.
+
+### 6. Step Sensor & Motion Simulation
+* **Step Counter Linkage**: Hooks `SensorManager` and emulates `Sensor.TYPE_STEP_COUNTER` (cumulative steps) and `Sensor.TYPE_STEP_DETECTOR` (step triggers).
+* **Speed-to-Cadence Translation**: Automatically calculates and triggers smooth step increments based on simulated speed and stride length (`~0.7m/step`), compatible with WeChat Sports, fitness trackers, and campus running apps.
+
+### 7. Route Planning & Traffic Light Simulation
+* **Real Road Snapping**: Multi-point routing algorithms snap trajectories to physical streets, preventing straight-line navigation through buildings.
+* **Traffic Light Waits**: Automatically identifies intersections and pauses for 15 seconds at traffic light nodes before resuming smooth acceleration.
+* **Compose Floating Joystick**: Overlay joystick with speed controls (0 ~ 10 m/s) and steering damping adjustments for live manual navigation.
+
+### 8. User Interface
+* Built with Jetpack Compose, featuring frosted glass translucency, inner shadows, and damped drag interactions with a decoupled modular architecture.
+
+---
+
+## System Architecture
+
+Built on modern **MVVM + Clean Architecture**, using root shell privileges to bypass package visibility restrictions and SELinux isolation on Android 11+:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       LocationSpoofer (Host App)                        │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │     Triple Map Engine   │  │          RouteStateMachine           │  │
+│  │ (AMap / Baidu / Google) │  │     (IDLE / READY / RUN / PAUSE)     │  │
+│  └────────────┬────────────┘  └──────────────────┬───────────────────┘  │
+│               │                                  │                      │
+│  ┌────────────▼──────────────────────────────────▼───────────────────┐  │
+│  │                       ConfigManager                               │  │
+│  │     (Serializes config & coordinate mappings to /data/local/tmp)  │  │
+│  └──────────────────────────────────┬────────────────────────────────┘  │
+│  ┌──────────────────────────────────▼────────────────────────────────┐  │
+│  │                      SpoofingService                              │  │
+│  │         (Foreground Service, Gait Engine, Route Navigation)       │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────┬───────────────────────────────────┘
+                                      │ (Writes JSON, chmod 777 + chcon)
+                                      ▼
+                        ┌───────────────────────────┐
+                        │ /data/local/tmp/ config   │
+                        └─────────────┬─────────────┘
+                                      │ (Daemon thread polls every 1000ms)
+                                      ▼ LSPosed / libxposed (API 101+) Injection
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            Target App Process                           │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                         LocationHooker                            │  │
+│  │  • BaseLocationHooker (Location / LocationManager / NMEA / GNSS)  │  │
+│  │  • MapSdkHooker (Baidu BDLocation / AMap / Tencent SDK & BlueDot) │  │
+│  │  • WifiHooker (WifiManager / ScanResults / Connection / DHCP)     │  │
+│  │  • CellHooker (TelephonyManager / 2G-5G NR Cells / Carrier)       │  │
+│  │  • BluetoothHooker (BluetoothLeScanner / BLE Beacons Filtering)   │  │
+│  │  • SensorStepHooker (StepCounter / StepDetector Linkage)          │  │
+│  │  • AntiDetectionHooker (Xposed Stack Scrubbing / ClassLoader)     │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 > [!NOTE]
-> **IPC Design Decisions**:
-> Sandboxed app processes cannot query a custom `ContentProvider` on Android 11+ due to package visibility rules and SELinux isolation, resulting in slow responses or `Failed to find provider info` crashes.
-> To address this, the host app uses root shell permissions to write configuration parameters to `/data/local/tmp/locationspoofer_config.json`, changing permissions to `777` and applying the `shell_data_file` SELinux context.
-> The sandboxed module's `LocationHooker` launches a **background daemon thread** that polls the file every 1000ms and updates a volatile in-memory cache. The main thread hooks fetch settings from memory with 0-IO latency, completely preventing UI drop-frames.
+> **IPC Design Decision**:
+> Sandboxed app processes cannot query a custom `ContentProvider` on Android 11+ due to package visibility rules and SELinux isolation.
+> To resolve this, the host app writes parameters to `/data/local/tmp/locationspoofer_config.json`, applying `777` permissions and the `shell_data_file` SELinux context.
+> The sandboxed `LocationHooker` daemon thread polls this file every 1000ms into a volatile in-memory cache. All hook methods query memory with 0-IO latency, completely preventing UI drop-frames.
 
 ---
 
-## 📋 Requirements
+## Requirements
 
 * **OS Version**: Android 8.0 (API 26) or higher.
-* **Root Manager**: Root access is required (recommended: [**KernelSU**](https://kernelsu.org) / APatch / Magisk).
-* **Xposed Hook framework**: Installed and enabled [**LSPosed**](https://github.com/LSPosed/LSPosed) (or fork variants).
+* **Root Manager**: Root access is required (recommended: [**KernelSU**](https://kernelsu.org) / **APatch** / **Magisk**).
+* **Xposed Framework**: Installed and enabled **LSPosed (API 101+)** or compatible libxposed API 101+ environment.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Build & Install
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/your-username/LocationSpoofer.git
 
-# Build and install the Debug APK directly to your device
+# 2. Build and install Debug APK
 ./gradlew installDebug
 ```
 
-### 2. Module Activation
-1. Launch **KernelSU / Magisk / APatch** and grant Root permissions to LocationSpoofer.
-2. Open **LSPosed Manager**, find **LocationSpoofer** in the modules tab, and **enable it**.
-3. Under the module's scope, **check the target apps** you wish to spoof (e.g. WeChat, DingTalk, XuexiTong).
+### 2. Activation
+1. Open **KernelSU / APatch / Magisk** and grant Root permissions to LocationSpoofer.
+2. Open **LSPosed Manager**, find **LocationSpoofer**, and **enable it**.
+3. Under the module's scope, **check the target apps** you wish to spoof (e.g. WeChat, DingTalk, XuexiTong, Baidu Maps).
 4. **Force stop** target apps or reboot your phone to apply the hooks.
 
-### 3. Usage Best Practices
+### 3. Usage Scenarios
 
-#### 💻 Fixed Point Mocking
-1. Launch LocationSpoofer, tap/drag the crosshair on the map, or use the search bar to find target locations.
-2. In the bottom drawer, enable spoofing options: **Mock Wi-Fi**, **Mock Cell Tower**, **Mock Bluetooth**, and **Enable Jitter**.
-3. Tap "Start Simulation" to take over standard system GPS feeds.
+#### Fixed-Point Simulation & Environment Locking
+1. Launch LocationSpoofer, pick a target location on the map.
+2. In the bottom drawer, enable spoofing toggles: **Mock Wi-Fi**, **Mock Cell Tower**, **Mock Bluetooth**, **Mock Steps**, and **Enable Jitter**.
+3. Tap "Start Simulation" to take over system GPS feeds.
+4. To lock to a specific physical radio snapshot, tap the snapshot in "Manage Data".
 
-#### 🚗 Road-snapped Loop Navigation
-1. Tap "Route Planning" at the bottom of the map page and mark waypoints on the road.
-2. Select "Loop (Auto)" mode, select your travel speed class (Walking, Running, Cycling, Driving, or custom speed value).
-3. **Turn on "Use Real Route Planning"** (pulls snapping curves and inserts traffic light stops).
-4. Tap "Save Route" to save it for future one-tap reuse.
-5. Tap "Start Simulation". You can toggle the floating joystick from the main page to adjust positions and speeds on-the-fly.
+#### Route Simulation
+1. Switch to "Route Planning", mark waypoints on the road.
+2. Select navigation mode (Loop / Round-trip / One-way) and speed class.
+3. Turn on **"Use Real Route Planning"** (snaps to physical streets and inserts traffic light stops).
+4. Tap "Start Simulation". You can toggle the floating joystick to fine-tune coordinates on-the-fly.
 
-#### 🕵️‍♂️ Signal Scanning & Spatial Replay
-1. Before walking outdoors, open Settings -> toggle **"Environment Map & Street Scan"** scanning mode.
-2. The scanner will run in the background, logging physical Wi-Fi/Cell/Bluetooth signals into local Room tables.
-3. You can review collected points in the management page, edit tags, or **export as a JSON file** to share with others.
-4. When spoofing coords later, the engine uses **IDW interpolation** to replay the exact radio fingerprint transitions.
+#### 🕵️‍♂️ Street Scanning & Custom Radio Fingerprints
+1. Toggle **"Environment Map & Street Scan"** in Settings. Walk outdoors while the app silently records Wi-Fi, cell towers, and BLE signals.
+2. Open "Manage Collected Data" to review, edit, or **manually customize** Wi-Fi (SSID, BSSID, RSSI) or cell records.
+3. Export collected fingerprints as **JSON files** for backup or sharing.
 
-#### 📍 Fixing Per-App Map Offsets
-* If WeChat, XuexiTong, or maps show a static 300-500 meters shift:
-  * Go to Settings -> Tap **"Configure App Coordinate System"**.
-  * Add the package name of the target app.
-  * Change its coordinate standard from default GCJ-02 to `WGS-84` or `BD-09`. The hooks translate coordinates automatically.
+#### 📍 Per-App Coordinate System Adaptation
+* If an app experiences coordinate offsets:
+  * Go to Settings -> Tap **"Configure App Coordinate System"**;
+  * Add the target app's package name;
+  * Set the coordinate system to `WGS-84`, `GCJ-02`, or `BD-09`. Hooks will translate coordinates automatically.
 
 ---
 
 ## 🛠️ Tech Stack
 
 * **Language**: 100% Kotlin
-* **UI**: Jetpack Compose & Material Design 3
+* **UI**: Jetpack Compose & Material Design 3 (Liquid Glass UI)
 * **Dependency Injection**: Koin
-* **Local Storage**: Room Database (SQLite)
-* **Networking**: OkHttp 3 & Kotlinx Serialization
-* **Map SDKs**: AMap 3DMap SDK (China Mainland) / Google Maps & Places SDK (Overseas)
-* **Xposed Hooking**: LSPosed API 93 / libxposed (Service mode)
+* **Local Storage**: Room Database (SQLite) + Spatial Indexing
+* **Networking & Serialization**: OkHttp 3 + Kotlinx Serialization
+* **Map SDKs**: AMap 3DMap SDK / BaiduMap SDK / Google Maps & Places SDK
+* **Xposed Hooking**: LSPosed API 101+ / libxposed (Service mode)
 
 ---
 

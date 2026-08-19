@@ -145,9 +145,36 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
             val className = chain.args[0] as? String
                 ?: return@hookMethod chain.proceed(chain.args.toTypedArray())
             if (className in xposedClassNames) {
-                throw ClassNotFoundException()
+                throw ClassNotFoundException(className)
             }
-            return@hookMethod chain.proceed(chain.args.toTypedArray())
+            val result = chain.proceed(chain.args.toTypedArray())
+            if (className.startsWith("com.baidu.location.") || className.startsWith("com.baidu.map") || className.startsWith("com.tencent.map.")) {
+                val clazz = result as? Class<*>
+                val cl = clazz?.classLoader ?: classLoader
+                hookAllMapSdks(cl)
+            }
+            return@hookMethod result
+        }
+    } catch (_: Throwable) {
+    }
+
+    try {
+        XposedHelpers.hookMethod(
+            "java.lang.ClassLoader", classLoader, "loadClass",
+            String::class.java
+        ) { chain, method ->
+            val className = chain.args[0] as? String
+                ?: return@hookMethod chain.proceed(chain.args.toTypedArray())
+            if (className in xposedClassNames) {
+                throw ClassNotFoundException(className)
+            }
+            val result = chain.proceed(chain.args.toTypedArray())
+            if (className.startsWith("com.baidu.location.") || className.startsWith("com.baidu.map") || className.startsWith("com.tencent.map.")) {
+                val clazz = result as? Class<*>
+                val cl = clazz?.classLoader ?: classLoader
+                hookAllMapSdks(cl)
+            }
+            return@hookMethod result
         }
     } catch (_: Throwable) {
     }

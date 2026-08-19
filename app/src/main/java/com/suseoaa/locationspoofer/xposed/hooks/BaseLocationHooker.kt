@@ -297,6 +297,29 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             }
         } catch (_: Throwable) {}
 
+        // ★ 拦截 getExtras：注入真实的卫星与定位元数据，防止百度/高德因卫星数为0判定为无定位信号丢弃坐标
+        try {
+            XposedHelpers.hookMethod(
+                "android.location.Location",
+                classLoader,
+                "getExtras"
+            ) { chain, method ->
+                var result = chain.proceed(chain.args.toTypedArray())
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    val bundle = (result as? android.os.Bundle) ?: android.os.Bundle()
+                    val satCount = config.optInt("satellite_count", 20)
+                    bundle.putInt("satellites", satCount)
+                    bundle.putInt("satellites_in_view", satCount)
+                    bundle.putInt("satellites_used_in_fix", satCount.coerceAtLeast(12))
+                    bundle.putInt("satellites_visible", satCount)
+                    bundle.putBoolean("mockLocation", false)
+                    result = bundle
+                }
+                return@hookMethod result
+            }
+        } catch (_: Throwable) {}
+
         // 抹除 isFromMockProvider 标志位（strategy:100 的根本来源）
 
         // Android 6~11: isFromMockProvider()
@@ -471,7 +494,7 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             XposedBridge.log(e)
         }
 
-        // ★ 捕获 LocationListener 和 Consumer 以便主动注入模拟位置
+        // ★ 捕获 LocationListener 和 Consumer 以便主动注入模拟位置，并直接Hook其回调方法
         try {
             val locationManagerClazz =
                 XposedHelpers.findClass("android.location.LocationManager", classLoader)
@@ -486,18 +509,80 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                     if (className == "java.lang.String" || className == "android.os.Looper" || className == "android.location.Criteria" || className == "android.location.LocationRequest") continue
 
                     try {
-                        if (LocationHooker.hasTypeByName(
-                                arg.javaClass,
-                                "android.location.LocationListener"
-                            ) || LocationHooker.hasTypeByName(
-                                arg.javaClass,
-                                "java.util.function.Consumer"
-                            ) || LocationHooker.hasTypeByName(
-                                arg.javaClass,
-                                "androidx.core.util.Consumer"
-                            ) || className.contains("Listener") || className.contains("Consumer")
-                        ) {
+                        val isListener = LocationHooker.hasTypeByName(
+                            arg.javaClass,
+                            "android.location.LocationListener"
+                        ) || LocationHooker.hasTypeByName(
+                            arg.javaClass,
+                            "java.util.function.Consumer"
+                        ) || LocationHooker.hasTypeByName(
+                            arg.javaClass,
+                            "androidx.core.util.Consumer"
+                        ) || className.contains("Listener") || className.contains("Consumer")
+
+                        if (isListener) {
                             capturedLocationListeners.addIfAbsent(arg)
+
+                            val listenerClazz = arg.javaClass
+                            if (hookedCallbackClasses.putIfAbsent(listenerClazz, true) == null) {
+                                try {
+                                    XposedHelpers.hookAllMethods(listenerClazz, "onLocationChanged") { lChain, _ ->
+                                        val config = readConfig()
+                                        if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                                            val motion = getCurrentSpoofedMotion("WGS-84")
+                                            if (motion != null && lChain.args.isNotEmpty()) {
+                                                val firstArg = lChain.args[0]
+                                                if (firstArg != null) {
+                                                    if (firstArg is android.location.Location) {
+                                                        firstArg.latitude = motion.lat
+                                                        firstArg.longitude = motion.lng
+                                                        firstArg.accuracy = getJitteredAccuracy()
+                                                        firstArg.speed = motion.speed
+                                                        firstArg.bearing = motion.bearing
+                                                        firstArg.altitude = config.optDouble("altitude", 25.0)
+                                                        firstArg.time = System.currentTimeMillis()
+                                                        firstArg.elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                                                        try {
+                                                            val extras = firstArg.extras ?: android.os.Bundle()
+                                                            val satCount = config.optInt("satellite_count", 20)
+                                                            extras.putInt("satellites", satCount)
+                                                            extras.putInt("satellites_in_view", satCount)
+                                                            extras.putInt("satellites_used_in_fix", satCount.coerceAtLeast(12))
+                                                            extras.putInt("satellites_visible", satCount)
+                                                            extras.putBoolean("mockLocation", false)
+                                                            firstArg.extras = extras
+                                                        } catch (_: Throwable) {}
+                                                    } else if (firstArg is List<*>) {
+                                                        for (loc in firstArg) {
+                                                            if (loc is android.location.Location) {
+                                                                loc.latitude = motion.lat
+                                                                loc.longitude = motion.lng
+                                                                loc.accuracy = getJitteredAccuracy()
+                                                                loc.speed = motion.speed
+                                                                loc.bearing = motion.bearing
+                                                                loc.altitude = config.optDouble("altitude", 25.0)
+                                                                loc.time = System.currentTimeMillis()
+                                                                loc.elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                                                                try {
+                                                                    val extras = loc.extras ?: android.os.Bundle()
+                                                                    val satCount = config.optInt("satellite_count", 20)
+                                                                    extras.putInt("satellites", satCount)
+                                                                    extras.putInt("satellites_in_view", satCount)
+                                                                    extras.putInt("satellites_used_in_fix", satCount.coerceAtLeast(12))
+                                                                    extras.putInt("satellites_visible", satCount)
+                                                                    extras.putBoolean("mockLocation", false)
+                                                                    loc.extras = extras
+                                                                } catch (_: Throwable) {}
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        return@hookAllMethods lChain.proceed(lChain.args.toTypedArray())
+                                    }
+                                } catch (_: Throwable) {}
+                            }
                         }
                     } catch (e: Throwable) {
                     }
@@ -550,6 +635,17 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                             XposedHelpers.callMethod(fakeLoc, "setAltitude", config.optDouble("altitude", 25.0))
                             XposedHelpers.callMethod(fakeLoc, "setTime", timeNow)
                             XposedHelpers.callMethod(fakeLoc, "setElapsedRealtimeNanos", android.os.SystemClock.elapsedRealtimeNanos())
+                            try {
+                                val extras = android.os.Bundle().apply {
+                                    val satCount = config.optInt("satellite_count", 20)
+                                    putInt("satellites", satCount)
+                                    putInt("satellites_in_view", satCount)
+                                    putInt("satellites_used_in_fix", satCount.coerceAtLeast(12))
+                                    putInt("satellites_visible", satCount)
+                                    putBoolean("mockLocation", false)
+                                }
+                                XposedHelpers.callMethod(fakeLoc, "setExtras", extras)
+                            } catch (_: Throwable) {}
                             try { XposedHelpers.callMethod(fakeLoc, "setIsFromMockProvider", false) } catch (_: Throwable) {}
 
                             val runDispatch = Runnable {
@@ -609,6 +705,17 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                         fakeLoc, "setElapsedRealtimeNanos",
                         android.os.SystemClock.elapsedRealtimeNanos()
                     )
+                    try {
+                        val extras = android.os.Bundle().apply {
+                            val satCount = config.optInt("satellite_count", 20)
+                            putInt("satellites", satCount)
+                            putInt("satellites_in_view", satCount)
+                            putInt("satellites_used_in_fix", satCount.coerceAtLeast(12))
+                            putInt("satellites_visible", satCount)
+                            putBoolean("mockLocation", false)
+                        }
+                        XposedHelpers.callMethod(fakeLoc, "setExtras", extras)
+                    } catch (_: Throwable) {}
                     try {
                         XposedHelpers.callMethod(fakeLoc, "setIsFromMockProvider", false)
                     } catch (_: Throwable) {

@@ -2,13 +2,15 @@
 
 <h1>LocationSpoofer</h1>
 
-<p>基于 KernelSU + LSPosed 的高保真 Android 系统级虚拟定位与无线环境伪装模块</p>
-<p>High-fidelity Android system-level location spoofing and wireless environment simulation module based on KernelSU + LSPosed</p>
+<p>基于 KernelSU + LSPosed 的 Android 系统级虚拟定位与无线环境伪装框架</p>
+<p>Android system-level location spoofing and wireless environment simulation framework based on KernelSU + LSPosed</p>
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-8.0%2B-green.svg)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0%2B-purple.svg)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Jetpack-Compose-4285F4.svg)](https://developer.android.com/jetpack/compose)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-orange.svg)](https://kernelsu.org)
-[![LSPosed](https://img.shields.io/badge/Framework-LSPosed-purple.svg)](https://github.com/LSPosed/LSPosed)
+[![LSPosed](https://img.shields.io/badge/LSPosed-API%20101%2B-purple.svg)](https://github.com/LSPosed/LSPosed)
 [![Telegram](https://img.shields.io/badge/Telegram-交流群-blue.svg)](https://t.me/+CsxZGItXdW40ZWVl)
 
 [简体中文](README.md) | [English](README_EN.md)
@@ -23,190 +25,229 @@
 
 ---
 
-## 📖 项目简介
+## 项目简介
 
-在现代 Android 系统的风控环境中，传统的“模拟位置（Mock Location）”开发者选项早已被各类反作弊 SDK（如高德风控、腾讯安全、网易易盾等）列为高风险特征。它们不仅能够轻松检测到 `isFromMockProvider` 标志，还会通过收集周围的以下信息来识别异常：
+在现代 Android 系统的风控与反作弊环境中，传统的“模拟位置（Mock Location）”开发者选项已被商业 SDK（如高德风控、腾讯安全、百度定位、网易易盾、各类考勤及打卡风控系统）列为高风险特征。这类检测机制不仅验证 `isFromMockProvider` / `isMock` 标志位，还会主动采集并交叉比对设备所处的周围物理环境：
 
-*   **Wi-Fi BSSID 列表**
-*   **移动基站蜂窝小区的蜂窝指纹**
-*   **附近 BLE 蓝牙信标**
-*   甚至通过对定位数据序列进行傅里叶变换（FFT）来识别规律的静态或线性模拟轨迹。
+*   **Wi-Fi 接入点与 BSSID 列表**（比对 Wi-Fi 信号指纹库）
+*   **移动蜂窝基站数据**（GSM / WCDMA / LTE / 5G NR 小区指纹与运营商信息）
+*   **周围 BLE 蓝牙信标**
+*   **底层 GNSS 卫星分布与可见卫星星历**
+*   **加速度计与计步器传感器联动状态**
+*   对连续定位坐标序列进行傅里叶变换（FFT）或离散度分析，识别非自然的静态固定点或机械式等速直线轨迹。
 
-**LocationSpoofer** 是专为应对此类高强度风控而设计的**系统级虚拟定位与无线电环境克隆方案**。
-它基于 **KernelSU / Magisk / APatch** 获取底层 Root 权限，并利用 **LSPosed (libxposed)** 框架注入目标进程，以极高的物理契合度拦截并伪造所有与定位、网络环境相关的底层 API 响应，确保应用在无法察觉的情况下获取高度一致的虚假位置指纹。
-
-> [!TIP]
-> **🌟 最新版本重要更新**
-> 
-> 新增了更完整的 **Wi-Fi 环境模拟** 与 **移动基站模拟**：可从本地扫街数据、WiGLE 云端热点数据以及 OpenCellID 基站数据中构建目标坐标附近的真实无线电指纹，并在目标 App 进程内同步伪造 `WifiManager`、`TelephonyManager`、`PhoneStateListener` 与 `TelephonyCallback` 等接口返回，让位置、Wi-Fi、运营商、基站小区与信号强度保持一致。
+**LocationSpoofer** 是专为应对深度风控检测而设计的**系统级虚拟定位与无线环境模拟方案**。
+项目基于 **KernelSU / APatch / Magisk** 获取底层 Root 权限，并利用 **LSPosed (libxposed API 101+)** 框架在 Zygote 阶段注入目标应用进程，以高物理契合度拦截并伪造所有与位置、卫星、基站、Wi-Fi、蓝牙、传感器相关的底层 API 响应，确保应用获取自洽且真实的虚假环境指纹。
 
 ---
 
-## ✨ 核心特性与技术内幕
-
-### 1. 🌐 地图引擎与自适应坐标系翻译器
-* **地图无缝切换**：国内设备自动初始化高德或者百度 3D 地图，海外设备自动切换至 Google Maps 进行路线规划与十字准星微调。
-* **独立应用坐标系适配**：微信、学习通、百度地图等不同应用对定位接口的期望坐标系不同。若直接传入 GCJ-02 会在百度地图上产生数百米偏移。LocationSpoofer 支持为每个目标 App 单独指定 `GCJ-02` (火星坐标)、`WGS-84` (GPS 原始坐标) 或 `BD-09` (百度坐标)。
-* **零延迟翻译**：在 Xposed 挂钩时，直接从主进程预先计算好的经纬度数据读取，规避高频 Hook 场景下的三角函数开销。
-
-### 2. 🛰️ 高保真 GPS 物理引擎与随机游走抖动
-真实 GPS 芯片输出 of coordinates 因电离层闪烁、多径效应及接收机噪声，天然具有高斯分布的白噪声。若返回静态坐标或机械的直线坐标，极易被反作弊检测。
-* **Ornstein-Uhlenbeck 随机过程**：我们引入了高斯随机游走物理模型来生成自然位置抖动，其状态方程定义为：
-  $$\mathrm{d}X_t = -\alpha X_t \mathrm{d}t + \sigma \mathrm{d}W_t$$
-  其中 $\sigma$ 为漂移强度，$\alpha$ 为均值回归系数（本模块设定为 `0.05`，即每秒将当前漂移拉回 5%）。它既产生了符合物理规律的低频缓慢漂移，又使漂移量在 3-Sigma 原则下严格有界（硬性限制在 4 米内），防止漂移无限发散引起“位置瞬移”告警。
-* **步频横向抖动（Gait Jitter）**：当处于步行或跑步模式时，引擎自动沿当前移动方向的正交横向上，根据步频周期的统计概率施加 `0.15 * N(0,1)` 米的高斯横向位移，完美模拟真实人行时身体左右晃动的步态特征。
-* **海拔高度与精度（GDOP）慢漂移**：精度值（Accuracy）及海拔高度（Altitude）不再是死板的常量，而是在基准值附近进行布朗运动式的缓慢波动，模拟大气对流层延迟与卫星几何分布的自然变化。
-
-### 3. 🛡️ 全方位反检测套件（Stealth & Anti-Detection）
-* **深度调用栈清洗（Stack Traces Scrubbing）**：动态拦截 `Throwable.getStackTrace` 和 `Thread.getStackTrace`，一旦发现调用栈中包含 `de.robv.android.xposed`、`io.github.libxposed`、`lsposed` 等敏感调用帧，自动抹除，让反作弊 SDK 无法在调用链回溯中发现 Xposed 框架。
-* **类加载隔离**：Hook `Class.forName` 和 `ClassLoader.loadClass`，对于上述敏感类名的查询直接拦截并抛出 `ClassNotFoundException`。
-* **Mock 属性彻底抹除**：
-  * 将 `Location.isFromMockProvider()` 和 `Location.isMock()` 的返回值永久强制覆写为 `false`。
-  * 针对 Android 12/13+ 系统，通过反射强制将 `Location` 内部私有字段 `mMock` 和 `mIsFromMockProvider` 重写为 `false`，并移除 Extra Bundle 中可能残留的 `mockLocation` 标记。
-  * 拦截 `AppOpsManager` 的 `OP_MOCK_LOCATION (58)` 权限查询，强制返回 `MODE_IGNORED (1)`，令目标 App 认为系统没有向任何软件授权模拟位置。
-  * 拦截 `Settings.Secure` 中 `mock_location` 及 `allow_mock_location` 的读取，返回 `0`（关闭状态）。
-  * 隐藏 `LocationManager` 中的虚拟 Test Provider，将其一律重命名并伪装为系统的原生 `gps` 提供者。
-
-### 4. 📶 无线电环境克隆与空间热力插值引擎
-大多数反作弊 SDK 会采集周边的无线电指纹。如果你定位到北京，但手机扫出来的 Wi-Fi 列表全在你上海的家里，瞬间就会被标记异常。
-* **实地扫街扫描器（EnvironmentScanner）**：支持在背景运行扫描，以 10s 间隔自动保存你真实走过的物理世界中的 Wi-Fi 接入点（SSID/BSSID/RSSI/频率/信道/Wi-Fi标准）、基站小区信息（GSM, WCDMA, CDMA, LTE, 甚至是 5G NR 的完整蜂窝指纹 MCC/MNC/LAC/CID/TAC/PCI/NCI 及 dbm 信号强度）以及附近 BLE 蓝牙信标。
-* **空间反距离加权（IDW）插值**：当虚拟定位在地图上运动时，系统会在 Room 本地数据库中检索 50 米范围内的历史采集点。使用反距离平方比作为权重：
-  $$w_i = \frac{1}{d_i^2}$$
-  对周边所有 Wi-Fi RSSI 信号强度、蜂窝 dbm 级蓝牙 RSSI 进行动态差值计算。这使手机在虚拟移动时，Wi-Fi 信号会在后台平滑衰减和增强，模拟最真实的信号过渡，绝无指纹突变带来的安全隐患。
-* **Wi-Fi 扫描与连接态模拟**：Hook `WifiManager.getScanResults()`、`getConnectionInfo()`、`getConfiguredNetworks()`、`getDhcpInfo()` 等接口，按目标坐标返回伪造的 SSID/BSSID/RSSI/频率/信道/加密能力，同时同步 Wi-Fi 开关状态、连接网络、网关与 DHCP 信息。
-* **真实品牌 OUI 前缀匹配**：在无本地采集数据的空白区域，系统采用 TP-Link、Huawei、ZTE、Xiaomi、Cisco 等真实中国主流品牌路由器的合法 MAC 前缀（Organizationally Unique Identifier）生成虚拟 Wi-Fi BSSID，拒绝因随机生成非法 MAC 而被反作弊厂商识破。
-* **云端联合伪装 (WiGLE API)**：可配置 WiGLE API 密钥，实时在线拉取全球指定经纬度周围真实物理存在的 Wi-Fi 热点，并写入本地环境数据库，后续可离线复用。
-* **OpenCellID 基站数据导入**：可配置 OpenCellID API Key，按目标坐标查询附近真实蜂窝小区，自动完成 GCJ-02 到 WGS-84 坐标转换、bbox 扩展查询、字段归一化与本地缓存。
-* **移动基站与运营商接口模拟**：覆盖 `TelephonyManager.getAllCellInfo()`、`getCellLocation()`、`getNetworkOperator()`、`getServiceState()`、`getSignalStrength()`、`listen()`、`requestCellInfoUpdate()`、`registerTelephonyCallback()` 等读取路径，支持 GSM/WCDMA/LTE/NR 小区信息、MCC/MNC/LAC/CID/TAC/PCI/NCI、RSRP/dbm 信号强度与运营商名称模拟；当云端数据缺少 LTE/NR 时，会补充合成 LTE 主小区以兼容只读取 4G 的检测软件。
-
-### 5. 🛰️ 卫星矩阵与 NMEA 协议生成器
-* **GNSS Status 劫持**：Hook 系统的 `GnssStatus` 类，模拟多达 20+ 颗包括 GPS、北斗、GLONASS 的卫星分布矩阵，注入真实的 PRN 标识、信噪比（CNR）、俯仰角、方位角等，并正确汇报 `usedInFix`（参与定位计算）状态。
-* **NMEA 语句流动态拼装**：劫持 `OnNmeaMessageListener`。根据当前的模拟位置、航向角、速度和模拟出的卫星，在内存中动态组装符合国家标准的原始 `\$GPGGA`, `\$GPRMC`, `\$GPGSA`, `\$GPGSV` 语句并计算校验和（Checksum）实时输出，满足对底层 NMEA 信号进行硬核校验的 App。
-
-### 6. 🔀 智能路线导航与红绿灯停候系统
-* **真实物理路网拟合**：支持点对点或多路点航线设计。开启“使用真实路线”后，系统将通过路径搜索算法拟合实际道路轮廓，防止轨迹穿墙或走直线。
-* **红绿灯智能识别**：路线规划成功后，引擎会自动解析路段中的红绿灯总数，并随机分发至折线拐角处。当模拟器运行到红绿灯点时，会**自动停驻 15 秒**再重新加速，完美模拟真实的车辆行车特征。
-* **悬浮窗摇杆**：提供悬浮窗虚拟摇杆，可在前台直接手动微调坐标。支持根据摇杆拉伸幅度在 0 ~ 10 m/s 之间平滑过渡，并在转向时应用航向角阻尼。
-
----
-
-## 🏛️ 系统架构
-
-本项目采用 **MVVM** 架构，并利用 Root 权限规避了 Android 11+ 的沙盒可见性隔离，实现零权限跨进程配置传递：
+## 功能特性
 
 ```
-┌─────────────────────────────────────────────┐
-│            LocationSpoofer (宿主 App)       │
-│  ┌──────────┐  ┌──────────────────────────┐ │
-│  │ Dual-Map │  │    RouteStateMachine     │ │
-│  │(高德/谷歌)│  │    (IDLE/READY/RUN...)   │ │
-│  └────┬─────┘  └────────────┬─────────────┘ │
-│       │                     │               │
-│  ┌────▼─────────────────────▼─────────────┐ │
-│  │            ConfigManager                 │ │
-│  │  (将配置序列化，通过 Root 权限写入 Temp)   │ │
-│  └──────────────────┬───────────────────────┘ │
-│  ┌──────────────────▼─────────────────────┐ │
-│  │           SpoofingService               │ │
-│  │       (前台通知服务 & 轨迹计算引擎)       │ │
-│  └────────────────────────────────────────┘ │
-└─────────────────────┬───────────────────────┘
-                      │ (写入配置 JSON)
-                      ▼
-        ┌───────────────────────────┐
-        │ /data/local/tmp/ 配置文件  │
-        │    (chmod 777 + chcon)    │
-        └─────────────┬─────────────┘
-                      │ (读取配置，守护线程 1000ms 缓存)
-                      ▼ LSPosed 注入
-┌─────────────────────────────────────────────┐
-│              目标 App 进程                  │
-│  ┌────────────────────────────────────────┐  │
-│  │            LocationHooker              │  │
-│  │  • Location API / Baidu / Tencent SDK  │  │
-│  │  • WiFi & 蜂窝基站 (2G-5G NR) 环境注入    │  │
-│  │  • 蓝牙 BLE 扫描过滤                    │  │
-│  │  • Anti-Mock & Xposed 堆栈清洗反检测   │  │
-│  │  • GnssStatus 卫星 & NMEA 模拟          │  │
-│  └────────────────────────────────────────┘  │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                             LocationSpoofer                             │
+│                    系统级虚拟定位与无线环境模拟                         │
+└─────────────────────────────────────────────────────────────────────────┘
+        │                            │                            │
+        ▼                            ▼                            ▼
+  【空间定位与物理仿真】       【无线电与传感器模拟】         【反检测套件】
+  • 三地图引擎无缝切换         • Wi-Fi 扫描与连接态伪装       • Xposed 堆栈调用帧清洗
+  • WGS-84/GCJ-02/BD-09 自适应 • 2G-5G NR 蜂窝基站小区模拟   • ClassLoader 探测隔离
+  • Ornstein-Uhlenbeck 抖动    • BLE 蓝牙信标扫描过滤         • isFromMockProvider 抹除
+  • 步态横向摇摆与高斯噪声     • WiGLE / OpenCellID 云端导入  • AppOps OP_MOCK_LOCATION 隐藏
+  • 真实路网拟合与红绿灯停候   • 空间反距离加权 (IDW) 插值    • Settings.Secure 开关覆写
+  • 悬浮窗遥控阻尼摇杆         • 步频与计步传感器联动         • MultiDex 动态 Class 拦截
+```
+
+### 1. 多地图引擎与坐标系适配
+* **三引擎切换**：集成高德 3D 地图 (AMap)、百度地图 (BaiduMap) 与 Google Maps，实现国内外路网检索与 POI 选点。
+* **智能坐标系自适应（Smart Auto）**：
+  * 系统原生接口统一输出标准 `WGS-84` 物理坐标与卫星数据；
+  * 各大地图定位 SDK（高德/腾讯/百度）及视图渲染层（如百度地图蓝点 `MyLocationData`）自动映射对应坐标系（`GCJ-02` / `BD-09`），规避坐标偏移与 `(0.0, 0.0)` 兜底问题；
+  * 支持在“配置应用坐标系”中为目标应用强制指定 `WGS-84`、`GCJ-02` 或 `BD-09`。
+* **零延迟计算**：Hook 阶段直接从预计算的内存数据读取坐标，避免高频回调中的重复三角函数开销。
+
+### 2. GPS 物理抖动与步态模拟
+真实 GPS 芯片输出的坐标因电离层延迟、多径效应及接收机热噪声，天然具有高斯分布的白噪声特征。
+* **Ornstein-Uhlenbeck 随机过程**：引入物理学均值回归随机过程模型来生成自然位置抖动，其状态随机微分方程定义为：
+
+  $$\mathrm{d}X_t = -\alpha X_t \mathrm{d}t + \sigma \mathrm{d}W_t$$
+
+  其中 $\sigma$ 为漂移强度，$\alpha$ 为均值回归系数（设定为 `0.05`，即每秒将当前漂移拉回 5%）。它产生符合物理规律的低频缓慢漂移，并在 3-Sigma 原则下严格有界（硬性限制在 4 米内），防止漂移发散引发异常。
+
+* **步频横向抖动（Gait Jitter）**：步行或跑步模式下，引擎沿当前移动方向的正交横向上施加高斯横向位移：
+
+  $$\Delta L_{\text{lateral}} = 0.15 \cdot \mathcal{N}(0, 1) \quad (\text{米})$$
+
+  模拟人类真实行走时身体左右晃动的步态特征。
+
+* **高度（Altitude）与精度（Accuracy）慢漂移**：精度值与海拔高度动态波动，模拟大气对流层延迟与卫星几何分布的自然变化。
+
+### 3. 反检测与 MultiDex 支持
+* **调用栈深度清洗（Stack Traces Scrubbing）**：拦截 `Throwable.getStackTrace` 和 `Thread.getStackTrace`，自动过滤移除包含 `de.robv.android.xposed`、`io.github.libxposed`、`org.lsposed` 等特征调用帧，阻止反作弊 SDK 在异常堆栈回溯中嗅探 Hook 框架。
+* **类加载器探测隔离**：拦截 `Class.forName` 和 `ClassLoader.loadClass`，对 Xposed 特征类名的探测统一返回 `ClassNotFoundException`。
+* **MultiDex 动态感知**：拦截 `ClassLoader.loadClass` 动态捕获并安装次级 Dex（如 `classes16.dex`）中的定位组件，配合 `/proc/self/cmdline` 锁定宿主进程主包名，避免内嵌 WebView 或插件改变全局上下文。
+* **Mock 属性彻底抹除**：
+  * `Location.isFromMockProvider()` 和 `Location.isMock()` 永久覆写为 `false`；
+  * 反射将 `Location` 内部字段 `mMock` 和 `mIsFromMockProvider` 重写为 `false`，并移除 Extra Bundle 中的 `mockLocation` 标记；
+  * 拦截 `AppOpsManager` 的 `OP_MOCK_LOCATION (58)` 权限查询，返回 `MODE_IGNORED (1)`；
+  * 拦截 `Settings.Secure` 中 `mock_location` 及 `allow_mock_location` 的读取，返回 `0`；
+  * 隐藏 `LocationManager` 中的虚拟 Test Provider，将其统一伪装为系统原生 `gps` 提供者。
+
+### 4. Wi-Fi、基站与蓝牙环境模拟
+* **实地扫街扫描器（EnvironmentScanner）**：后台自动扫描物理世界中的 Wi-Fi 接入点（SSID/BSSID/RSSI/频率/信道/Wi-Fi标准）、基站小区信息（GSM, WCDMA, CDMA, LTE, 5G NR 及 dbm 信号强度）以及附近 BLE 蓝牙信标。
+* **空间反距离加权（IDW）插值**：在 Room 数据库中检索周边 50 米范围内的历史采集点，使用反距离平方比作为权重：
+
+  $$w_i = \frac{1}{d_i^2}$$
+
+  对 Wi-Fi RSSI 信号强度与蜂窝小区 dbm 信号进行平滑插值，保证移动过程中信号连续渐变。
+* **无线电数据精细化管理与手动指定**：
+  * 支持在“管理采集数据”页面中手动指定具体使用的 Wi-Fi、基站或蓝牙条目；
+  * 支持自定义修改 Wi-Fi SSID、BSSID、RSSI 信号强度、信道频段、加密类型以及基站小区数据；
+  * 支持在主页地图点选锁定特定环境数据，超出设定范围自动恢复环境插值计算。
+* **Wi-Fi 与基站全接口模拟**：
+  * 拦截 `WifiManager.getScanResults()`、`getConnectionInfo()`、`getConfiguredNetworks()`、`getDhcpInfo()`；
+  * 拦截 `TelephonyManager.getAllCellInfo()`、`getCellLocation()`、`getNetworkOperator()`、`getServiceState()`、`getSignalStrength()`、`PhoneStateListener`、`TelephonyCallback`；
+  * 采用真实品牌合法 OUI（TP-Link、Huawei、Xiaomi、Cisco 等）生成非采集区的虚拟 MAC 地址。
+* **云端数据导入 (WiGLE & OpenCellID)**：支持配置 WiGLE API 与 OpenCellID API，在线拉取全球指定坐标周边的真实物理 Wi-Fi 与移动基站，自动入库缓存并离线复用。
+* **海量数据空间索引**：采用空间索引与分页机制，支持高效检索与存储数千条本地与云端无线电记录，保障界面与后台运行流畅。
+
+### 5. 卫星矩阵与 NMEA 模拟
+* **GnssStatus 矩阵注入**：Hook 系统的 `GnssStatus` 类，模拟 20+ 颗包括 GPS、北斗、GLONASS 的卫星分布矩阵，注入 PRN 标识、信噪比（CNR）、俯仰角、方位角等，并正确汇报 `usedInFix` 状态。
+* **NMEA 语句流动态拼装**：劫持 `OnNmeaMessageListener` / `GpsStatus.NmeaListener`，根据当前模拟坐标、航向角、速度和卫星信息，动态拼装符合规范的原始 `$GPGGA`, `$GPRMC`, `$GPGSA`, `$GPGSV` 语句并计算校验和（Checksum）输出。
+* **卫星元数据保活注入**：在向各大地图 SDK 派发 `Location` 对象时，强制在 `getExtras()` 中注入 `satellites=20`, `satellites_in_view=20`, `satellites_used_in_fix=18`，防止定位 SDK 判定无卫星搜星而丢弃 GPS 信号。
+
+### 6. 传感器与步频模拟
+* **计步传感器联动**：Hook `SensorManager`，接管 `Sensor.TYPE_STEP_COUNTER`（总步数）和 `Sensor.TYPE_STEP_DETECTOR`（单步脉冲）。
+* **步态频率计算**：当开启路线模拟且处于步行或跑步状态时，根据移动距离与步长（默认按 `0.7m/步` 换算）自动生成平滑递增的步数事件，适配运动健康与校园跑打卡软件。
+
+### 7. 路线规划与红绿灯模拟
+* **真实路网拟合**：支持多点路径规划，调用路网搜索算法拟合实际道路轮廓，防止直线穿墙。
+* **红绿灯智能识别与驻留**：路线规划自动解析红绿灯路口，行进到红绿灯点时自动停驻 15 秒再重新平滑加速起步。
+* **悬浮窗遥控摇杆**：提供悬浮窗虚拟摇杆，支持 0 ~ 10 m/s 速度无级调节与航向角阻尼转向。
+
+### 8. 用户界面
+* 基于 Jetpack Compose 构建，采用现代毛玻璃质感、内阴影与阻尼手势拖拽设计，实现完全模块化与解耦的组件架构。
+
+---
+
+## 系统架构
+
+本项目采用 **MVVM + Clean Architecture** 架构，利用 Root 权限与系统共享内存通道规避了 Android 11+ 的沙盒可见性隔离，实现零权限跨进程配置传递：
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       LocationSpoofer (宿主 App)                        │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │     Triple Map Engine   │  │          RouteStateMachine           │  │
+│  │ (AMap / Baidu / Google) │  │     (IDLE / READY / RUN / PAUSE)     │  │
+│  └────────────┬────────────┘  └──────────────────┬───────────────────┘  │
+│               │                                  │                      │
+│  ┌────────────▼──────────────────────────────────▼───────────────────┐  │
+│  │                       ConfigManager                               │  │
+│  │        (将完整配置与多坐标系映射写入 /data/local/tmp 共享目录)       │  │
+│  └──────────────────────────────────┬────────────────────────────────┘  │
+│  ┌──────────────────────────────────▼────────────────────────────────┐  │
+│  │                      SpoofingService                              │  │
+│  │          (前台保活服务、步态引擎、路网计算与悬浮窗控制器)         │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────┬───────────────────────────────────┘
+                                      │ (写入 JSON 配置，chmod 777 + chcon)
+                                      ▼
+                        ┌───────────────────────────┐
+                        │ /data/local/tmp/ 共享文件 │
+                        └─────────────┬─────────────┘
+                                      │ (守护线程 1000ms 轮询 + Volatile 缓存)
+                                      ▼ LSPosed / libxposed (API 101+) 注入
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            目标 App 进程                                │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                         LocationHooker                            │  │
+│  │  • BaseLocationHooker (Location / LocationManager / NMEA / GNSS)  │  │
+│  │  • MapSdkHooker (Baidu BDLocation / AMap / Tencent SDK & 蓝点图层) │  │
+│  │  • WifiHooker (WifiManager / ScanResults / Connection / DHCP)     │  │
+│  │  • CellHooker (TelephonyManager / 2G-5G NR 小区 / 运营商 / 基带)  │  │
+│  │  • BluetoothHooker (BluetoothLeScanner / BLE Beacons 过滤)        │  │
+│  │  • SensorStepHooker (StepCounter / StepDetector 计步联动)         │  │
+│  │  • AntiDetectionHooker (Xposed 堆栈清洗 / ClassLoader 隔离)       │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 > [!NOTE]
-> **关于跨进程通信 (IPC) 的设计决策**：
-> 目标 App 进程在沙盒内运行时，由于 Android 11+ 包可见性及 SELinux 策略，若使用 `ContentProvider` 会导致主线程卡顿并产生 `Failed to find provider info` 错误。
-> 宿主 App 借助 Root 权限将配置以 JSON 格式写入 `/data/local/tmp/locationspoofer_config.json`，并赋予 `777` 权限及 `shell_data_file` SELinux 上下文。
-> 目标沙盒内的 `LocationHooker` 启动一个**后台守护线程**，每 1000ms 异步读取文件并存储在 Volatile 内存中。主线程的 Hook 方法读取配置时永远是 0-IO 延迟，彻底杜绝了因频繁读取配置导致的目标 App 界面丢帧与卡顿。
+> **跨进程通信 (IPC) 设计**：
+> 目标 App 进程在沙盒内运行时，由于 Android 11+ 包可见性及 SELinux 策略，使用 `ContentProvider` 会导致主线程卡顿并产生 `Failed to find provider info` 错误。
+> 宿主 App 借助 Root 权限将配置以 JSON 格式写入 `/data/local/tmp/locationspoofer_config.json`，赋予 `777` 权限及 `shell_data_file` SELinux 上下文。
+> 目标沙盒内的 `LocationHooker` 启动后台守护线程，每 1000ms 异步读取文件并存储在 Volatile 内存中。主线程的 Hook 方法读取配置时为 0-IO 延迟，避免导致目标 App 丢帧与卡顿。
 
 ---
 
-## 📋 环境要求
+## 环境要求
 
 * **系统版本**：Android 8.0 (API 26) 及以上
-* **Root 管理器**：已获取 Root 权限，强烈推荐使用 [**KernelSU**](https://kernelsu.org) / APatch，亦支持 Magisk。
-* **Xposed 框架**：已安装并激活 [**LSPosed**](https://github.com/LSPosed/LSPosed)（或较新版本的 LSPosed 支线版本）。
+* **Root 方案**：已获取 Root 权限（推荐 [**KernelSU**](https://kernelsu.org) / **APatch** / **Magisk**）。
+* **Xposed 框架**：已安装并激活 **LSPosed (API 101+)** 或兼容 libxposed API 101+ 的框架环境。
 
 ---
 
-## 🚀 快速开始
+## 使用指南
 
 ### 1. 编译与安装
 
 ```bash
-# 克隆本仓库到本地
+# 1. 克隆代码仓库
 git clone https://github.com/your-username/LocationSpoofer.git
 
-# 编译 Debug 版本并直接安装至设备
+# 2. 编译 Debug APK 并直接安装到设备
 ./gradlew installDebug
 ```
 
-### 2. 权限与激活步骤
-1. 打开 **KernelSU / Magisk / APatch** 管理器，授予 LocationSpoofer **Root 权限**（用于在 `/data/local/tmp` 写入共享配置 JSON 文件）。
-2. 打开 **LSPosed** 管理器，找到 LocationSpoofer 模块，将其勾选**启用**。
-3. 在模块的作用域（Scope）中，**勾选需要进行定位伪装的目标应用**（如微信、钉钉、超星学习通等）。
-4. **强行停止**勾选的目标 App（或重启手机）以使其加载 Xposed 挂钩逻辑。
+### 2. 权限与激活
+1. 打开 **KernelSU / APatch / Magisk** 管理器，授予 LocationSpoofer **Root 权限**。
+2. 打开 **LSPosed** 管理器，在模块列表中找到 **LocationSpoofer** 并启用。
+3. 在模块的作用域（Scope）中，**勾选需要进行定位伪装的目标应用**（如微信、企业微信、钉钉、超星学习通、百度地图、高德地图等）。
+4. **强行停止**勾选的目标 App（或重启手机）以使其加载 Hook 逻辑。
 
-### 3. 使用场景最佳实践
+### 3. 常见场景
 
-#### 💻 定点环境欺骗
-1. 启动 LocationSpoofer，在主页地图中长按或利用搜索栏搜寻指定地点。
-2. 在下方抽屉中选择开启需要伪装的项目：**伪造 Wi-Fi 数据**、**模拟基站数据**、**模拟蓝牙数据**、**开启轻微抖动**。
-3. 点击“启动模拟”即可接管系统 GPS。
+#### 定点模拟与环境锁定
+1. 启动 LocationSpoofer，在主页地图上拖动准星或搜索栏搜索目标位置。
+2. 在底部抽屉开启所需伪装开关：**伪造 Wi-Fi**、**模拟基站**、**模拟蓝牙**、**模拟传感器计步**、**开启随机抖动**。
+3. 点击“启动模拟”接管系统 GPS。
+4. 如需锁定使用具体的本地采集点，可在“管理数据”中点击对应采集点进行锁定绑定。
 
-#### 🚗 高仿真路线往返模拟
-1. 点击主页下方的“路线规划”进入选点阶段，在地图上依次点击标记多个路点。
-2. 设定控制模式为“循环（自动）”，并选择你的移动档位（步行、跑步、骑行、驾驶，或自定义速度值）。
-3. **启用“使用真实路线规划”**（在联网情况下，系统会自动拉取高德/谷歌路网进行精准曲线拟合，并配置红绿灯停留等待）。
-4. 点击“保存路线”以便于下次直接从“路线库”中一键加载。
-5. 点击“开始模拟”，此时可随时启动悬浮窗，使用“手动（摇杆）”通过悬浮窗摇杆在前台操控实时前行或后退。
+#### 路线模拟
+1. 切换至“路线规划”标签页，在地图上依次标记多个路点。
+2. 设定移动模式（循环 / 往返 / 单程）以及速度档位（步行、跑步、骑行、自驾或自定义速度）。
+3. 开启 **“使用真实路线规划”**（系统将自动拉取真实道路轮廓并标记红绿灯等待节点）。
+4. 点击“开始模拟”。可随时开启“悬浮窗摇杆”在前台微调坐标与速度。
 
-#### 🕵️‍♂️ 无线电信号采集（实地扫街）
-1. 在物理世界中活动前，进入 LocationSpoofer “设置” -> 开启 **“环境图谱与扫街”** 采集模式。
-2. 此时模块会自动在后台静默扫描并保存当前位置对应的 Wi-Fi/基站/蓝牙特征到本地 Room 数据库。
-3. 采集完成后，可以随时在“管理本地采集数据”中编辑采集点备注、剔除无效数据，或者以 **JSON 文件格式导出** 备份、共享给他人导入。
-4. 下次当你在虚拟定位中选择模拟该经纬度时，系统将通过 **IDW 插值算法** 完美重现采集到的物理信号场。
+#### 实地采集与数据自定义
+1. 开启“设置” -> **“环境图谱与扫街”** 模式，手机将在后台记录沿途的真实 Wi-Fi、基站与蓝牙信标。
+2. 进入“管理采集数据”页面，可查看列表、编辑备注，或**手动指定/修改**某条 Wi-Fi（如 SSID、BSSID、RSSI 等）或基站小区数据。
+3. 支持将采集到的无线电指纹一键**导出为 JSON 文件**，用于备份或共享导入。
 
-#### 📍 解决特定 App 定位偏移
-* 如果你发现微信、学习通等应用定位产生了几百米的固定漂移：
-  * 进入 LocationSpoofer “设置” -> 点击 **“配置应用坐标系”**。
-  * 点击“添加应用包名”，找到产生偏移的目标 App。
-  * 将其底层的坐标标准修改为 `WGS-84` (原生 GPS 坐标) 或 `BD-09` (百度地图坐标)，系统将在 Hook 层自动转换，地图即可完美重合。
+#### 独立应用坐标系配置
+* 若遇到特定 App 存在固定坐标偏移：
+  * 进入 LocationSpoofer “设置” -> **“配置应用坐标系”**；
+  * 添加目标应用包名；
+  * 将坐标系指定为 `WGS-84`、`GCJ-02` 或 `BD-09`，Hook 层将自动根据目标 App 进行转换。
 
 ---
 
-## 🛠️ 技术栈与依赖库
+## 技术栈
 
-* **开发语言**：100% Kotlin
-* **界面框架**：Jetpack Compose & Material Design 3
+* **编程语言**：100% Kotlin
+* **UI 框架**：Jetpack Compose & Material Design 3 (Liquid Glass 拟态设计)
 * **依赖注入**：Koin
-* **底层数据库**：Room Database (SQLite)
-* **网络请求**：OkHttp 3 & Kotlinx Serialization
-* **地图组件**：AMap 3DMap SDK (中国大陆设备) / Google Maps & Places SDK (海外设备)
-* **Xposed 框架**：LSPosed API 93 / libxposed (service 模式)
+* **持久化存储**：Room Database (SQLite) + 空间索引
+* **网络与序列化**：OkHttp 3 + Kotlinx Serialization
+* **地图组件**：AMap 3DMap SDK / BaiduMap SDK / Google Maps & Places SDK
+* **Xposed 框架**：LSPosed API 101+ / libxposed (Service 模式)
 
 ---
 
-## ⚠️ 免责声明
+## 免责声明
 
 本程序**仅供学习研究、技术交流以及个人合法合规测试（如开发者定位测试、设备兼容性调试）使用**。
 使用者请勿将本工具用于任何违法违规或违反相关平台服务协议的活动（包括但不限于虚假打卡、网络考试作弊、商业欺诈等）。
@@ -214,7 +255,7 @@ git clone https://github.com/your-username/LocationSpoofer.git
 
 ---
 
-## 📜 开源协议
+## 开源协议
 
 本项目基于 [GNU General Public License v3.0](LICENSE) 协议开源。
 

@@ -101,6 +101,18 @@ internal fun LocationHooker.bd09ToGcj02(bdLat: Double, bdLng: Double): Pair<Doub
 }
 
 /**
+ * BD09ll (经纬度) 转 BD09mc (百度墨卡托米制平面坐标)
+ * 百度地图引擎在进行底层瓦片渲染与路径规划时，常使用墨卡托投影米制单位。
+ */
+fun bd09llToBd09mc(bdLat: Double, bdLng: Double): Pair<Double, Double> {
+    val x = bdLng * 20037508.342789244 / 180.0
+    val latClamped = bdLat.coerceIn(-85.0511287798, 85.0511287798)
+    var y = kotlin.math.ln(kotlin.math.tan((90.0 + latClamped) * Math.PI / 360.0)) / (Math.PI / 180.0)
+    y = y * 20037508.342789244 / 180.0
+    return Pair(y, x) // Pair(mcLat/Y, mcLng/X)
+}
+
+/**
  * 根据应用包名及用户自定义算法配置，动态获取目标坐标
  *
  * @param rawGcjLat 基础 GCJ-02 纬度
