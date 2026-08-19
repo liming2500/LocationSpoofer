@@ -56,8 +56,7 @@ class BaiduMapControllerImpl(
     override fun addPolyline(points: List<Pair<Double, Double>>, colorInt: Int, width: Float) {
         if (points.size < 2) return
         val latLngList = points.map {
-            val bd = gcj02ToBd09(it.first, it.second)
-            LatLng(bd.first, bd.second)
+            LatLng(it.first, it.second)
         }
         map.addOverlay(
             com.baidu.mapapi.map.PolylineOptions()
@@ -75,10 +74,9 @@ class BaiduMapControllerImpl(
         strokeColorInt: Int,
         strokeWidth: Float
     ) {
-        val bd = gcj02ToBd09(lat, lng)
         map.addOverlay(
             com.baidu.mapapi.map.CircleOptions()
-                .center(LatLng(bd.first, bd.second))
+                .center(LatLng(lat, lng))
                 .radius(radius.toInt())
                 .fillColor(fillColorInt)
                 .stroke(Stroke(strokeWidth.toInt(), strokeColorInt))
@@ -93,29 +91,26 @@ class BaiduMapControllerImpl(
     ): AppMapMarker {
         val bitmap = GaodeMarkerHelper.getMarkerBitmap(context, title, type)
         val descriptor = com.baidu.mapapi.map.BitmapDescriptorFactory.fromBitmap(bitmap)
-        val bd = gcj02ToBd09(lat, lng)
         val marker = map.addOverlay(
             com.baidu.mapapi.map.MarkerOptions()
-                .position(LatLng(bd.first, bd.second))
+                .position(LatLng(lat, lng))
                 .title(title)
                 .icon(descriptor)
                 .anchor(0.5f, 0.9f)
         ) as? com.baidu.mapapi.map.Marker
         return object : AppMapMarker {
             override fun setPosition(lat: Double, lng: Double) {
-                val b = gcj02ToBd09(lat, lng)
-                marker?.position = LatLng(b.first, b.second)
+                marker?.position = LatLng(lat, lng)
             }
         }
     }
 
     override fun animateCamera(lat: Double, lng: Double, zoom: Float?) {
-        val bd = gcj02ToBd09(lat, lng)
         val update = if (zoom != null) com.baidu.mapapi.map.MapStatusUpdateFactory.newLatLngZoom(
-            LatLng(bd.first, bd.second), zoom
+            LatLng(lat, lng), zoom
         )
         else com.baidu.mapapi.map.MapStatusUpdateFactory.newLatLng(
-            LatLng(bd.first, bd.second)
+            LatLng(lat, lng)
         )
         map.animateMapStatus(update)
     }
@@ -133,12 +128,11 @@ class BaiduMapControllerImpl(
     ) {
         if (points.isEmpty()) return
         try {
-            val bdPoints = points.map { gcj02ToBd09(it.first, it.second) }
             var minLat = 90.0
             var maxLat = -90.0
             var minLng = 180.0
             var maxLng = -180.0
-            bdPoints.forEach {
+            points.forEach {
                 if (it.first < minLat) minLat = it.first
                 if (it.first > maxLat) maxLat = it.first
                 if (it.second < minLng) minLng = it.second
@@ -177,26 +171,19 @@ class BaiduMapControllerImpl(
     }
 
     override fun moveCamera(lat: Double, lng: Double, zoom: Float?) {
-        val bd = gcj02ToBd09(lat, lng)
         val update = if (zoom != null) com.baidu.mapapi.map.MapStatusUpdateFactory.newLatLngZoom(
-            LatLng(bd.first, bd.second), zoom
+            LatLng(lat, lng), zoom
         )
         else com.baidu.mapapi.map.MapStatusUpdateFactory.newLatLng(
-            LatLng(bd.first, bd.second)
+            LatLng(lat, lng)
         )
         map.setMapStatus(update)
     }
 
     override val cameraTargetLat: Double?
-        get() {
-            val target = map.mapStatus?.target ?: return null
-            return bd09ToGcj02(target.latitude, target.longitude).first
-        }
+        get() = map.mapStatus?.target?.latitude
     override val cameraTargetLng: Double?
-        get() {
-            val target = map.mapStatus?.target ?: return null
-            return bd09ToGcj02(target.latitude, target.longitude).second
-        }
+        get() = map.mapStatus?.target?.longitude
 
     private var cameraFinishListener: ((Double, Double) -> Unit)? = null
     private var cameraMoveListener: ((Double, Double) -> Unit)? = null
@@ -213,8 +200,7 @@ class BaiduMapControllerImpl(
             override fun onMapStatusChange(p0: com.baidu.mapapi.map.MapStatus?) {
                 if (lastReason == BaiduMap.OnMapStatusChangeListener.REASON_GESTURE) {
                     p0?.target?.let {
-                        val gcj = bd09ToGcj02(it.latitude, it.longitude)
-                        cameraMoveListener?.invoke(gcj.first, gcj.second)
+                        cameraMoveListener?.invoke(it.latitude, it.longitude)
                     }
                 }
             }
@@ -222,8 +208,7 @@ class BaiduMapControllerImpl(
             override fun onMapStatusChangeFinish(p0: com.baidu.mapapi.map.MapStatus?) {
                 if (lastReason == BaiduMap.OnMapStatusChangeListener.REASON_GESTURE) {
                     p0?.target?.let {
-                        val gcj = bd09ToGcj02(it.latitude, it.longitude)
-                        cameraFinishListener?.invoke(gcj.first, gcj.second)
+                        cameraFinishListener?.invoke(it.latitude, it.longitude)
                     }
                 }
             }

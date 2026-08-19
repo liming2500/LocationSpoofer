@@ -135,11 +135,16 @@ internal fun LocationHooker.getAppTargetCoordinate(
     val basePkg = currentPackageName.substringBefore(":")
 
     // 优先读取用户在“自定义坐标算法”页面针对当前包名的个性化配置
-    val targetSys = if (appSystems?.has(basePkg) == true) {
-        val configured = appSystems.optString(basePkg, defaultSystem)
-        if (configured == "AUTO" || configured.isBlank()) defaultSystem else configured
+    val userConfigured = if (appSystems?.has(basePkg) == true) {
+        appSystems.optString(basePkg, "AUTO")
     } else {
+        "AUTO"
+    }
+
+    val targetSys = if (userConfigured == "AUTO" || userConfigured.isBlank()) {
         defaultSystem
+    } else {
+        userConfigured
     }
 
     return when (targetSys) {

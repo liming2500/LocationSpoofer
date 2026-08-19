@@ -243,6 +243,7 @@ class LocationHooker : XposedModule() {
     }
 
     internal fun hookAllMapSdks(cl: ClassLoader) {
+        try { hookAMapSDK(cl) } catch (_: Throwable) {}
         try { hookTencentSDK(cl) } catch (_: Throwable) {}
         try { hookBaiduSDK(cl) } catch (_: Throwable) {}
     }
