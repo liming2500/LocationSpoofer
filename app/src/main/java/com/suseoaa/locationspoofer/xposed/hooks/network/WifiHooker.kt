@@ -189,6 +189,29 @@ internal fun LocationHooker.hookWifiEnvironment(
                             fakeScanResult, "capabilities",
                             wifi.optString("capabilities", realCapabilities.random())
                         )
+                        // 适配 ColorOS / OxygenOS / HyperOS: 必须初始化 informationElements 和 radioChainInfos，否则 ColorOS OplusWifiScanStatistics 会报 NPE 导致 system_server 崩溃重启进入安全模式
+                        try {
+                            val ieClass = XposedHelpers.findClassIfExists(
+                                "android.net.wifi.ScanResult\$InformationElement",
+                                classLoader
+                            )
+                            if (ieClass != null) {
+                                val emptyIeArray = ReflectArray.newInstance(ieClass, 0)
+                                XposedHelpers.setObjectField(fakeScanResult, "informationElements", emptyIeArray)
+                            }
+                        } catch (e: Throwable) {
+                        }
+                        try {
+                            val rciClass = XposedHelpers.findClassIfExists(
+                                "android.net.wifi.ScanResult\$RadioChainInfo",
+                                classLoader
+                            )
+                            if (rciClass != null) {
+                                val emptyRciArray = ReflectArray.newInstance(rciClass, 0)
+                                XposedHelpers.setObjectField(fakeScanResult, "radioChainInfos", emptyRciArray)
+                            }
+                        } catch (e: Throwable) {
+                        }
                         try {
                             val offsetNanos = (rng.nextInt(200_000) * 1000L)
                             XposedHelpers.setLongField(
@@ -619,68 +642,108 @@ internal fun LocationHooker.hookWifiEnvironment(
         XposedBridge.log(e)
     }
 
-    // 5. WifiScanner Hook
+    // 5. ScanResult.getInformationElements() 防御性 Hook (防止任何第三方或系统统计触发 NPE)
     try {
-        val wifiScannerClass =
-            XposedHelpers.findClassIfExists("android.net.wifi.WifiScanner", classLoader)
-        if (wifiScannerClass != null) {
-            // startScan(ScanSettings, ScanListener) 和重载
-            XposedHelpers.hookAllMethods(wifiScannerClass, "startScan") { chain, method ->
-                val config =
-                    readConfig() ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                if (!config.optBoolean(
-                        "active",
-                        false
-                    )
-                ) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+        XposedHelpers.hookMethod(
+            "android.net.wifi.ScanResult",
+            classLoader,
+            "getInformationElements"
+        ) { chain, _ ->
+            val result = try {
+                chain.proceed(chain.args.toTypedArray())
+            } catch (e: Throwable) {
+                null
+            }
+            return@hookMethod result ?: java.util.Collections.emptyList<Any>()
+        }
+    } catch (e: Throwable) {
+    }
 
-                val listener = chain.args.lastOrNull() ?: return@hookAllMethods null
-                val mockWifi = config.optBoolean("mock_wifi", true)
-                val wifiObj = if (mockWifi) config.optJSONObject("wifi_json") else null
-                if (mockWifi) {
-                    try {
-                        val scanResultClass = XposedHelpers.findClass(
-                            "android.net.wifi.ScanResult",
-                            classLoader
+    // 6. WifiScanner Hook (仅针对普通 App 进程，系统核心进程不拦截避免干扰底层驱动状态机与 DCS)
+    if (!isCoreSystemProcess) {
+        try {
+            val wifiScannerClass =
+                XposedHelpers.findClassIfExists("android.net.wifi.WifiScanner", classLoader)
+            if (wifiScannerClass != null) {
+                // startScan(ScanSettings, ScanListener) 和重载
+                XposedHelpers.hookAllMethods(wifiScannerClass, "startScan") { chain, method ->
+                    val config =
+                        readConfig() ?: return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                    if (!config.optBoolean(
+                            "active",
+                            false
                         )
-                        val baseTimestamp = android.os.SystemClock.elapsedRealtimeNanos()
-                        val fakeList = java.util.ArrayList<Any>()
+                    ) return@hookAllMethods chain.proceed(chain.args.toTypedArray())
 
-                        fun addFakeScanResult(wifi: org.json.JSONObject) {
-                            val fakeScanResult = XposedHelpers.newInstance(scanResultClass)
-                            val ssidVal = wifi.optString("ssid", "")
-                            val bssidVal = wifi.optString("bssid", "")
-                            val finalSsid =
-                                if (ssidVal.isEmpty() || ssidVal == "<unknown ssid>") {
-                                    "WIFI_${bssidVal.takeLast(5).replace(":", "")}"
-                                } else {
-                                    ssidVal
-                                }
-                            XposedHelpers.setObjectField(fakeScanResult, "SSID", finalSsid)
-                            XposedHelpers.setObjectField(fakeScanResult, "BSSID", bssidVal)
-                            val level = wifi.optInt("level", -65)
-                            XposedHelpers.setIntField(fakeScanResult, "level", level)
-                            XposedHelpers.setIntField(
-                                fakeScanResult,
-                                "frequency",
-                                wifi.optInt("frequency", 2412)
+                    val listener = chain.args.lastOrNull() ?: return@hookAllMethods null
+                    val mockWifi = config.optBoolean("mock_wifi", true)
+                    val wifiObj = if (mockWifi) config.optJSONObject("wifi_json") else null
+                    if (mockWifi) {
+                        try {
+                            val scanResultClass = XposedHelpers.findClass(
+                                "android.net.wifi.ScanResult",
+                                classLoader
                             )
-                            XposedHelpers.setObjectField(
-                                fakeScanResult,
-                                "capabilities",
-                                wifi.optString("capabilities", "[WPA2-PSK-CCMP][ESS]")
-                            )
-                            try {
-                                val offsetNanos = (rng.nextInt(200_000) * 1000L)
-                                XposedHelpers.setLongField(
+                            val baseTimestamp = android.os.SystemClock.elapsedRealtimeNanos()
+                            val fakeList = java.util.ArrayList<Any>()
+
+                            fun addFakeScanResult(wifi: org.json.JSONObject) {
+                                val fakeScanResult = XposedHelpers.newInstance(scanResultClass)
+                                val ssidVal = wifi.optString("ssid", "")
+                                val bssidVal = wifi.optString("bssid", "")
+                                val finalSsid =
+                                    if (ssidVal.isEmpty() || ssidVal == "<unknown ssid>") {
+                                        "WIFI_${bssidVal.takeLast(5).replace(":", "")}"
+                                    } else {
+                                        ssidVal
+                                    }
+                                XposedHelpers.setObjectField(fakeScanResult, "SSID", finalSsid)
+                                XposedHelpers.setObjectField(fakeScanResult, "BSSID", bssidVal)
+                                val level = wifi.optInt("level", -65)
+                                XposedHelpers.setIntField(fakeScanResult, "level", level)
+                                XposedHelpers.setIntField(
                                     fakeScanResult,
-                                    "timestamp",
-                                    (baseTimestamp - offsetNanos) / 1000
+                                    "frequency",
+                                    wifi.optInt("frequency", 2412)
                                 )
-                            } catch (e: Throwable) {
+                                XposedHelpers.setObjectField(
+                                    fakeScanResult,
+                                    "capabilities",
+                                    wifi.optString("capabilities", "[WPA2-PSK-CCMP][ESS]")
+                                )
+                                try {
+                                    val ieClass = XposedHelpers.findClassIfExists(
+                                        "android.net.wifi.ScanResult\$InformationElement",
+                                        classLoader
+                                    )
+                                    if (ieClass != null) {
+                                        val emptyIeArray = ReflectArray.newInstance(ieClass, 0)
+                                        XposedHelpers.setObjectField(fakeScanResult, "informationElements", emptyIeArray)
+                                    }
+                                } catch (e: Throwable) {
+                                }
+                                try {
+                                    val rciClass = XposedHelpers.findClassIfExists(
+                                        "android.net.wifi.ScanResult\$RadioChainInfo",
+                                        classLoader
+                                    )
+                                    if (rciClass != null) {
+                                        val emptyRciArray = ReflectArray.newInstance(rciClass, 0)
+                                        XposedHelpers.setObjectField(fakeScanResult, "radioChainInfos", emptyRciArray)
+                                    }
+                                } catch (e: Throwable) {
+                                }
+                                try {
+                                    val offsetNanos = (rng.nextInt(200_000) * 1000L)
+                                    XposedHelpers.setLongField(
+                                        fakeScanResult,
+                                        "timestamp",
+                                        (baseTimestamp - offsetNanos) / 1000
+                                    )
+                                } catch (e: Throwable) {
+                                }
+                                fakeList.add(fakeScanResult)
                             }
-                            fakeList.add(fakeScanResult)
-                        }
 
                         if (wifiObj != null) {
                             val isConnected = wifiObj.optBoolean("isConnected", false)
@@ -805,13 +868,11 @@ internal fun LocationHooker.hookWifiEnvironment(
                 }
                 return@hookAllMethods null
             }
-
-            // startScan(ScanSettings, ScanListener) 和重载
-
         }
     } catch (e: Throwable) {
         XposedBridge.log(e)
     }
+}
 
-    XposedBridge.log("[LocationSpoofer] Wi-Fi environment hooks installed")
+XposedBridge.log("[LocationSpoofer] Wi-Fi environment hooks installed")
 }
