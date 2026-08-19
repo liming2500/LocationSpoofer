@@ -5,8 +5,7 @@ on:
     branches:
       - main
       - master
-    paths:
-      - 'app/build.gradle.kts' # 只有当这个文件变动时才会检查并触发
+  workflow_dispatch: # 允许在 GitHub Actions 网页端手动一键触发
 
 permissions:
   contents: write # 允许 GITHUB_TOKEN 创建 Release 和 Tag
@@ -20,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0 # 需要完整的提交历史来获取 tag 和并生成 changelog
 
-      - name: Check if Version Changed
+      - name: Check Version Status
         id: check_version
         run: |
           # 提取 app/build.gradle.kts 中的 versionName
@@ -28,8 +27,15 @@ jobs:
           echo "当前代码中的 versionName: $VERSION_NAME"
           
           if [ -z "$VERSION_NAME" ]; then
-            echo "未能提取到 versionName，退出。"
+            echo "错误：未能从 app/build.gradle.kts 提取到 versionName，终止流程。"
             exit 1
+          fi
+          
+          # 校验版本号格式（支持 x.y.z 或 x.y.z-beta-n / x.y.z-beta.n）
+          if ! echo "$VERSION_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-beta[-.][0-9]+)?$'; then
+            echo "警告：版本号 '$VERSION_NAME' 不符合标准语义化规范 (如 2.3.6 或 2.3.6-beta-1)，跳过发版。"
+            echo "changed=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
           
           TAG_NAME="v$VERSION_NAME"
@@ -45,14 +51,18 @@ jobs:
             IS_PRERELEASE="false"
           fi
           
-          # 检查对应的 tag 是否已经存在（必须精确匹配行尾，避免 v2.3.6-beta-1 误匹配 v2.3.6）
+          # 检查对应的 tag 是否已经在 GitHub 远端存在（精确匹配行尾，避免 v2.3.6-beta-1 误匹配 v2.3.6）
           if git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -qE "refs/tags/$TAG_NAME(\^\{\})?$"; then
-            echo "Tag $TAG_NAME 已经存在，说明版本没有更新或已发版，跳过后续操作。"
+            echo "Tag $TAG_NAME 已经在 GitHub 远端存在（已发布过），无需重复构建。"
             echo "changed=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           
-          echo "检测到新版本，将构建并发布 $TAG_NAME。"
+          echo "=========================================="
+          echo "检测到未发布的全新版本: $TAG_NAME"
+          echo "版本类型: $([ "$IS_PRERELEASE" = "true" ] && echo "Beta 预发布" || echo "正式稳定版")"
+          echo "状态检查通过，准备构建并发布！"
+          echo "=========================================="
           echo "changed=true" >> $GITHUB_OUTPUT
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
