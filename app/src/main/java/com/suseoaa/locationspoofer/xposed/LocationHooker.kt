@@ -101,6 +101,33 @@ class LocationHooker : XposedModule() {
         handleLoadPackage(pkg, classLoader)
     }
 
+    // LibXposed API 101/102: 系统服务专属入口
+    override fun onSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) {
+        handleLoadPackage("android", param.classLoader)
+    }
+
+    // LibXposed API 102: 热重载请求前置确认与资源清理
+    override fun onHotReloading(param: XposedModuleInterface.HotReloadingParam): Boolean {
+        nmeaTimers.values.forEach { it.cancel() }
+        nmeaTimers.clear()
+        hookedCallbackClasses.clear()
+        capturedLocationListeners.clear()
+        capturedAMapListeners.clear()
+        capturedBaiduListeners.clear()
+        capturedTencentListeners.clear()
+        return true
+    }
+
+    // LibXposed API 102: 热重载完成后重新部署 Hook
+    override fun onHotReloaded(param: XposedModuleInterface.HotReloadedParam) {
+        super.onHotReloaded(param)
+        val pkg = currentPackageName
+        val classLoader = currentClassLoader
+        if (pkg.isNotEmpty() && classLoader != null) {
+            handleLoadPackage(pkg, classLoader)
+        }
+    }
+
 
     companion object {
 
