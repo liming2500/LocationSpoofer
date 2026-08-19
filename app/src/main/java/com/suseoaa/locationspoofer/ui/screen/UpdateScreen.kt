@@ -202,9 +202,9 @@ fun UpdateScreen(
                 }
 
                 items(displayList) { release ->
-                    val isCurrent =
-                        release.versionName.contains(BuildConfig.VERSION_NAME) ||
-                                BuildConfig.VERSION_NAME.contains(release.versionName)
+                    val cleanRelease = release.versionName.trim().lowercase().removePrefix("v")
+                    val cleanCurrent = currentVersion.trim().lowercase().removePrefix("v")
+                    val isCurrent = cleanRelease == cleanCurrent
                     val isMerged = missed.size > 1 && release == displayList.first()
 
                     ReleaseItemCard(

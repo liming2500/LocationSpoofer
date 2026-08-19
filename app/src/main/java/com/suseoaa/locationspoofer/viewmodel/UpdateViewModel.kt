@@ -83,6 +83,10 @@ class UpdateViewModel(private val context: Context) : ViewModel() {
                         }
                     }
 
+                    if (downloadUrl == null && downloadUrl32Bit != null) {
+                        downloadUrl = downloadUrl32Bit
+                    }
+
                     releaseList.add(
                         GithubRelease(
                             tagName,
