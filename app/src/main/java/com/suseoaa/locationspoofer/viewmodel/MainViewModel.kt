@@ -2798,9 +2798,29 @@ class MainViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val locations = environmentDao.getAllCompleteLocations()
-                val jsonStr = kotlinx.serialization.json.Json.encodeToString(locations)
+                val savedLocations = settingsRepository.getSavedLocations()
+                val savedRoutes = locationRepository.getAllSavedRoutesList()
+                val appCoordinateSystems = settingsRepository.getAppCoordinateSystems()
+
+                val dataPackage = com.suseoaa.locationspoofer.data.db.LocationSpooferDataPackage(
+                    version = 2,
+                    exportTimestamp = System.currentTimeMillis(),
+                    appVersion = "2.0.0",
+                    locations = locations,
+                    savedLocations = savedLocations,
+                    savedRoutes = savedRoutes,
+                    appCoordinateSystems = appCoordinateSystems
+                )
+
+                val json = kotlinx.serialization.json.Json {
+                    prettyPrint = true
+                    encodeDefaults = true
+                    ignoreUnknownKeys = true
+                }
+                val jsonStr = json.encodeToString(dataPackage)
+
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(jsonStr.toByteArray())
+                    outputStream.write(jsonStr.toByteArray(Charsets.UTF_8))
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -2813,35 +2833,111 @@ class MainViewModel(
             try {
                 val jsonStr = context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     inputStream.bufferedReader().use { it.readText() }
+                } ?: return@launch
+
+                val json = kotlinx.serialization.json.Json {
+                    ignoreUnknownKeys = true
+                    isLenient = true
+                    coerceInputValues = true
+                    encodeDefaults = true
                 }
-                if (jsonStr != null) {
-                    val locations: List<com.suseoaa.locationspoofer.data.db.CompleteLocation> =
-                        kotlinx.serialization.json.Json.decodeFromString(jsonStr)
-                    locations.forEach { cl ->
-                        val locId = environmentDao.insertLocation(cl.location)
-                        cl.connectedWifi?.let { cw ->
-                            val newCw = cw.copy(locationId = locId)
-                            environmentDao.insertConnectedWifi(newCw)
+
+                var locationsToImport = emptyList<com.suseoaa.locationspoofer.data.db.CompleteLocation>()
+                var savedLocationsToImport = emptyList<SavedLocation>()
+                var savedRoutesToImport = emptyList<com.suseoaa.locationspoofer.data.db.SavedRouteEntity>()
+                var appCoordsToImport = emptyMap<String, String>()
+
+                // 1. 优先尝试按照标准数据包格式 (Version 2) 解析
+                var parsedAsPackage = false
+                try {
+                    val pkg = json.decodeFromString<com.suseoaa.locationspoofer.data.db.LocationSpooferDataPackage>(jsonStr)
+                    locationsToImport = pkg.locations
+                    savedLocationsToImport = pkg.savedLocations
+                    savedRoutesToImport = pkg.savedRoutes
+                    appCoordsToImport = pkg.appCoordinateSystems
+                    parsedAsPackage = true
+                } catch (e: Exception) {
+                    parsedAsPackage = false
+                }
+
+                // 2. 兼容旧版本历史 JSON 导出格式 (List<CompleteLocation> 或 List<SavedLocation>)
+                if (!parsedAsPackage || (locationsToImport.isEmpty() && savedLocationsToImport.isEmpty() && savedRoutesToImport.isEmpty() && appCoordsToImport.isEmpty())) {
+                    try {
+                        val legacyLocations = json.decodeFromString<List<com.suseoaa.locationspoofer.data.db.CompleteLocation>>(jsonStr)
+                        if (legacyLocations.isNotEmpty()) {
+                            locationsToImport = legacyLocations
                         }
-                        cl.wifis.forEach { w ->
-                            environmentDao.insertWifiDevice(w.device)
-                            val lw = w.locationWifi.copy(locationId = locId)
-                            environmentDao.insertLocationWifi(lw)
-                        }
-                        cl.cells.forEach { c ->
-                            environmentDao.insertCellDevice(c.device)
-                            val lc = c.locationCell.copy(locationId = locId)
-                            environmentDao.insertLocationCell(lc)
-                        }
-                        cl.bluetooths.forEach { b ->
-                            environmentDao.insertBluetoothDevice(b.device)
-                            val lb = b.locationBluetooth.copy(locationId = locId)
-                            environmentDao.insertLocationBluetooth(lb)
+                    } catch (e: Exception) {
+                        try {
+                            val legacySaved = json.decodeFromString<List<SavedLocation>>(jsonStr)
+                            if (legacySaved.isNotEmpty()) {
+                                savedLocationsToImport = legacySaved
+                            }
+                        } catch (e2: Exception) {
+                            e2.printStackTrace()
                         }
                     }
-                    val count = environmentDao.getRecordCount()
-                    _uiState.update { it.copy(environmentRecordCount = count) }
-                    launch(Dispatchers.Main) { onComplete() }
+                }
+
+                // 安全导入环境定位点 (通过 copy(id = 0) 消除主键冲突，并正确绑定关联设备外键)
+                locationsToImport.forEach { cl ->
+                    val locId = environmentDao.insertLocation(cl.location.copy(id = 0))
+                    cl.connectedWifi?.let { cw ->
+                        environmentDao.insertConnectedWifi(cw.copy(locationId = locId))
+                    }
+                    cl.wifis.forEach { w ->
+                        environmentDao.insertWifiDevice(w.device)
+                        environmentDao.insertLocationWifi(w.locationWifi.copy(locationId = locId))
+                    }
+                    cl.cells.forEach { c ->
+                        environmentDao.insertCellDevice(c.device)
+                        environmentDao.insertLocationCell(c.locationCell.copy(locationId = locId))
+                    }
+                    cl.bluetooths.forEach { b ->
+                        environmentDao.insertBluetoothDevice(b.device)
+                        environmentDao.insertLocationBluetooth(b.locationBluetooth.copy(locationId = locId))
+                    }
+                }
+
+                // 合并收藏点位 (避免重复点位)
+                if (savedLocationsToImport.isNotEmpty()) {
+                    val currentSaved = settingsRepository.getSavedLocations().toMutableList()
+                    savedLocationsToImport.forEach { loc ->
+                        if (currentSaved.none { it.name == loc.name && it.lat == loc.lat && it.lng == loc.lng }) {
+                            currentSaved.add(loc)
+                        }
+                    }
+                    settingsRepository.setSavedLocations(currentSaved)
+                }
+
+                // 合并保存的路线
+                if (savedRoutesToImport.isNotEmpty()) {
+                    savedRoutesToImport.forEach { route ->
+                        locationRepository.insertSavedRouteEntity(route.copy(id = 0))
+                    }
+                }
+
+                // 合并应用坐标系配置
+                if (appCoordsToImport.isNotEmpty()) {
+                    val currentCoords = settingsRepository.getAppCoordinateSystems().toMutableMap()
+                    currentCoords.putAll(appCoordsToImport)
+                    settingsRepository.setAppCoordinateSystems(currentCoords)
+                }
+
+                val count = environmentDao.getRecordCount()
+                val updatedSaved = settingsRepository.getSavedLocations()
+                val updatedCoords = settingsRepository.getAppCoordinateSystems()
+
+                _uiState.update {
+                    it.copy(
+                        environmentRecordCount = count,
+                        savedLocations = updatedSaved,
+                        appCoordinateSystems = updatedCoords
+                    )
+                }
+
+                launch(Dispatchers.Main) {
+                    onComplete()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

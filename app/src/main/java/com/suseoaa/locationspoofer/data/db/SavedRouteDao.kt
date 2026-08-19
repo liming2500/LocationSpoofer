@@ -12,6 +12,9 @@ interface SavedRouteDao {
     @Query("SELECT * FROM saved_routes ORDER BY timestamp DESC")
     fun getAllSavedRoutes(): Flow<List<SavedRouteEntity>>
 
+    @Query("SELECT * FROM saved_routes ORDER BY timestamp DESC")
+    suspend fun getAllSavedRoutesList(): List<SavedRouteEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSavedRoute(route: SavedRouteEntity)
 

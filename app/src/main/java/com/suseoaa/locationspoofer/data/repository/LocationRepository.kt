@@ -251,6 +251,10 @@ class LocationRepository(
         return savedRouteDao.getAllSavedRoutes()
     }
 
+    suspend fun getAllSavedRoutesList(): List<SavedRouteEntity> {
+        return savedRouteDao.getAllSavedRoutesList()
+    }
+
     suspend fun insertSavedRoute(name: String, points: List<RoutePoint>) {
         val pointsJson = routePointsToJson(points)
         savedRouteDao.insertSavedRoute(
@@ -259,6 +263,10 @@ class LocationRepository(
                 pointsJson = pointsJson
             )
         )
+    }
+
+    suspend fun insertSavedRouteEntity(route: SavedRouteEntity) {
+        savedRouteDao.insertSavedRoute(route)
     }
 
     suspend fun deleteSavedRoute(route: SavedRouteEntity) {

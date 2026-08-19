@@ -101,9 +101,12 @@ class SettingsManager(context: Context) {
                 val obj = jsonArray.getJSONObject(i)
                 list.add(
                     SavedLocation(
-                        obj.getString("name"),
-                        obj.getDouble("lat"),
-                        obj.getDouble("lng")
+                        name = obj.optString("name", ""),
+                        lat = obj.optDouble("lat", 0.0),
+                        lng = obj.optDouble("lng", 0.0),
+                        wifiJson = obj.optString("wifiJson", "[]"),
+                        cellJson = obj.optString("cellJson", "[]"),
+                        bluetoothJson = obj.optString("bluetoothJson", "[]")
                     )
                 )
             }
@@ -115,6 +118,7 @@ class SettingsManager(context: Context) {
 
     fun addSavedLocation(location: SavedLocation) {
         val list = getSavedLocations().toMutableList()
+        list.removeAll { it.name == location.name && it.lat == location.lat && it.lng == location.lng }
         list.add(location)
         saveLocationList(list)
     }
@@ -125,13 +129,16 @@ class SettingsManager(context: Context) {
         saveLocationList(list)
     }
 
-    private fun saveLocationList(list: List<SavedLocation>) {
+    fun saveLocationList(list: List<SavedLocation>) {
         val jsonArray = JSONArray()
         list.forEach {
             val obj = JSONObject()
             obj.put("name", it.name)
             obj.put("lat", it.lat)
             obj.put("lng", it.lng)
+            obj.put("wifiJson", it.wifiJson)
+            obj.put("cellJson", it.cellJson)
+            obj.put("bluetoothJson", it.bluetoothJson)
             jsonArray.put(obj)
         }
         prefs.edit().putString("saved_locations", jsonArray.toString()).apply()

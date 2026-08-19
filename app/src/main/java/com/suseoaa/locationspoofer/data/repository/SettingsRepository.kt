@@ -8,6 +8,8 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
 
     fun getSavedLocations(): List<SavedLocation> = settingsManager.getSavedLocations()
 
+    fun setSavedLocations(locations: List<SavedLocation>) = settingsManager.saveLocationList(locations)
+
     fun addSavedLocation(location: SavedLocation) = settingsManager.addSavedLocation(location)
 
     fun removeSavedLocation(location: SavedLocation) = settingsManager.removeSavedLocation(location)
