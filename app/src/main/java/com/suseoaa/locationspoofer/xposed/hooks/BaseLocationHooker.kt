@@ -811,28 +811,11 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
     }
 
     // 第三方地图SDK深度Hook(高德/腾讯/百度)
-    hookAMapSDK(classLoader)
-    hookTencentSDK(classLoader)
-    hookBaiduSDK(classLoader)
+    hookAllMapSdks(classLoader)
 }
 
 /**
- * 腾讯定位SDK深度Hook
- *
- * 架构分析:
- * TencentLocation在腾讯SDK中是一个**接口(interface)**,不是具体类。
- * 其方法签名为: public interface TencentLocation { double getLatitude(); ... }
- * Xposed的findAndHookMethod无法Hook接口方法(接口没有方法体),
- * 必须找到实现该接口的具体类并对其进行Hook。
- *
- * 腾讯SDK常见的实现类名(不同版本可能不同):
- * - com.tencent.map.geolocation.internal.TencentLocationImpl
- * - com.tencent.map.geolocation.TencentLocationImpl
- * - 部分版本使用ProGuard混淆后类名不固定
- *
- * 策略: 先尝试已知实现类名,若均不存在则降级为hookAllMethods扫描所有实现。
- *
- * 坐标系: GCJ-02(与高德相同)
+ * GNSS 卫星状态与 NMEA 消息拦截模块
  */
 internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
     try {

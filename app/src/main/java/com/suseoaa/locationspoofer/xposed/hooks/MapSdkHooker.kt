@@ -56,7 +56,9 @@ internal fun LocationHooker.hookTencentSDK(classLoader: ClassLoader) {
     for (implClass in implCandidates) {
         val clazz = XposedHelpers.findClassIfExists(implClass, classLoader)
         if (clazz != null) {
-            hookTencentLocationClass(clazz, classLoader)
+            if (hookedCallbackClasses.putIfAbsent(clazz, true) == null) {
+                hookTencentLocationClass(clazz, classLoader)
+            }
             hooked = true
             XposedBridge.log("[LocationSpoofer] TencentLocation impl found: $implClass")
             break
@@ -69,14 +71,14 @@ internal fun LocationHooker.hookTencentSDK(classLoader: ClassLoader) {
             "com.tencent.map.geolocation.TencentLocation", classLoader
         )
         if (interfaceClazz != null && interfaceClazz.isInterface) {
-            // TencentLocation是接口,无法直接Hook。
-            // 但腾讯SDK的定位结果最终会通过TencentLocationListener.onLocationChanged(TencentLocation)
-            // 回调给App。我们Hook这个回调,在App拿到结果前篡改TencentLocation实例的字段。
-            hookTencentLocationCallback(classLoader)
+            if (hookedCallbackClasses.putIfAbsent(interfaceClazz, true) == null) {
+                hookTencentLocationCallback(classLoader)
+            }
             hooked = true
         } else if (interfaceClazz != null) {
-            // 某些版本中TencentLocation是具体类而非接口
-            hookTencentLocationClass(interfaceClazz, classLoader)
+            if (hookedCallbackClasses.putIfAbsent(interfaceClazz, true) == null) {
+                hookTencentLocationClass(interfaceClazz, classLoader)
+            }
             hooked = true
         }
     }
@@ -89,7 +91,7 @@ internal fun LocationHooker.hookTencentSDK(classLoader: ClassLoader) {
     val tencentManagerClass = XposedHelpers.findClassIfExists(
         "com.tencent.map.geolocation.TencentLocationManager", classLoader
     )
-    if (tencentManagerClass != null) {
+    if (tencentManagerClass != null && hookedCallbackClasses.putIfAbsent(tencentManagerClass, true) == null) {
         try {
             XposedHelpers.hookAllMethods(
                 tencentManagerClass,

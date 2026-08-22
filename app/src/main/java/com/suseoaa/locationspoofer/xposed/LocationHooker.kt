@@ -193,7 +193,6 @@ class LocationHooker : XposedModule() {
 
         hookLocationAPIs(classLoader, pkg)
         hookGnssStatus(classLoader)
-        hookAllMapSdks(classLoader)
 
         // 兼容 MultiDex 与二次动态 DexClassLoader (例如百度地图 classes16.dex)
         try {
