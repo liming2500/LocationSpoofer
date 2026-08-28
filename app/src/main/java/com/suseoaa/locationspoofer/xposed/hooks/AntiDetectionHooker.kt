@@ -156,6 +156,82 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
         XposedBridge.log(e)
     }
 
+    // 3. 拦截权限自检 Context / ContextWrapper / ContextImpl
+    try {
+        val permissionList = setOf(
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.ACCESS_BACKGROUND_LOCATION",
+            "android.permission.BLUETOOTH",
+            "android.permission.BLUETOOTH_ADMIN",
+            "android.permission.BLUETOOTH_SCAN",
+            "android.permission.BLUETOOTH_CONNECT",
+            "android.permission.BLUETOOTH_ADVERTISE"
+        )
+        val contextClasses = listOfNotNull(
+            XposedHelpers.findClassIfExists("android.content.Context", classLoader),
+            XposedHelpers.findClassIfExists("android.content.ContextWrapper", classLoader),
+            XposedHelpers.findClassIfExists("android.app.ContextImpl", classLoader)
+        )
+        val permMethods = arrayOf("checkPermission", "checkSelfPermission", "checkCallingOrSelfPermission", "checkCallingPermission")
+        for (ctxClazz in contextClasses) {
+            for (mName in permMethods) {
+                try {
+                    XposedHelpers.hookAllMethods(ctxClazz, mName) { chain, _ ->
+                        val config = readConfig()
+                        if (config != null && config.optBoolean("active", false)) {
+                            val perm = chain.args.firstOrNull { it is String } as? String
+                            if (perm != null && permissionList.contains(perm)) {
+                                return@hookAllMethods 0 // PackageManager.PERMISSION_GRANTED
+                            }
+                        }
+                        return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                    }
+                } catch (_: Throwable) {}
+            }
+        }
+    } catch (_: Throwable) {}
+
+    // 4. 拦截 AppOpsManager 操作权限自检
+    try {
+        val appOpsClass = XposedHelpers.findClassIfExists("android.app.AppOpsManager", classLoader)
+        if (appOpsClass != null) {
+            val opMethods = arrayOf("checkOp", "checkOpNoThrow", "noteOp", "noteOpNoThrow", "noteProxyOp", "noteProxyOpNoThrow")
+            for (mName in opMethods) {
+                try {
+                    XposedHelpers.hookAllMethods(appOpsClass, mName) { chain, _ ->
+                        val config = readConfig()
+                        if (config != null && config.optBoolean("active", false)) {
+                            return@hookAllMethods 0 // AppOpsManager.MODE_ALLOWED
+                        }
+                        return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                    }
+                } catch (_: Throwable) {}
+            }
+        }
+    } catch (_: Throwable) {}
+
+    // 5. 拦截 PackageManager.hasSystemFeature (确保蓝牙LE与定位硬件特性恒支持)
+    try {
+        val appPmClass = XposedHelpers.findClassIfExists("android.app.ApplicationPackageManager", classLoader)
+        val pmClass = XposedHelpers.findClassIfExists("android.content.pm.PackageManager", classLoader)
+        for (clazz in listOfNotNull(appPmClass, pmClass)) {
+            try {
+                XposedHelpers.hookAllMethods(clazz, "hasSystemFeature") { chain, _ ->
+                    val feat = chain.args.firstOrNull { it is String } as? String
+                    if (feat == "android.hardware.bluetooth_le" || feat == "android.hardware.bluetooth" ||
+                        feat == "android.hardware.location.gps" || feat == "android.hardware.location.network") {
+                        val config = readConfig()
+                        if (config != null && config.optBoolean("active", false)) {
+                            return@hookAllMethods true
+                        }
+                    }
+                    return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                }
+            } catch (_: Throwable) {}
+        }
+    } catch (_: Throwable) {}
+
     XposedBridge.log("[LocationSpoofer] Anti-detection hooks installed")
 }
 

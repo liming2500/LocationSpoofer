@@ -33,12 +33,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+
 @Composable
 fun ModernEditDataDialog(
     item: CompleteLocation,
     isDark: Boolean,
     onDismiss: () -> Unit,
-    onSave: (placeName: String, remark: String, selectedWifiBssid: String?, selectedBluetoothAddress: String?, selectedCellKey: String?) -> Unit,
+    onSave: (lat: Double, lng: Double, placeName: String, remark: String, selectedWifiBssid: String?, selectedBluetoothAddress: String?, selectedCellKey: String?) -> Unit,
     onSaveWifi: (bssid: String, ssid: String, frequency: Int, level: Int, capabilities: String, vendor: String, isConnected: Boolean, isDesignated: Boolean) -> Unit,
     onDeleteWifi: (bssid: String) -> Unit,
     onSaveCell: (cellKey: String, type: String, mcc: Int, mnc: Int, tac: Int, ci: Int, pci: Int, lac: Int, cid: Int, psc: Int, nci: Long, networkId: Int, systemId: Int, basestationId: Int, dbm: Int, isRegistered: Boolean, isDesignated: Boolean) -> Unit,
@@ -46,6 +50,12 @@ fun ModernEditDataDialog(
     onSaveBluetooth: (address: String, name: String, scanRecordHex: String, rssi: Int, isDesignated: Boolean) -> Unit,
     onDeleteBluetooth: (address: String) -> Unit
 ) {
+    var latText by remember(item.location.id) {
+        mutableStateOf(String.format(Locale.US, "%.6f", item.location.lat))
+    }
+    var lngText by remember(item.location.id) {
+        mutableStateOf(String.format(Locale.US, "%.6f", item.location.lng))
+    }
     var placeName by remember(item.location.id) { mutableStateOf(item.location.placeName) }
     var remark by remember(item.location.id) { mutableStateOf(item.location.remark) }
     var selectedWifiBssid by remember(item.location.id, item.location.selectedWifiBssid) {
@@ -251,7 +261,7 @@ fun ModernEditDataDialog(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // 坐标概览与环境元数据卡片
+                    // 坐标概览与经纬度编辑卡片
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
@@ -261,7 +271,7 @@ fun ModernEditDataDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -270,22 +280,16 @@ fun ModernEditDataDialog(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        Icons.Rounded.MyLocation,
+                                        Icons.Rounded.Explore,
                                         contentDescription = null,
                                         tint = AccentBlue,
-                                        modifier = Modifier.size(15.dp)
+                                        modifier = Modifier.size(17.dp)
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        text = "${
-                                            String.format(
-                                                Locale.US,
-                                                "%.6f",
-                                                item.location.lat
-                                            )
-                                        }, ${String.format(Locale.US, "%.6f", item.location.lng)}",
+                                        text = stringResource(R.string.edit_coordinates_title),
                                         fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
+                                        fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
@@ -295,6 +299,81 @@ fun ModernEditDataDialog(
                                     fontSize = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                                 )
+                            }
+
+                            Text(
+                                text = stringResource(R.string.edit_coordinates_desc),
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                lineHeight = 16.sp
+                            )
+
+                            // 经纬度输入行
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // 纬度输入
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                        Text(
+                                            text = stringResource(R.string.latitude),
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                        BasicTextField(
+                                            value = latText,
+                                            onValueChange = { latText = it },
+                                            textStyle = TextStyle(
+                                                fontSize = 13.5.sp,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                        )
+                                    }
+                                }
+
+                                // 经度输入
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                        Text(
+                                            text = stringResource(R.string.longitude),
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                        BasicTextField(
+                                            value = lngText,
+                                            onValueChange = { lngText = it },
+                                            textStyle = TextStyle(
+                                                fontSize = 13.5.sp,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                        )
+                                    }
+                                }
                             }
 
                             Row(
@@ -587,7 +666,11 @@ fun ModernEditDataDialog(
                     }
 
                     Button(
-                        onClick = { onSave(placeName, remark, selectedWifiBssid, selectedBluetoothAddress, selectedCellKey) },
+                        onClick = {
+                            val parsedLat = latText.toDoubleOrNull() ?: item.location.lat
+                            val parsedLng = lngText.toDoubleOrNull() ?: item.location.lng
+                            onSave(parsedLat, parsedLng, placeName, remark, selectedWifiBssid, selectedBluetoothAddress, selectedCellKey)
+                        },
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
                         modifier = Modifier

@@ -106,6 +106,9 @@ interface EnvironmentDao {
     @Query("UPDATE location_records SET selectedBluetoothAddress = :selectedBluetoothAddress WHERE id = :id")
     suspend fun updateSelectedBluetooth(id: Long, selectedBluetoothAddress: String?)
 
-    @Query("UPDATE location_records SET placeName = :placeName, remark = :remark, selectedWifiBssid = :selectedWifiBssid, selectedBluetoothAddress = :selectedBluetoothAddress, selectedCellKey = :selectedCellKey WHERE id = :id")
-    suspend fun updateMetadata(id: Long, placeName: String, remark: String, selectedWifiBssid: String?, selectedBluetoothAddress: String?, selectedCellKey: String?)
+    @Query("UPDATE location_records SET lat = :lat, lng = :lng, placeName = :placeName, remark = :remark, selectedWifiBssid = :selectedWifiBssid, selectedBluetoothAddress = :selectedBluetoothAddress, selectedCellKey = :selectedCellKey WHERE id = :id")
+    suspend fun updateMetadata(id: Long, lat: Double, lng: Double, placeName: String, remark: String, selectedWifiBssid: String?, selectedBluetoothAddress: String?, selectedCellKey: String?)
+
+    @Query("UPDATE location_records SET lat = :lat, lng = :lng WHERE id = :id")
+    suspend fun updateCoordinates(id: Long, lat: Double, lng: Double)
 }

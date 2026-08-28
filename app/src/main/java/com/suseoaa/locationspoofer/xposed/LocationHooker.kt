@@ -40,6 +40,7 @@ class LocationHooker : XposedModule() {
     }
 
     internal val nmeaTimers = ConcurrentHashMap<Any, java.util.Timer>()
+    internal val bleScanTimers = ConcurrentHashMap<Any, java.util.Timer>()
     internal val hookedCallbackClasses = ConcurrentHashMap<Class<*>, Boolean>()
 
     // 用于跟踪活动的 Android LocationListener，实现动态主动欺骗
@@ -110,6 +111,8 @@ class LocationHooker : XposedModule() {
     override fun onHotReloading(param: XposedModuleInterface.HotReloadingParam): Boolean {
         nmeaTimers.values.forEach { it.cancel() }
         nmeaTimers.clear()
+        bleScanTimers.values.forEach { it.cancel() }
+        bleScanTimers.clear()
         hookedCallbackClasses.clear()
         capturedLocationListeners.clear()
         capturedAMapListeners.clear()
@@ -161,15 +164,15 @@ class LocationHooker : XposedModule() {
             currentClassLoader = classLoader
         }
 
-        // 防止注入到 SystemUI 导致崩溃
-        if (pkg == "com.android.systemui") {
+        // 防止注入到 SystemUI 或 com.android.bluetooth 导致崩溃或 SELinux 违规
+        if (pkg == "com.android.systemui" || pkg == "com.android.bluetooth" || processName.contains("com.android.bluetooth")) {
             return
         }
 
         val isSystemServer =
             (pkg == "android") || (processName == "android") || (processName == "system_server")
 
-        // 可选：过滤掉容易引发安全模式的几个核心进程，但不影响设置或网络定位进程
+        // 可选：过滤掉容易引发安全模式或核心系统进程
         val isCoreSystemProcess = isSystemServer ||
                 processName == "com.android.phone" ||
                 processName == "com.android.systemui"
@@ -304,57 +307,30 @@ class LocationHooker : XposedModule() {
     internal val pollingLock = Any()
     internal val localConfigPath = "/data/local/tmp/locationspoofer_config.json"
     internal val systemConfigPath = "/data/system/locationspoofer_config.json"
+    internal val appDataConfigPath = "/data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json"
+    internal val sdcardConfigPath = "/sdcard/Download/locationspoofer_config.json"
 
     internal fun logOpenCellConfigLoaded(source: String, config: JSONObject) {
         val cellArray = config.optJSONArray("cell_json")
         val cellCount = cellArray?.length() ?: 0
-        val firstCell =
-            if (cellArray != null && cellArray.length() > 0) cellArray.optJSONObject(0) else null
-        val firstSummary = if (firstCell != null) {
-            val type =
-                normalizeCellType(firstCell.optString("type", firstCell.optString("radio", "LTE")))
-            val mcc = positiveJsonInt(firstCell, "mcc", default = 460)
-            val mnc = positiveJsonInt(firstCell, "mnc", "net", default = 0)
-            val area = cellAreaCode(firstCell, 0)
-            val identity = cellIdentityCode(firstCell, 0)
-            "$type/$mcc-$mnc area=$area identity=$identity"
-        } else {
-            "none"
-        }
-        val logKey = "${config.optBoolean("active", false)}|${
-            config.optBoolean(
-                "mock_cell",
-                true
-            )
-        }|${config.optDouble("lat", 0.0)}|${config.optDouble("lng", 0.0)}|$cellCount|$firstSummary"
+        val btArray = config.optJSONArray("bluetooth_json")
+        val btCount = btArray?.length() ?: 0
+        val active = config.optBoolean("active", false)
+        val mockBt = config.optBoolean("mock_bluetooth", true)
+        val lat = config.optDouble("lat", 0.0)
+        val lng = config.optDouble("lng", 0.0)
+        val logKey = "$active|$mockBt|$lat|$lng|$cellCount|$btCount"
         if (logKey != lastOpenCellConfigLogKey) {
             lastOpenCellConfigLogKey = logKey
-            XposedBridge.logOpenCellId(
-                "readConfig[$source] active=${
-                    config.optBoolean(
-                        "active",
-                        false
-                    )
-                } mockCell=${config.optBoolean("mock_cell", true)} lat=${
-                    config.optDouble(
-                        "lat",
-                        0.0
-                    )
-                } lng=${
-                    config.optDouble(
-                        "lng",
-                        0.0
-                    )
-                } cellJsonCount=$cellCount firstCell=$firstSummary"
-            )
+            XposedBridge.log("[LocationSpoofer] 配置已加载[$source]: active=$active, mock_bluetooth=$mockBt, lat=$lat, lng=$lng, 蓝牙设备数=$btCount, 基站数=$cellCount")
         }
     }
 
     internal fun configReadPaths(): Array<String> {
         return if (android.os.Process.myUid() == 1000) {
-            arrayOf(systemConfigPath, localConfigPath)
+            arrayOf(systemConfigPath, localConfigPath, appDataConfigPath, sdcardConfigPath)
         } else {
-            arrayOf(localConfigPath, systemConfigPath)
+            arrayOf(localConfigPath, systemConfigPath, appDataConfigPath, sdcardConfigPath)
         }
     }
 

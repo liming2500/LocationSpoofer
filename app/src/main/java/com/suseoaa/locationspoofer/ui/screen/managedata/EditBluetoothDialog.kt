@@ -260,7 +260,17 @@ fun EditBluetoothDialog(
                             ),
                             minLines = 2,
                             maxLines = 3,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            decorationBox = { inner ->
+                                if (scanRecordHex.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.bt_scan_record_hint),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    )
+                                }
+                                inner()
+                            }
                         )
                     }
 

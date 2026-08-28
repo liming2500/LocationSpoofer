@@ -954,6 +954,8 @@ class MainViewModel(
                         val latLngPrefix = context.getString(R.string.lat_lng_format_prefix)
                         environmentDao.updateMetadata(
                             newestLocation.id,
+                            lat,
+                            lng,
                             context.getString(R.string.wigle_import),
                             "$latLngPrefix (${String.format("%.6f", lat)}, ${
                                 String.format(
@@ -1025,6 +1027,8 @@ class MainViewModel(
                         val latLngPrefix = context.getString(R.string.lat_lng_format_prefix)
                         environmentDao.updateMetadata(
                             newestLocation.id,
+                            lat,
+                            lng,
                             context.getString(R.string.opencellid_import),
                             "$latLngPrefix (${String.format("%.6f", lat)}, ${
                                 String.format(
@@ -2080,6 +2084,8 @@ class MainViewModel(
 
     fun updateManageDataMetadata(
         id: Long,
+        lat: Double,
+        lng: Double,
         placeName: String,
         remark: String,
         selectedWifiBssid: String?,
@@ -2089,6 +2095,8 @@ class MainViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             environmentDao.updateMetadata(
                 id,
+                lat,
+                lng,
                 placeName,
                 remark,
                 selectedWifiBssid,

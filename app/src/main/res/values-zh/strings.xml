@@ -442,9 +442,12 @@
     <string name="bt_address_hint">例如: AA:BB:CC:11:22:33</string>
     <string name="bt_rssi_label">信号强度 (RSSI: %1$d dBm)</string>
     <string name="bt_scan_record_label">广播包十六进制 (ScanRecordHex - 可选)</string>
+    <string name="bt_scan_record_hint">例如: 02010403033CFE... (直接粘贴31字节广播数据)</string>
     <string name="designated_bt_badge">模拟首选</string>
     <string name="no_designated_bt">自动默认 (跟随扫描)</string>
     <string name="no_bt_data_in_record">该记录暂无蓝牙数据，点击右上角「+ 添加蓝牙」创建</string>
     <string name="delete_bt_confirm">确定要删除蓝牙设备 \"%1$s\" 吗？</string>
     <string name="save_bt">保存蓝牙</string>
+    <string name="edit_coordinates_title">采集点经纬度</string>
+    <string name="edit_coordinates_desc">修改本采集点绑定的坐标，在目标地点开启模拟时即可复用此处采集的 Wi-Fi、基站与蓝牙环境数据</string>
 </resources>

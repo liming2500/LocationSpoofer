@@ -806,6 +806,42 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
             XposedBridge.log("[LocationSpoofer] Failed to hook getLastKnownLocation: $e")
         }
 
+        // Hook isLocationEnabled & isProviderEnabled (确保应用自检定位开启状态时恒为 true)
+        try {
+            val lmClazz = XposedHelpers.findClass("android.location.LocationManager", classLoader)
+            XposedHelpers.hookAllMethods(lmClazz, "isLocationEnabled") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    return@hookAllMethods true
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+
+            XposedHelpers.hookAllMethods(lmClazz, "isProviderEnabled") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    return@hookAllMethods true
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+
+            XposedHelpers.hookAllMethods(lmClazz, "getAllProviders") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    return@hookAllMethods listOf("gps", "network", "passive")
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+
+            XposedHelpers.hookAllMethods(lmClazz, "getProviders") { chain, _ ->
+                val config = readConfig()
+                if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
+                    return@hookAllMethods listOf("gps", "network", "passive")
+                }
+                return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+            }
+        } catch (_: Throwable) {}
+
     } catch (e: Throwable) {
         XposedBridge.log(e)
     }

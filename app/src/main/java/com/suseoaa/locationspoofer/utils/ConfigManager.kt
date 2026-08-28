@@ -151,6 +151,10 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
         val command = """
             chmod 777 /data/local/tmp 2>/dev/null || true
             chmod 755 /data/local 2>/dev/null || true
+            mkdir -p /data/data/com.suseoaa.locationspoofer/files 2>/dev/null || true
+            chmod 755 /data/data/com.suseoaa.locationspoofer 2>/dev/null || true
+            chmod 755 /data/data/com.suseoaa.locationspoofer/files 2>/dev/null || true
+            mkdir -p /sdcard/Download 2>/dev/null || true
             cat > /data/local/tmp/locationspoofer_config_tmp.json
             chmod 666 /data/local/tmp/locationspoofer_config_tmp.json
             chcon u:object_r:shell_data_file:s0 /data/local/tmp/locationspoofer_config_tmp.json 2>/dev/null || true
@@ -158,6 +162,10 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
             chown system:system /data/system/locationspoofer_config_tmp.json 2>/dev/null || true
             chmod 666 /data/system/locationspoofer_config_tmp.json
             chcon u:object_r:system_data_file:s0 /data/system/locationspoofer_config_tmp.json 2>/dev/null || true
+            cp /data/local/tmp/locationspoofer_config_tmp.json /data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json
+            chmod 666 /data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json 2>/dev/null || true
+            cp /data/local/tmp/locationspoofer_config_tmp.json /sdcard/Download/locationspoofer_config.json 2>/dev/null || true
+            chmod 666 /sdcard/Download/locationspoofer_config.json 2>/dev/null || true
             mv /data/local/tmp/locationspoofer_config_tmp.json /data/local/tmp/locationspoofer_config.json
             mv /data/system/locationspoofer_config_tmp.json /data/system/locationspoofer_config.json
             chmod 666 /data/local/tmp/locationspoofer_config.json 2>/dev/null || true

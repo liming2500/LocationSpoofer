@@ -442,9 +442,12 @@ Error details: %s</string>
     <string name="bt_address_hint">e.g. AA:BB:CC:11:22:33</string>
     <string name="bt_rssi_label">Signal RSSI (%1$d dBm)</string>
     <string name="bt_scan_record_label">Scan Record Hex (Optional)</string>
+    <string name="bt_scan_record_hint">e.g. 02010403033CFE... (Paste 31-byte raw broadcast data)</string>
     <string name="designated_bt_badge">Simulated Preferred</string>
     <string name="no_designated_bt">Auto Default (Follow Scan)</string>
     <string name="no_bt_data_in_record">No Bluetooth data in this record. Tap \"+ Add Bluetooth\" above to create.</string>
     <string name="delete_bt_confirm">Are you sure you want to delete Bluetooth device \"%1$s\"?</string>
     <string name="save_bt">Save Bluetooth</string>
+    <string name="edit_coordinates_title">Point Coordinates</string>
+    <string name="edit_coordinates_desc">Modify the coordinates of this collected point to reuse its Wi-Fi, Cell, and Bluetooth environment data at the target location</string>
 </resources>

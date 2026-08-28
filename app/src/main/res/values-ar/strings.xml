@@ -440,9 +440,12 @@
     <string name="bt_address_hint">مثال: AA:BB:CC:11:22:33</string>
     <string name="bt_rssi_label">قوة الإشارة (RSSI: %1$d dBm)</string>
     <string name="bt_scan_record_label">حزمة البث الست عشرية (ScanRecordHex - اختياري)</string>
+    <string name="bt_scan_record_hint">مثال: 02010403033CFE...</string>
     <string name="designated_bt_badge">المفضل للمحاكاة</string>
     <string name="no_designated_bt">تلقائي افتراضي (حسب المسح)</string>
     <string name="no_bt_data_in_record">لا توجد بيانات بلوتوث في هذا السجل، انقر على \"+ إضافة بلوتوث\" في الأعلى للإنشاء</string>
     <string name="delete_bt_confirm">هل أنت متأكد من حذف جهاز البلوتوث \"%1$s\"؟</string>
     <string name="save_bt">حفظ البلوتوث</string>
+    <string name="edit_coordinates_title">إحداثيات نقطة الجمع</string>
+    <string name="edit_coordinates_desc">تعديل الإحداثيات المرتبطة بنقطة الجمع هذه لإعادة استخدام بيانات بيئة Wi-Fi والخلية والبلوتوث في الموقع الهدف</string>
 </resources>

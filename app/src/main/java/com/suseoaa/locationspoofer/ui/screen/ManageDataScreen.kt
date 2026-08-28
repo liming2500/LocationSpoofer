@@ -255,20 +255,7 @@ fun ManageDataScreen(
                                 item = item,
                                 isDark = isDark,
                                 onClick = {
-                                    viewModel.updateLatitude(
-                                        String.format(
-                                            Locale.US,
-                                            "%.6f",
-                                            item.location.lat
-                                        )
-                                    )
-                                    viewModel.updateLongitude(
-                                        String.format(
-                                            Locale.US,
-                                            "%.6f",
-                                            item.location.lng
-                                        )
-                                    )
+                                    viewModel.selectCollectedLocation(item.location.id)
                                     mapController?.animateCamera(
                                         item.location.lat,
                                         item.location.lng,
@@ -310,15 +297,18 @@ fun ManageDataScreen(
             item = currentItem,
             isDark = isDark,
             onDismiss = { editingItem = null },
-            onSave = { placeName, remark, selectedWifiBssid, selectedBluetoothAddress, selectedCellKey ->
+            onSave = { lat, lng, placeName, remark, selectedWifiBssid, selectedBluetoothAddress, selectedCellKey ->
                 viewModel.updateManageDataMetadata(
                     currentItem.location.id,
+                    lat,
+                    lng,
                     placeName,
                     remark,
                     selectedWifiBssid,
                     selectedBluetoothAddress,
                     selectedCellKey
                 )
+                viewModel.selectCollectedLocation(currentItem.location.id)
                 editingItem = null
             },
             onSaveWifi = { bssid, ssid, frequency, level, capabilities, vendor, isConnected, isDesignated ->

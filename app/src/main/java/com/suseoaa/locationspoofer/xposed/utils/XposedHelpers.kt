@@ -44,6 +44,8 @@ import io.github.libxposed.api.*
 object XposedHelpers {
     lateinit var module: XposedModule
 
+    fun isModuleInitialized(): Boolean = ::module.isInitialized
+
     private val fieldCache = ConcurrentHashMap<String, Field?>()
     private val methodCache = ConcurrentHashMap<String, Method?>()
 
@@ -264,10 +266,43 @@ object XposedHelpers {
 object XposedBridge {
     private val openCellLogLastTimes = ConcurrentHashMap<String, Long>()
 
-    fun log(msg: String) {}
-    fun logOpenCellId(msg: String) {}
-    fun logOpenCellId(msg: String, t: Throwable) {}
-    fun logOpenCellIdEvery(key: String, msg: String, intervalMs: Long = 10_000L) {}
-    fun log(t: Throwable) {}
+    fun log(msg: String) {
+        try {
+            android.util.Log.i("LocationSpoofer", msg)
+        } catch (_: Throwable) {}
+        try {
+            if (XposedHelpers.isModuleInitialized()) {
+                XposedHelpers.module.log(android.util.Log.INFO, "LocationSpoofer", msg)
+            }
+        } catch (_: Throwable) {}
+    }
+    fun logOpenCellId(msg: String) {
+        log(msg)
+    }
+    fun logOpenCellId(msg: String, t: Throwable) {
+        try {
+            android.util.Log.e("LocationSpoofer", msg, t)
+        } catch (_: Throwable) {}
+    }
+    fun logOpenCellIdEvery(key: String, msg: String, intervalMs: Long = 10_000L) {
+        val now = System.currentTimeMillis()
+        val last = openCellLogLastTimes[key] ?: 0L
+        if (now - last > intervalMs) {
+            openCellLogLastTimes[key] = now
+            try {
+                android.util.Log.d("LocationSpoofer", "[$key] $msg")
+            } catch (_: Throwable) {}
+        }
+    }
+    fun log(t: Throwable) {
+        try {
+            android.util.Log.e("LocationSpoofer", "Exception", t)
+        } catch (_: Throwable) {}
+        try {
+            if (XposedHelpers.isModuleInitialized()) {
+                XposedHelpers.module.log(android.util.Log.ERROR, "LocationSpoofer", t.message ?: "Exception", t)
+            }
+        } catch (_: Throwable) {}
+    }
 }
 
