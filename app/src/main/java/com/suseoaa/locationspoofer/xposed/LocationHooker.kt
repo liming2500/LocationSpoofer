@@ -172,17 +172,20 @@ class LocationHooker : XposedModule() {
         val isSystemServer =
             (pkg == "android") || (processName == "android") || (processName == "system_server")
 
-        // 可选：过滤掉容易引发安全模式或核心系统进程
+        // 核心系统进程：system_server, com.android.phone 等
         val isCoreSystemProcess = isSystemServer ||
                 processName == "com.android.phone" ||
                 processName == "com.android.systemui"
 
-        // 系统进程：允许执行所有的环境数据Hook，实现系统原生界面的完美覆盖
-        // if (SYSTEM_PACKAGES.contains(pkg)) {
-        //     hookLocationAPIs(classLoader, pkg)
-        //     return
-        // }
-
+        if (isCoreSystemProcess) {
+            // 系统进程仅执行基础的位置与 GNSS Hook，绝对不 Hook 系统的 Wi-Fi、基站、网络状态与蓝牙底层状态机
+            // 避免破坏系统 internal 状态机引发 NullPointerException 导致 system_server 崩溃进入安全模式
+            XposedBridge.log("[LocationSpoofer] Core system process ($pkg / $processName) detected, skipping environment hooks to prevent system crash.")
+            hookLocationAPIs(classLoader, pkg)
+            hookGnssStatus(classLoader)
+            readConfig()
+            return
+        }
 
         XposedBridge.log("[LocationSpoofer] Hooking package: $pkg")
         android.util.Log.e(
@@ -237,10 +240,6 @@ class LocationHooker : XposedModule() {
         hookBluetoothLE(classLoader, isCoreSystemProcess)
         SensorStepHooker.hookSensorStepSimulation(classLoader)
 
-        // ★ 关键: 在注入完成后立即预启动 ConfigPoller 守护线程
-        // 之前只在 readConfig() 被 hook 调用时才启动，但如果目标 App 从不调用被 hook 的方法
-        // (如高德地图自身不调用 AMapLocationClient.getLatitude())，ConfigPoller 就永远不会启动
-        // 现在改为在注入时就立即启动，确保每个被注入的进程都有 ConfigPoller 在运行
         readConfig()
     }
 

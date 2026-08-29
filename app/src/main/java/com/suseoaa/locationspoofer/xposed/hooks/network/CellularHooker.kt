@@ -429,12 +429,15 @@ internal fun LocationHooker.hookCellEnvironment(
             events = events and 0x10.inv()   // 监听基站位置
             events = events and 0x100.inv()  // 监听信号强度
             events = events and 0x400.inv()  // 监听基站信息
-            chain.args[1] = events
+            val newArgs = chain.args.toTypedArray().clone()
+            if (newArgs.size > 1) {
+                newArgs[1] = events
+            }
             XposedBridge.logOpenCellIdEvery(
                 "listen:sanitized:$originalEvents:$events",
                 "TelephonyManager.listen sanitized events=0x${events.toString(16)}"
             )
-            return@hookMethod chain.proceed(chain.args.toTypedArray())
+            return@hookMethod chain.proceed(newArgs)
         }
         XposedBridge.logOpenCellId("Installed TelephonyManager.listen hook")
     } catch (e: Throwable) {
@@ -577,9 +580,12 @@ internal fun LocationHooker.hookCellEnvironment(
                         lng,
                         freshConfig
                     )
-                    innerChain.args[0] = fakeCells
+                    val newArgs = innerChain.args.toTypedArray().clone()
+                    if (newArgs.isNotEmpty()) {
+                        newArgs[0] = fakeCells
+                    }
                     XposedBridge.logOpenCellId("TelephonyCallback.onCellInfoChanged injected fakeCells=${fakeCells.size}")
-                    return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                    return@hookAllMethods innerChain.proceed(newArgs)
                 }
             }
 
@@ -606,15 +612,16 @@ internal fun LocationHooker.hookCellEnvironment(
                             false
                         )
                     ) return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
-                    buildFakeServiceState(
+                    val fakeState = buildFakeServiceState(
                         classLoader,
                         freshConfig.optJSONArray("cell_json")
                     )
-                        ?.let {
-                            innerChain.args[0] = it
-                            XposedBridge.logOpenCellId("TelephonyCallback.onServiceStateChanged injected fake ServiceState")
-                        }
-                    return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                    val newArgs = innerChain.args.toTypedArray().clone()
+                    if (fakeState != null && newArgs.isNotEmpty()) {
+                        newArgs[0] = fakeState
+                        XposedBridge.logOpenCellId("TelephonyCallback.onServiceStateChanged injected fake ServiceState")
+                    }
+                    return@hookAllMethods innerChain.proceed(newArgs)
                 }
             }
 
@@ -641,12 +648,13 @@ internal fun LocationHooker.hookCellEnvironment(
                             false
                         )
                     ) return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
-                    buildFakeSignalStrength(classLoader, freshConfig)
-                        ?.let {
-                            innerChain.args[0] = it
-                            XposedBridge.logOpenCellId("TelephonyCallback.onSignalStrengthsChanged injected fake SignalStrength")
-                        }
-                    return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
+                    val fakeSignal = buildFakeSignalStrength(classLoader, freshConfig)
+                    val newArgs = innerChain.args.toTypedArray().clone()
+                    if (fakeSignal != null && newArgs.isNotEmpty()) {
+                        newArgs[0] = fakeSignal
+                        XposedBridge.logOpenCellId("TelephonyCallback.onSignalStrengthsChanged injected fake SignalStrength")
+                    }
+                    return@hookAllMethods innerChain.proceed(newArgs)
                 }
             }
             return@hookAllMethods chain.proceed(chain.args.toTypedArray())
