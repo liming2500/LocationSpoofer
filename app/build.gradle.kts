@@ -140,4 +140,9 @@ dependencies {
     implementation(libs.miuix.blur)
 
     debugImplementation(libs.androidx.ui.tooling)
+
+    testImplementation(libs.junit)
+    // 真实的 org.json 实现：Android 平台 jar 里的 org.json 是桩实现，
+    // 方法体直接抛 "not mocked"，测试用的类路径顺序会让这个真实依赖优先生效。
+    testImplementation(libs.org.json)
 }

@@ -185,7 +185,9 @@ object MacVendorHelper {
     fun frequencyToChannel(freq: Int): Int {
         return when {
             freq == 2484 -> 14
-            freq in 2407..2472 -> (freq - 2407) / 5 + 1
+            // 2.4GHz 信道 1 对应 2412MHz，不是 2407MHz——用 2407 会让每个信道号偏大 1，
+            // 且让 2472MHz(信道13) 和 2484MHz(信道14) 撞在一起都算成 14。
+            freq in 2412..2472 -> (freq - 2412) / 5 + 1
             freq in 5170..5825 -> (freq - 5170) / 5 + 34
             else -> 0
         }

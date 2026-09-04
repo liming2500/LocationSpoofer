@@ -57,7 +57,9 @@ import com.suseoaa.locationspoofer.ui.theme.AccentOrange
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.utils.MapCoverageHelper
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
+import com.suseoaa.locationspoofer.viewmodel.ManageDataViewModel
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @SuppressLint("LocalContextGetResourceValueCall")
@@ -67,7 +69,8 @@ fun RouteTab(
     uiState: AppState,
     mapController: AppMapController?,
     isActive: Boolean = true,
-    bottomBarHeight: Dp = 90.dp
+    bottomBarHeight: Dp = 90.dp,
+    manageDataViewModel: ManageDataViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
     var showMapTypeDialog by remember { mutableStateOf(false) }
@@ -142,13 +145,14 @@ fun RouteTab(
         mapController?.setMapType(uiState.mapType)
     }
 
+    val manageDataList = manageDataViewModel.uiState.collectAsState().value.dataList
     var liveMarker by remember { mutableStateOf<AppMapMarker?>(null) }
-    LaunchedEffect(routePoints, mapController, uiState.manageDataList, isActive) {
+    LaunchedEffect(routePoints, mapController, manageDataList, isActive) {
         if (!isActive) return@LaunchedEffect
         val map = mapController ?: return@LaunchedEffect
         map.clear()
         liveMarker = null
-        val locations = uiState.manageDataList.map { it.location }
+        val locations = manageDataList.map { it.location }
         MapCoverageHelper.drawCoverage(map, locations)
 
         if (routePoints.size >= 2) {

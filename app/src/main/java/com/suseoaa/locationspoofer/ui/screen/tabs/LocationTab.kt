@@ -8,62 +8,42 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarOutline
-import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -73,25 +53,20 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
-import com.suseoaa.locationspoofer.data.model.SavedLocation
 import com.suseoaa.locationspoofer.data.model.SearchMode
 import com.suseoaa.locationspoofer.ui.components.AppMapController
 import com.suseoaa.locationspoofer.ui.components.LocalEnvironmentDataDialog
 import com.suseoaa.locationspoofer.ui.screen.*
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
-import com.suseoaa.locationspoofer.ui.theme.AccentOrange
-import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
-import com.suseoaa.locationspoofer.viewmodel.UpdateViewModel
+import com.suseoaa.locationspoofer.viewmodel.ManageDataViewModel
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import com.suseoaa.locationspoofer.ui.screen.tabs.location.*
@@ -104,13 +79,12 @@ fun LocationTab(
     uiState: AppState,
     mapController: AppMapController?,
     tabBarHeight: Dp = 90.dp,
-    updateViewModel: UpdateViewModel = koinViewModel()
+    manageDataViewModel: ManageDataViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val spoofingUiState by viewModel.spoofingUiState.collectAsState()
-    val updateUiState by updateViewModel.uiState.collectAsState()
     val isDark = isSystemInDarkTheme()
     val coroutineScope = rememberCoroutineScope()
     val searchFocusRequester = remember { FocusRequester() }
@@ -155,7 +129,7 @@ fun LocationTab(
     ) { uri ->
         uri?.let {
             viewModel.importEnvironmentData(it) {
-                viewModel.loadManageData()
+                manageDataViewModel.loadManageData()
                 Toast.makeText(context, context.getString(R.string.import_merge_success), Toast.LENGTH_SHORT).show()
             }
         }
@@ -298,7 +272,7 @@ fun LocationTab(
                     MapControlButton(
                         icon = Icons.Rounded.Storage,
                         onClick = {
-                            viewModel.loadManageData()
+                            manageDataViewModel.loadManageData()
                             showLocalDataDialog = true
                         }
                     )
@@ -471,9 +445,10 @@ fun LocationTab(
     }
 
     if (showLocalDataDialog) {
+        val manageDataUiState by manageDataViewModel.uiState.collectAsState()
         LocalEnvironmentDataDialog(
-            dataList = uiState.manageDataList,
-            isLoading = uiState.manageDataIsLoading,
+            dataList = manageDataUiState.dataList,
+            isLoading = manageDataUiState.isLoading,
             onSelectPoint = { item ->
                 val lat = item.location.lat
                 val lng = item.location.lng

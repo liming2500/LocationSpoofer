@@ -37,6 +37,8 @@ import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.utils.MapCoverageHelper
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
+import com.suseoaa.locationspoofer.viewmodel.ManageDataViewModel
+import org.koin.androidx.compose.koinViewModel
 import java.util.Locale
 
 @Composable
@@ -44,13 +46,19 @@ fun ManageDataScreen(
     viewModel: MainViewModel,
     uiState: com.suseoaa.locationspoofer.data.model.AppState,
     isDark: Boolean,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    manageDataViewModel: ManageDataViewModel = koinViewModel()
 ) {
     var mapController by remember { mutableStateOf<AppMapController?>(null) }
     var editingItem by remember { mutableStateOf<CompleteLocation?>(null) }
     var itemToDelete by remember { mutableStateOf<CompleteLocation?>(null) }
 
-    val dataList = uiState.manageDataList
+    val manageDataUiState by manageDataViewModel.uiState.collectAsState()
+    val dataList = manageDataUiState.dataList
+
+    LaunchedEffect(dataList) {
+        viewModel.onManageDataChanged()
+    }
 
     BackHandler(onBack = onClose)
 
@@ -128,7 +136,7 @@ fun ManageDataScreen(
                 }
             }
 
-            if (uiState.manageDataIsLoading) {
+            if (manageDataUiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -298,7 +306,7 @@ fun ManageDataScreen(
             isDark = isDark,
             onDismiss = { editingItem = null },
             onSave = { lat, lng, placeName, remark, selectedWifiBssid, selectedBluetoothAddress, selectedCellKey ->
-                viewModel.updateManageDataMetadata(
+                manageDataViewModel.updateManageDataMetadata(
                     currentItem.location.id,
                     lat,
                     lng,
@@ -312,7 +320,7 @@ fun ManageDataScreen(
                 editingItem = null
             },
             onSaveWifi = { bssid, ssid, frequency, level, capabilities, vendor, isConnected, isDesignated ->
-                viewModel.saveOrUpdateLocationWifi(
+                manageDataViewModel.saveOrUpdateLocationWifi(
                     locationId = currentItem.location.id,
                     bssid = bssid,
                     ssid = ssid,
@@ -325,13 +333,13 @@ fun ManageDataScreen(
                 )
             },
             onDeleteWifi = { bssid ->
-                viewModel.deleteLocationWifi(
+                manageDataViewModel.deleteLocationWifi(
                     locationId = currentItem.location.id,
                     bssid = bssid
                 )
             },
             onSaveCell = { cellKey, type, mcc, mnc, tac, ci, pci, lac, cid, psc, nci, networkId, systemId, basestationId, dbm, isRegistered, isDesignated ->
-                viewModel.saveOrUpdateLocationCell(
+                manageDataViewModel.saveOrUpdateLocationCell(
                     locationId = currentItem.location.id,
                     cellKey = cellKey,
                     type = type,
@@ -353,13 +361,13 @@ fun ManageDataScreen(
                 )
             },
             onDeleteCell = { cellKey ->
-                viewModel.deleteLocationCell(
+                manageDataViewModel.deleteLocationCell(
                     locationId = currentItem.location.id,
                     cellKey = cellKey
                 )
             },
             onSaveBluetooth = { address, name, scanRecordHex, rssi, isDesignated ->
-                viewModel.saveOrUpdateLocationBluetooth(
+                manageDataViewModel.saveOrUpdateLocationBluetooth(
                     locationId = currentItem.location.id,
                     address = address,
                     name = name,
@@ -369,7 +377,7 @@ fun ManageDataScreen(
                 )
             },
             onDeleteBluetooth = { address ->
-                viewModel.deleteLocationBluetooth(
+                manageDataViewModel.deleteLocationBluetooth(
                     locationId = currentItem.location.id,
                     address = address
                 )
@@ -471,7 +479,7 @@ fun ManageDataScreen(
 
                         Button(
                             onClick = {
-                                viewModel.deleteManageDataSingle(targetItem.location.id)
+                                manageDataViewModel.deleteManageDataSingle(targetItem.location.id)
                                 itemToDelete = null
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
