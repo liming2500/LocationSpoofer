@@ -71,11 +71,6 @@
             android:name=".service.FloatingJoystickService"
             android:enabled="true"
             android:exported="false" />
-
-        <provider
-            android:name=".provider.SpooferProvider"
-            android:authorities="com.suseoaa.locationspoofer.provider"
-            android:exported="true" />
     </application>
 
 </manifest>

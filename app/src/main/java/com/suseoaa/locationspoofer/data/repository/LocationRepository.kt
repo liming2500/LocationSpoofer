@@ -7,7 +7,7 @@ import android.os.Build
 import com.suseoaa.locationspoofer.data.db.SavedRouteDao
 import com.suseoaa.locationspoofer.data.db.SavedRouteEntity
 import com.suseoaa.locationspoofer.data.model.RoutePoint
-import com.suseoaa.locationspoofer.provider.SpooferProvider
+import com.suseoaa.locationspoofer.data.state.SpoofingState
 import com.suseoaa.locationspoofer.service.SpoofingService
 import com.suseoaa.locationspoofer.utils.ConfigManager
 import com.suseoaa.locationspoofer.utils.LSPosedManager
@@ -50,18 +50,18 @@ class LocationRepository(
         stepCadenceSpm: Int = 165,
         isAutoCadence: Boolean = true
     ) {
-        SpooferProvider.isActive = true
-        SpooferProvider.latitude = lat
-        SpooferProvider.longitude = lng
-        SpooferProvider.startTimestamp = startTime
-        SpooferProvider.simMode = simMode
-        SpooferProvider.simBearing = simBearing
-        SpooferProvider.wifiJson = wifiJson
-        SpooferProvider.cellJson = cellJson
-        SpooferProvider.bluetoothJson = bluetoothJson
-        SpooferProvider.routeJson = routePointsToJson(routePoints)
-        SpooferProvider.isRouteMode = isRouteMode
-        SpooferProvider.enableJitter = enableJitter
+        SpoofingState.isActive = true
+        SpoofingState.latitude = lat
+        SpoofingState.longitude = lng
+        SpoofingState.startTimestamp = startTime
+        SpoofingState.simMode = simMode
+        SpoofingState.simBearing = simBearing
+        SpoofingState.wifiJson = wifiJson
+        SpoofingState.cellJson = cellJson
+        SpoofingState.bluetoothJson = bluetoothJson
+        SpoofingState.routeJson = routePointsToJson(routePoints)
+        SpoofingState.isRouteMode = isRouteMode
+        SpoofingState.enableJitter = enableJitter
 
         val alt = settingsManager.altitude.toDoubleOrNull() ?: 0.0
         val satCount = settingsManager.satelliteCount.toIntOrNull() ?: 20
@@ -74,10 +74,10 @@ class LocationRepository(
             startTime,
             routePoints,
             isRouteMode,
-            SpooferProvider.wifiJson,
+            SpoofingState.wifiJson,
             appCoordinateSystems,
-            SpooferProvider.cellJson,
-            SpooferProvider.bluetoothJson,
+            SpoofingState.cellJson,
+            SpoofingState.bluetoothJson,
             mockWifi,
             mockCell,
             mockBluetooth,
@@ -101,14 +101,14 @@ class LocationRepository(
     }
 
     suspend fun stopSpoofing(context: Context) {
-        SpooferProvider.isActive = false
-        SpooferProvider.latitude = 0.0
-        SpooferProvider.longitude = 0.0
-        SpooferProvider.wifiJson = "[]"
-        SpooferProvider.cellJson = "[]"
-        SpooferProvider.bluetoothJson = "[]"
-        SpooferProvider.routeJson = "[]"
-        SpooferProvider.isRouteMode = false
+        SpoofingState.isActive = false
+        SpoofingState.latitude = 0.0
+        SpoofingState.longitude = 0.0
+        SpoofingState.wifiJson = "[]"
+        SpoofingState.cellJson = "[]"
+        SpoofingState.bluetoothJson = "[]"
+        SpoofingState.routeJson = "[]"
+        SpoofingState.isRouteMode = false
         configManager.saveConfig(0.0, 0.0, false)
 
         // 1. 同步在当前进程清理所有可能残留的 TestProvider
@@ -164,9 +164,9 @@ class LocationRepository(
         routePoints: List<RoutePoint>,
         isRouteMode: Boolean,
         appCoordinateSystems: Map<String, String>,
-        wifiJson: String = SpooferProvider.wifiJson,
-        cellJson: String = SpooferProvider.cellJson,
-        bluetoothJson: String = SpooferProvider.bluetoothJson,
+        wifiJson: String = SpoofingState.wifiJson,
+        cellJson: String = SpoofingState.cellJson,
+        bluetoothJson: String = SpoofingState.bluetoothJson,
         mockWifi: Boolean = true,
         mockCell: Boolean = true,
         mockBluetooth: Boolean = true,
@@ -177,17 +177,17 @@ class LocationRepository(
         stepCadenceSpm: Int = 165,
         isAutoCadence: Boolean = true
     ) {
-        SpooferProvider.latitude = lat
-        SpooferProvider.longitude = lng
-        SpooferProvider.startTimestamp = startTime
-        SpooferProvider.simMode = simMode
-        SpooferProvider.simBearing = simBearing
-        SpooferProvider.routeJson = routePointsToJson(routePoints)
-        SpooferProvider.isRouteMode = isRouteMode
-        SpooferProvider.wifiJson = wifiJson
-        SpooferProvider.cellJson = cellJson
-        SpooferProvider.bluetoothJson = bluetoothJson
-        SpooferProvider.enableJitter = enableJitter
+        SpoofingState.latitude = lat
+        SpoofingState.longitude = lng
+        SpoofingState.startTimestamp = startTime
+        SpoofingState.simMode = simMode
+        SpoofingState.simBearing = simBearing
+        SpoofingState.routeJson = routePointsToJson(routePoints)
+        SpoofingState.isRouteMode = isRouteMode
+        SpoofingState.wifiJson = wifiJson
+        SpoofingState.cellJson = cellJson
+        SpoofingState.bluetoothJson = bluetoothJson
+        SpoofingState.enableJitter = enableJitter
         val alt = settingsManager.altitude.toDoubleOrNull() ?: 0.0
         val satCount = settingsManager.satelliteCount.toIntOrNull() ?: 20
         configManager.saveConfig(
@@ -199,10 +199,10 @@ class LocationRepository(
             startTime,
             routePoints,
             isRouteMode,
-            SpooferProvider.wifiJson,
+            SpoofingState.wifiJson,
             appCoordinateSystems,
-            SpooferProvider.cellJson,
-            SpooferProvider.bluetoothJson,
+            SpoofingState.cellJson,
+            SpoofingState.bluetoothJson,
             mockWifi,
             mockCell,
             mockBluetooth,
@@ -218,19 +218,19 @@ class LocationRepository(
     }
 
     suspend fun updateWifiJson(wifiJson: String, appCoordinateSystems: Map<String, String>) {
-        SpooferProvider.wifiJson = wifiJson
+        SpoofingState.wifiJson = wifiJson
         // 同步写入配置文件,确保Xposed端能读取到WiFi数据
         configManager.saveConfig(
-            SpooferProvider.latitude,
-            SpooferProvider.longitude,
-            SpooferProvider.isActive,
-            SpooferProvider.simMode,
-            SpooferProvider.simBearing,
-            startTimestamp = SpooferProvider.startTimestamp,
+            SpoofingState.latitude,
+            SpoofingState.longitude,
+            SpoofingState.isActive,
+            SpoofingState.simMode,
+            SpoofingState.simBearing,
+            startTimestamp = SpoofingState.startTimestamp,
             wifiJson = wifiJson,
             appCoordinateSystems = appCoordinateSystems,
-            cellJson = SpooferProvider.cellJson,
-            bluetoothJson = SpooferProvider.bluetoothJson,
+            cellJson = SpoofingState.cellJson,
+            bluetoothJson = SpoofingState.bluetoothJson,
             altitude = settingsManager.altitude.toDoubleOrNull() ?: 0.0,
             satelliteCount = settingsManager.satelliteCount.toIntOrNull() ?: 20
         )

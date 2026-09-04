@@ -7,10 +7,40 @@ import java.io.InputStreamReader
 
 class RootManager {
 
+    companion object {
+        private const val TAG = "LocationSpoofer"
+
+        /** 承载跨进程配置文件的专属 SELinux type，不再蹭 shell_data_file/system_data_file 这类通用类型 */
+        const val CONFIG_SELINUX_TYPE = "locationspoofer_config_file"
+
+        /**
+         * 需要读取配置文件的域。
+         * untrusted_app_all 是 AOSP 定义的属性，会自动覆盖所有 untrusted_app_NN 变体
+         * （包括未来新增的 API level），比手动枚举 _25/_27/_29 更可靠——
+         * 实测枚举法漏掉了 untrusted_app_34（见 avc denied 日志），改用属性后天然向前兼容。
+         * gmscore_app 是 Google Play 服务的专属域，不属于 untrusted_app 家族，需要单独授权。
+         */
+        private val SEPOLICY_READ_DOMAINS = listOf(
+            "untrusted_app_all",
+            "untrusted_app",
+            "gmscore_app",
+            "platform_app",
+            "system_app"
+        )
+
+        /** 三种 root 方案的 live sepolicy patch 工具，按顺序探测，谁能用就用谁 */
+        private val SEPOLICY_TOOL_PROBES = listOf(
+            "magiskpolicy --live" to "command -v magiskpolicy",
+            "ksud sepolicy patch" to "command -v ksud",
+            "/data/adb/ap/bin/magiskpolicy --live" to "[ -x /data/adb/ap/bin/magiskpolicy ]"
+        )
+    }
+
     suspend fun checkRootAccess(): Boolean = withContext(Dispatchers.IO) {
         val hasRoot = executeCommand("id").contains("uid=0(root)")
         if (hasRoot) {
             applyRootBackgroundExemptions()
+            ensureSepolicyRules()
         }
         hasRoot
     }
@@ -18,7 +48,7 @@ class RootManager {
     suspend fun applyRootBackgroundExemptions(packageName: String = "com.suseoaa.locationspoofer"): Boolean =
         withContext(Dispatchers.IO) {
             val cmds = """
-            chmod 777 /data/local/tmp 2>/dev/null || true
+            chmod 755 /data/local/tmp 2>/dev/null || true
             chmod 755 /data/local 2>/dev/null || true
             dumpsys deviceidle whitelist +$packageName 2>/dev/null || true
             cmd appops set $packageName RUN_IN_BACKGROUND allow 2>/dev/null || true
@@ -30,6 +60,78 @@ class RootManager {
             val result = executeCommand(cmds)
             result != "ERROR"
         }
+
+    /**
+     * 为跨进程配置文件动态打入 live SELinux 策略：新建专属 type，只放行需要读它的域。
+     * 取代旧的"chmod 666 + 蹭 shell_data_file/system_data_file 通用类型"方案。
+     * 三种 root 方案（Magisk / KernelSU / APatch）语法通用，探测不到任何工具时记录日志、不做兜底降级。
+     *
+     * 规则不能作为内联 CLI 参数拼进 `su -c "..."` 字符串下发：实测在 KernelSU 上，
+     * 带空格/花括号的引号参数经过 su -c 转发后会被拆成多个参数，导致 ksud/magiskpolicy
+     * 把规则解析错(报 "unexpected argument")。改为把规则写成脚本文件、用 sh 执行该文件，
+     * 规则内容不再经过任何命令行参数层，从根上避免这类跨 shell 转发丢引号的问题。
+     */
+    suspend fun ensureSepolicyRules(): Boolean = withContext(Dispatchers.IO) {
+        val tool = SEPOLICY_TOOL_PROBES.firstOrNull { (_, probe) -> toolAvailable(probe) }?.first
+        if (tool == null) {
+            android.util.Log.w(
+                TAG,
+                "未找到可用的 sepolicy 工具（magiskpolicy/ksud），配置文件可能无法被目标应用读取"
+            )
+            return@withContext false
+        }
+
+        val typeRule = "type $CONFIG_SELINUX_TYPE file_type,data_file_type"
+        // 每个域名单独下发一条 allow 语句，而不是合并成一条 allow { a b c }：
+        // 后者只要有一个域名在当前 ROM/API level 上不存在就会导致整条规则失败,
+        // 拆开后单个域名解析失败只影响它自己那一条。
+        val allowRules = SEPOLICY_READ_DOMAINS.map { domain ->
+            "allow $domain $CONFIG_SELINUX_TYPE file { read open getattr }"
+        }
+
+        val script = buildString {
+            appendLine("$tool '$typeRule' >/dev/null 2>&1")
+            appendLine("echo TYPE_EXIT:\$?")
+            allowRules.forEachIndexed { index, rule ->
+                appendLine("$tool '$rule' >/dev/null 2>&1")
+                appendLine("echo ALLOW_${index}_EXIT:\$?")
+            }
+        }
+        val scriptPath = "/data/local/tmp/.lsp_sepolicy_apply.sh"
+        val runCommand = """
+            cat > $scriptPath
+            chmod 700 $scriptPath 2>/dev/null || true
+            sh $scriptPath
+            rm -f $scriptPath 2>/dev/null || true
+        """.trimIndent()
+        val output = executeCommandWithInput(runCommand, script)
+
+        val typeOk = Regex("TYPE_EXIT:(\\d+)").find(output)?.groupValues?.get(1) == "0"
+        val allowResults = allowRules.indices.map { index ->
+            Regex("ALLOW_${index}_EXIT:(\\d+)").find(output)?.groupValues?.get(1) == "0"
+        }
+        val allowOkCount = allowResults.count { it }
+
+        if (!typeOk) {
+            android.util.Log.w(TAG, "sepolicy type 规则应用失败（工具: $tool），输出: $output")
+        }
+        if (allowOkCount < allowRules.size) {
+            val failedDomains = SEPOLICY_READ_DOMAINS.filterIndexed { i, _ -> !allowResults[i] }
+            android.util.Log.w(TAG, "以下域的 sepolicy 授权失败（该域名可能在本机不存在）: $failedDomains")
+        }
+        if (typeOk && allowOkCount > 0) {
+            android.util.Log.i(
+                TAG,
+                "sepolicy 规则已通过 $tool 应用（${allowOkCount}/${allowRules.size} 个域授权成功）"
+            )
+        }
+        typeOk && allowOkCount > 0
+    }
+
+    private fun toolAvailable(probeCommand: String): Boolean {
+        val result = executeCommand("$probeCommand >/dev/null 2>&1; echo EXIT:\$?")
+        return result.trim().endsWith("EXIT:0")
+    }
 
     suspend fun grantMockLocation(): Boolean = withContext(Dispatchers.IO) {
         val result =

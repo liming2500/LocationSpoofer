@@ -341,8 +341,8 @@ class EnvironmentScanner(private val context: Context) {
                 // 开始扫描
                 scanner.startScan(callback)
 
-                // 2 秒后停止扫描
-                kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                // 2 秒后停止扫描；绑定到外层挂起协程的 context，避免脱离生命周期成为孤儿协程
+                kotlinx.coroutines.CoroutineScope(cont.context).launch {
                     delay(2000)
                     try {
                         scanner.stopScan(callback)

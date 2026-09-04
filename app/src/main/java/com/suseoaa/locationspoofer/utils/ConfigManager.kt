@@ -147,29 +147,33 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
         val cellCount = json.optJSONArray("cell_json")?.length() ?: 0
 
         // 使用 stdin 写入，避免命令行过长 (ARG_MAX) 导致 su 执行失败，实现实时更新
+        // 权限模型：DAC 只开到 644（owner=root 读写，其余只读，不再世界可写），
+        // 真正决定"谁能读"的是 SELinux 专属 type + 域授权（见 RootManager.ensureSepolicyRules），
+        // 不再依赖 shell_data_file/system_data_file 这类通用类型，也不再落一份到 /sdcard/Download 外部存储。
+        val selinuxType = RootManager.CONFIG_SELINUX_TYPE
         val jsonText = json.toString()
         val command = """
-            chmod 777 /data/local/tmp 2>/dev/null || true
+            chmod 755 /data/local/tmp 2>/dev/null || true
             chmod 755 /data/local 2>/dev/null || true
             mkdir -p /data/data/com.suseoaa.locationspoofer/files 2>/dev/null || true
             chmod 755 /data/data/com.suseoaa.locationspoofer 2>/dev/null || true
             chmod 755 /data/data/com.suseoaa.locationspoofer/files 2>/dev/null || true
-            mkdir -p /sdcard/Download 2>/dev/null || true
             cat > /data/local/tmp/locationspoofer_config_tmp.json
-            chmod 666 /data/local/tmp/locationspoofer_config_tmp.json
-            chcon u:object_r:shell_data_file:s0 /data/local/tmp/locationspoofer_config_tmp.json 2>/dev/null || true
+            chmod 644 /data/local/tmp/locationspoofer_config_tmp.json
+            chcon u:object_r:$selinuxType:s0 /data/local/tmp/locationspoofer_config_tmp.json 2>/dev/null || true
             cp /data/local/tmp/locationspoofer_config_tmp.json /data/system/locationspoofer_config_tmp.json
             chown system:system /data/system/locationspoofer_config_tmp.json 2>/dev/null || true
-            chmod 666 /data/system/locationspoofer_config_tmp.json
-            chcon u:object_r:system_data_file:s0 /data/system/locationspoofer_config_tmp.json 2>/dev/null || true
+            chmod 644 /data/system/locationspoofer_config_tmp.json
+            chcon u:object_r:$selinuxType:s0 /data/system/locationspoofer_config_tmp.json 2>/dev/null || true
             cp /data/local/tmp/locationspoofer_config_tmp.json /data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json
-            chmod 666 /data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json 2>/dev/null || true
-            cp /data/local/tmp/locationspoofer_config_tmp.json /sdcard/Download/locationspoofer_config.json 2>/dev/null || true
-            chmod 666 /sdcard/Download/locationspoofer_config.json 2>/dev/null || true
+            chmod 644 /data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json 2>/dev/null || true
+            chcon u:object_r:$selinuxType:s0 /data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json 2>/dev/null || true
             mv /data/local/tmp/locationspoofer_config_tmp.json /data/local/tmp/locationspoofer_config.json
             mv /data/system/locationspoofer_config_tmp.json /data/system/locationspoofer_config.json
-            chmod 666 /data/local/tmp/locationspoofer_config.json 2>/dev/null || true
-            chmod 666 /data/system/locationspoofer_config.json 2>/dev/null || true
+            chmod 644 /data/local/tmp/locationspoofer_config.json 2>/dev/null || true
+            chmod 644 /data/system/locationspoofer_config.json 2>/dev/null || true
+            chcon u:object_r:$selinuxType:s0 /data/local/tmp/locationspoofer_config.json 2>/dev/null || true
+            chcon u:object_r:$selinuxType:s0 /data/system/locationspoofer_config.json 2>/dev/null || true
         """.trimIndent()
 
         val result = rootManager.executeCommandWithInput(command, jsonText)

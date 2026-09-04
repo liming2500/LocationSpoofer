@@ -43,7 +43,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.suseoaa.locationspoofer.data.repository.SettingsRepository
-import com.suseoaa.locationspoofer.provider.SpooferProvider
+import com.suseoaa.locationspoofer.data.state.SpoofingState
 import com.suseoaa.locationspoofer.utils.ConfigManager
 import com.suseoaa.locationspoofer.utils.RootManager
 import com.suseoaa.locationspoofer.utils.SettingsManager
@@ -123,7 +123,7 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
                         onJoystickChanged = { angle, intensity ->
                             if (intensity > 0) {
                                 val bearing = (Math.toDegrees(angle) + 90 + 360) % 360
-                                SpooferProvider.simBearing = bearing.toFloat()
+                                SpoofingState.simBearing = bearing.toFloat()
                                 updateLocationBasedOnJoystick(bearing, intensity)
                             } else {
                                 lifecycleScope.launch {
@@ -134,15 +134,15 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
                                         SettingsManager(this@FloatingJoystickService)
                                     )
                                     configManager.saveConfig(
-                                        lat = SpooferProvider.latitude,
-                                        lng = SpooferProvider.longitude,
-                                        active = SpooferProvider.isActive,
-                                        simMode = SpooferProvider.simMode,
-                                        simBearing = SpooferProvider.simBearing,
-                                        startTimestamp = SpooferProvider.startTimestamp,
-                                        wifiJson = SpooferProvider.wifiJson,
-                                        cellJson = SpooferProvider.cellJson,
-                                        bluetoothJson = SpooferProvider.bluetoothJson,
+                                        lat = SpoofingState.latitude,
+                                        lng = SpoofingState.longitude,
+                                        active = SpoofingState.isActive,
+                                        simMode = SpoofingState.simMode,
+                                        simBearing = SpoofingState.simBearing,
+                                        startTimestamp = SpoofingState.startTimestamp,
+                                        wifiJson = SpoofingState.wifiJson,
+                                        cellJson = SpoofingState.cellJson,
+                                        bluetoothJson = SpoofingState.bluetoothJson,
                                         appCoordinateSystems = settingsRepo.getAppCoordinateSystems(),
                                         mockWifi = settingsRepo.mockWifi,
                                         mockCell = settingsRepo.mockCell,
@@ -176,8 +176,8 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
         val R = 6378137.0
         val bearingRad = Math.toRadians(bearing)
 
-        val latRad = Math.toRadians(SpooferProvider.latitude)
-        val lngRad = Math.toRadians(SpooferProvider.longitude)
+        val latRad = Math.toRadians(SpoofingState.latitude)
+        val lngRad = Math.toRadians(SpoofingState.longitude)
 
         val newLatRad = Math.asin(
             sin(latRad) * cos(distance / R) + cos(latRad) * sin(distance / R) * cos(bearingRad)
@@ -187,23 +187,23 @@ class FloatingJoystickService : Service(), LifecycleOwner, ViewModelStoreOwner,
             cos(distance / R) - sin(latRad) * sin(newLatRad)
         )
 
-        SpooferProvider.latitude = Math.toDegrees(newLatRad)
-        SpooferProvider.longitude = Math.toDegrees(newLngRad)
-        SpooferProvider.startTimestamp = now // 将模拟开始时间重置为当前时间，以避免位置跳跃
+        SpoofingState.latitude = Math.toDegrees(newLatRad)
+        SpoofingState.longitude = Math.toDegrees(newLngRad)
+        SpoofingState.startTimestamp = now // 将模拟开始时间重置为当前时间，以避免位置跳跃
 
         if (now - lastConfigSaveTime > 1000) {
             lastConfigSaveTime = now
             lifecycleScope.launch {
                 configManager.saveConfig(
-                    lat = SpooferProvider.latitude,
-                    lng = SpooferProvider.longitude,
-                    active = SpooferProvider.isActive,
-                    simMode = SpooferProvider.simMode,
-                    simBearing = SpooferProvider.simBearing,
-                    startTimestamp = SpooferProvider.startTimestamp,
-                    wifiJson = SpooferProvider.wifiJson,
-                    cellJson = SpooferProvider.cellJson,
-                    bluetoothJson = SpooferProvider.bluetoothJson,
+                    lat = SpoofingState.latitude,
+                    lng = SpoofingState.longitude,
+                    active = SpoofingState.isActive,
+                    simMode = SpoofingState.simMode,
+                    simBearing = SpoofingState.simBearing,
+                    startTimestamp = SpoofingState.startTimestamp,
+                    wifiJson = SpoofingState.wifiJson,
+                    cellJson = SpoofingState.cellJson,
+                    bluetoothJson = SpoofingState.bluetoothJson,
                     appCoordinateSystems = settingsRepo.getAppCoordinateSystems(),
                     mockWifi = settingsRepo.mockWifi,
                     mockCell = settingsRepo.mockCell,

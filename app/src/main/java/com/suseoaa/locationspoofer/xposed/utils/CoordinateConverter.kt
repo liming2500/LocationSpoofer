@@ -16,6 +16,7 @@
 
 package com.suseoaa.locationspoofer.xposed.utils
 
+import com.suseoaa.locationspoofer.utils.CoordinateUtils
 import com.suseoaa.locationspoofer.xposed.LocationHooker
 import org.json.JSONObject
 import kotlin.math.*
@@ -32,72 +33,30 @@ import kotlin.math.*
  * 提供各个坐标系之间的精确数学转换。
  */
 
+// 实际数学实现统一收敛到 com.suseoaa.locationspoofer.utils.CoordinateUtils（唯一 source of truth），
+// 这里保留 LocationHooker 扩展函数签名只是为了不改动 Hook 层现有的调用写法。
 internal fun LocationHooker.wgs84ToGcj02(wgsLat: Double, wgsLng: Double): Pair<Double, Double> {
-    if (wgsLng < 72.004 || wgsLng > 137.8347 || wgsLat < 0.8293 || wgsLat > 55.8271)
-        return Pair(wgsLat, wgsLng)
-    val dLat = gcjTransformLat(wgsLng - 105.0, wgsLat - 35.0)
-    val dLng = gcjTransformLng(wgsLng - 105.0, wgsLat - 35.0)
-    val radLat = wgsLat / 180.0 * Math.PI
-    var magic = sin(radLat)
-    magic = 1 - GCJ_EE * magic * magic
-    val sqrtMagic = sqrt(magic)
-    val mLat = (dLat * 180.0) / ((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic) * Math.PI)
-    val mLng = (dLng * 180.0) / (GCJ_A / sqrtMagic * cos(radLat) * Math.PI)
-    return Pair(wgsLat + mLat, wgsLng + mLng)
+    val r = CoordinateUtils.wgs84ToGcj02(wgsLat, wgsLng)
+    return Pair(r.lat, r.lng)
 }
 
 /**
  * GCJ-02 转 WGS-84（采用高精度反向迭代逼近算法，误差小于 0.5 毫米）
  */
 internal fun LocationHooker.gcj02ToWgs84(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {
-    if (gcjLng < 72.004 || gcjLng > 137.8347 || gcjLat < 0.8293 || gcjLat > 55.8271)
-        return Pair(gcjLat, gcjLng)
-    var wgsLat = gcjLat
-    var wgsLng = gcjLng
-    for (i in 0 until 3) {
-        val (currGcjLat, currGcjLng) = wgs84ToGcj02(wgsLat, wgsLng)
-        wgsLat -= (currGcjLat - gcjLat)
-        wgsLng -= (currGcjLng - gcjLng)
-    }
-    return Pair(wgsLat, wgsLng)
-}
-
-internal fun LocationHooker.gcjTransformLat(x: Double, y: Double): Double {
-    var ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * sqrt(abs(x))
-    ret += (20.0 * sin(6.0 * x * Math.PI) + 20.0 * sin(2.0 * x * Math.PI)) * 2.0 / 3.0
-    ret += (20.0 * sin(y * Math.PI) + 40.0 * sin(y / 3.0 * Math.PI)) * 2.0 / 3.0
-    ret += (160.0 * sin(y / 12.0 * Math.PI) + 320.0 * sin(y * Math.PI / 30.0)) * 2.0 / 3.0
-    return ret
-}
-
-internal fun LocationHooker.gcjTransformLng(x: Double, y: Double): Double {
-    var ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * sqrt(abs(x))
-    ret += (20.0 * sin(6.0 * x * Math.PI) + 20.0 * sin(2.0 * x * Math.PI)) * 2.0 / 3.0
-    ret += (20.0 * sin(x * Math.PI) + 40.0 * sin(x / 3.0 * Math.PI)) * 2.0 / 3.0
-    ret += (150.0 * sin(x / 12.0 * Math.PI) + 300.0 * sin(x / 30.0 * Math.PI)) * 2.0 / 3.0
-    return ret
+    val r = CoordinateUtils.gcj02ToWgs84(gcjLat, gcjLng)
+    return Pair(r.lat, r.lng)
 }
 
 // GCJ-02 转 BD-09 转换(百度坐标系)
-/** 百度坐标系旋转频率常量: pi * 3000 / 180 */
 internal fun LocationHooker.gcj02ToBd09(gcjLat: Double, gcjLng: Double): Pair<Double, Double> {
-    val x = gcjLng
-    val y = gcjLat
-    val z = sqrt(x * x + y * y) + 0.00002 * sin(y * BD_PI)
-    val theta = atan2(y, x) + 0.000003 * cos(x * BD_PI)
-    val bdLng = z * cos(theta) + 0.0065
-    val bdLat = z * sin(theta) + 0.006
-    return Pair(bdLat, bdLng)
+    val r = CoordinateUtils.gcj02ToBd09(gcjLat, gcjLng)
+    return Pair(r.lat, r.lng)
 }
 
 internal fun LocationHooker.bd09ToGcj02(bdLat: Double, bdLng: Double): Pair<Double, Double> {
-    val x = bdLng - 0.0065
-    val y = bdLat - 0.006
-    val z = sqrt(x * x + y * y) - 0.00002 * sin(y * BD_PI)
-    val theta = atan2(y, x) - 0.000003 * cos(x * BD_PI)
-    val gcjLng = z * cos(theta)
-    val gcjLat = z * sin(theta)
-    return Pair(gcjLat, gcjLng)
+    val r = CoordinateUtils.bd09ToGcj02(bdLat, bdLng)
+    return Pair(r.lat, r.lng)
 }
 
 /**

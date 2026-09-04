@@ -23,7 +23,7 @@ import com.suseoaa.locationspoofer.data.model.SearchMode
 import com.suseoaa.locationspoofer.data.repository.LocationRepository
 import com.suseoaa.locationspoofer.data.repository.SettingsRepository
 import com.suseoaa.locationspoofer.data.repository.WifiRepository
-import com.suseoaa.locationspoofer.provider.SpooferProvider
+import com.suseoaa.locationspoofer.data.state.SpoofingState
 import com.suseoaa.locationspoofer.service.SpoofingService
 import com.suseoaa.locationspoofer.ui.screen.AppPoiItem
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
@@ -1232,11 +1232,11 @@ class MainViewModel(
                 showCoordinateError = false
             )
         }
-        // 实时同步给 SpooferProvider
-        SpooferProvider.latitude = newLat
-        SpooferProvider.longitude = newLng
-        SpooferProvider.simBearing = bearing.toFloat()
-        SpooferProvider.startTimestamp = System.currentTimeMillis()
+        // 实时同步给 SpoofingState
+        SpoofingState.latitude = newLat
+        SpoofingState.longitude = newLng
+        SpoofingState.simBearing = bearing.toFloat()
+        SpoofingState.startTimestamp = System.currentTimeMillis()
     }
 
     // 路线规划状态机
@@ -1349,7 +1349,7 @@ class MainViewModel(
                     lng = lng,
                     simMode = "STILL",
                     simBearing = 0f,
-                    startTime = SpooferProvider.startTimestamp,
+                    startTime = SpoofingState.startTimestamp,
                     routePoints = emptyList(),
                     isRouteMode = false,
                     appCoordinateSystems = updatedState.appCoordinateSystems,
@@ -1525,10 +1525,10 @@ class MainViewModel(
         val now = System.currentTimeMillis()
         val speed = getEffectiveSpeedMs()
 
-        SpooferProvider.startTimestamp = now
-        SpooferProvider.latitude = startPoint.lat
-        SpooferProvider.longitude = startPoint.lng
-        SpooferProvider.simBearing = 0f
+        SpoofingState.startTimestamp = now
+        SpoofingState.latitude = startPoint.lat
+        SpoofingState.longitude = startPoint.lng
+        SpoofingState.simBearing = 0f
 
         viewModelScope.launch {
             locationRepository.startSpoofing(
@@ -1682,7 +1682,7 @@ class MainViewModel(
     /**
      * 循环模式自动移动。
      * 按路点顺序移动，到终点后反向，不断循环。
-     * 同时实时同步坐标到 SpooferProvider。
+     * 同时实时同步坐标到 SpoofingState。
      */
     private fun startAutoRouteLoop() {
         autoRouteJob?.cancel()
@@ -1772,7 +1772,7 @@ class MainViewModel(
     private var lastDbQueryLat: Double = 0.0
     private var lastDbQueryLng: Double = 0.0
 
-    /** 更新当前模拟位置到 UI 和 SpooferProvider */
+    /** 更新当前模拟位置到 UI 和 SpoofingState */
     private fun updatePosition(lat: Double, lng: Double, bearing: Float) {
         _uiState.update {
             it.copy(
@@ -1782,9 +1782,9 @@ class MainViewModel(
                 showCoordinateError = false
             )
         }
-        SpooferProvider.latitude = lat
-        SpooferProvider.longitude = lng
-        SpooferProvider.simBearing = bearing
+        SpoofingState.latitude = lat
+        SpoofingState.longitude = lng
+        SpoofingState.simBearing = bearing
 
         // 检查是否需要查询数据库（例如：自上次查询以来移动了超过 20 米）
         val dLat = Math.toRadians(lat - lastDbQueryLat)
@@ -1821,14 +1821,14 @@ class MainViewModel(
 
                     if (rDist <= 50.0) {
                         val jsons = locationToJson(records, lat, lng)
-                        SpooferProvider.cellJson = jsons.second
+                        SpoofingState.cellJson = jsons.second
                         // 保存配置文件，写入新的 cell_json、wifi_json 和 bluetoothJson
                         locationRepository.updateConfig(
                             lat = lat,
                             lng = lng,
                             simMode = simModeToUse,
                             simBearing = bearing,
-                            startTime = SpooferProvider.startTimestamp,
+                            startTime = SpoofingState.startTimestamp,
                             routePoints = _uiState.value.routePoints,
                             isRouteMode = isRouteRunning,
                             appCoordinateSystems = settingsRepository.getAppCoordinateSystems(),
@@ -1843,13 +1843,13 @@ class MainViewModel(
                         )
                     } else {
                         // 回退到随机基站生成
-                        SpooferProvider.cellJson = "[]"
+                        SpoofingState.cellJson = "[]"
                         locationRepository.updateConfig(
                             lat = lat,
                             lng = lng,
                             simMode = simModeToUse,
                             simBearing = bearing,
-                            startTime = SpooferProvider.startTimestamp,
+                            startTime = SpoofingState.startTimestamp,
                             routePoints = _uiState.value.routePoints,
                             isRouteMode = isRouteRunning,
                             appCoordinateSystems = settingsRepository.getAppCoordinateSystems(),
@@ -1864,13 +1864,13 @@ class MainViewModel(
                         )
                     }
                 } else {
-                    SpooferProvider.cellJson = "[]"
+                    SpoofingState.cellJson = "[]"
                     locationRepository.updateConfig(
                         lat = lat,
                         lng = lng,
                         simMode = simModeToUse,
                         simBearing = bearing,
-                        startTime = SpooferProvider.startTimestamp,
+                        startTime = SpoofingState.startTimestamp,
                         routePoints = _uiState.value.routePoints,
                         isRouteMode = isRouteRunning,
                         appCoordinateSystems = settingsRepository.getAppCoordinateSystems(),
@@ -1949,7 +1949,7 @@ class MainViewModel(
                     lng = lng,
                     simMode = if (state.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING) state.routeSimMode.name else "STILL",
                     simBearing = state.simBearing,
-                    startTime = SpooferProvider.startTimestamp,
+                    startTime = SpoofingState.startTimestamp,
                     routePoints = state.routePoints,
                     isRouteMode = state.routePlanStage == com.suseoaa.locationspoofer.data.model.RoutePlanStage.RUNNING,
                     appCoordinateSystems = state.appCoordinateSystems,
@@ -2375,13 +2375,13 @@ class MainViewModel(
         if (_uiState.value.isSpoofingActive) {
             viewModelScope.launch {
                 locationRepository.updateConfig(
-                    SpooferProvider.latitude,
-                    SpooferProvider.longitude,
-                    SpooferProvider.simMode,
-                    SpooferProvider.simBearing,
-                    SpooferProvider.startTimestamp,
-                    if (SpooferProvider.isRouteMode) parseRoutePoints(SpooferProvider.routeJson) else emptyList(),
-                    SpooferProvider.isRouteMode,
+                    SpoofingState.latitude,
+                    SpoofingState.longitude,
+                    SpoofingState.simMode,
+                    SpoofingState.simBearing,
+                    SpoofingState.startTimestamp,
+                    if (SpoofingState.isRouteMode) parseRoutePoints(SpoofingState.routeJson) else emptyList(),
+                    SpoofingState.isRouteMode,
                     currentMap
                 )
             }
@@ -2397,13 +2397,13 @@ class MainViewModel(
         if (_uiState.value.isSpoofingActive) {
             viewModelScope.launch {
                 locationRepository.updateConfig(
-                    SpooferProvider.latitude,
-                    SpooferProvider.longitude,
-                    SpooferProvider.simMode,
-                    SpooferProvider.simBearing,
-                    SpooferProvider.startTimestamp,
-                    if (SpooferProvider.isRouteMode) parseRoutePoints(SpooferProvider.routeJson) else emptyList(),
-                    SpooferProvider.isRouteMode,
+                    SpoofingState.latitude,
+                    SpoofingState.longitude,
+                    SpoofingState.simMode,
+                    SpoofingState.simBearing,
+                    SpoofingState.startTimestamp,
+                    if (SpoofingState.isRouteMode) parseRoutePoints(SpoofingState.routeJson) else emptyList(),
+                    SpoofingState.isRouteMode,
                     currentMap
                 )
             }
