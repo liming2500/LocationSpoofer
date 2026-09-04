@@ -45,7 +45,7 @@ import io.github.libxposed.api.*
  */
 
 
-internal fun LocationHooker.getCurrentSpoofedMotion(defaultSystem: String = "WGS-84"): SpoofedMotion? {
+internal fun LocationHooker.getCurrentSpoofedMotion(defaultSystem: String = "GCJ-02"): SpoofedMotion? {
     val config = readConfig() ?: return null
     if (!config.optBoolean("active", false)) return null
 
@@ -57,9 +57,8 @@ internal fun LocationHooker.getCurrentSpoofedMotion(defaultSystem: String = "WGS
 
 internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPkg: String) {
     try {
-        // android.location.Location 标准接口: GPS 默认规范输出 WGS-84 坐标
-        // 当高德、腾讯、百度或各应用内部 SDK 获取底层 Location 时，会按 WGS-84 进行内部转换加偏。
-        // 若应用直接读取则也可在「自定义坐标算法」中强制指定其目标坐标系。
+        // android.location.Location 标准接口: 默认输出 GCJ-02 坐标（与国内地图与考勤SDK保持一致，彻底消除500米偏移）
+        // 若应用需 WGS-84（如 Google Maps / OSM）可在「自定义坐标算法」中指定其目标坐标系。
         XposedHelpers.hookMethod(
             "android.location.Location",
             classLoader,
@@ -76,9 +75,8 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 else -> {
                     val provider = try { (thisObj as? android.location.Location)?.provider } catch (_: Throwable) { null }
                     when (provider?.lowercase()) {
-                        "network", "amap", "lbs", "tencent" -> "GCJ-02"
                         "baidu" -> "BD-09"
-                        else -> "WGS-84"
+                        else -> "GCJ-02"
                     }
                 }
             }
@@ -106,9 +104,8 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 else -> {
                     val provider = try { (thisObj as? android.location.Location)?.provider } catch (_: Throwable) { null }
                     when (provider?.lowercase()) {
-                        "network", "amap", "lbs", "tencent" -> "GCJ-02"
                         "baidu" -> "BD-09"
-                        else -> "WGS-84"
+                        else -> "GCJ-02"
                     }
                 }
             }
@@ -573,9 +570,8 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                                                             else -> {
                                                                 val provider = try { firstArg.provider } catch (_: Throwable) { null }
                                                                 when (provider?.lowercase()) {
-                                                                    "network", "amap", "lbs", "tencent" -> "GCJ-02"
                                                                     "baidu" -> "BD-09"
-                                                                    else -> "WGS-84"
+                                                                    else -> "GCJ-02"
                                                                 }
                                                             }
                                                         }
@@ -595,7 +591,6 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                                                                 extras.putInt("satellites", satCount)
                                                                 extras.putInt("satellites_in_view", satCount)
                                                                 extras.putInt("satellites_used_in_fix", satCount.coerceAtLeast(12))
-                                                                extras.putInt("satellites_visible", satCount)
                                                                 extras.putBoolean("mockLocation", false)
                                                                 firstArg.extras = extras
                                                             } catch (_: Throwable) {}
@@ -610,9 +605,8 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                                                                     else -> {
                                                                         val provider = try { loc.provider } catch (_: Throwable) { null }
                                                                         when (provider?.lowercase()) {
-                                                                            "network", "amap", "lbs", "tencent" -> "GCJ-02"
                                                                             "baidu" -> "BD-09"
-                                                                            else -> "WGS-84"
+                                                                            else -> "GCJ-02"
                                                                         }
                                                                     }
                                                                 }
@@ -678,9 +672,8 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 if (config != null && config.optBoolean("active", false) && currentPkg.substringBefore(":") != "com.suseoaa.locationspoofer") {
                     val provider = chain.args.getOrNull(0) as? String ?: "gps"
                     val defaultSys = when (provider.lowercase()) {
-                        "network", "amap", "lbs", "tencent" -> "GCJ-02"
                         "baidu" -> "BD-09"
-                        else -> "WGS-84"
+                        else -> "GCJ-02"
                     }
                     val motion = getCurrentSpoofedMotion(defaultSys)
                     if (motion != null) {
@@ -761,9 +754,8 @@ internal fun LocationHooker.hookLocationAPIs(classLoader: ClassLoader, currentPk
                 ) return@hookAllMethods result
                 val provider = chain.args.getOrNull(0) as? String ?: "gps"
                 val defaultSys = when (provider.lowercase()) {
-                    "network", "amap", "lbs", "tencent" -> "GCJ-02"
                     "baidu" -> "BD-09"
-                    else -> "WGS-84"
+                    else -> "GCJ-02"
                 }
                 val motion = getCurrentSpoofedMotion(defaultSys) ?: return@hookAllMethods result
                 try {

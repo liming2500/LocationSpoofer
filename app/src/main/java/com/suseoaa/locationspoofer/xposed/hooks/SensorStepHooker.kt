@@ -68,7 +68,7 @@ object SensorStepHooker {
                 XposedHelpers.hookAllMethods(managerClass, "getDefaultSensor") { chain, _ ->
                     val result = chain.proceed(chain.args.toTypedArray())
                     val type = (chain.args.firstOrNull() as? Int) ?: return@hookAllMethods result
-                    if (result == null && (type == Sensor.TYPE_STEP_COUNTER || type == Sensor.TYPE_STEP_DETECTOR || type == Sensor.TYPE_ACCELEROMETER)) {
+                    if (result == null && (type == Sensor.TYPE_STEP_COUNTER || type == Sensor.TYPE_STEP_DETECTOR)) {
                         return@hookAllMethods getOrCreateMockSensor(type, classLoader)
                     }
                     return@hookAllMethods result
@@ -114,20 +114,20 @@ object SensorStepHooker {
 
                         if (listener != null) {
                             val targetSensor = sensor ?: getOrCreateMockSensor(Sensor.TYPE_STEP_COUNTER, classLoader)
-                            val entry = CapturedSensorListener(listener, targetSensor, handler)
-                            if (!capturedListeners.any { it.listener === listener && it.sensor?.type == targetSensor?.type }) {
-                                capturedListeners.add(entry)
-                            }
+                            if (targetSensor != null && (targetSensor.type == Sensor.TYPE_STEP_COUNTER || targetSensor.type == Sensor.TYPE_STEP_DETECTOR || targetSensor.type == Sensor.TYPE_ACCELEROMETER)) {
+                                val entry = CapturedSensorListener(listener, targetSensor, handler)
+                                if (!capturedListeners.any { it.listener === listener && it.sensor?.type == targetSensor.type }) {
+                                    capturedListeners.add(entry)
+                                }
 
-                            if (targetSensor != null) {
                                 val handle = getSensorHandle(targetSensor)
                                 if (handle != null) {
                                     handleToTypeMap[handle] = targetSensor.type
                                 }
-                            }
 
-                            // 动态 Hook 该 Listener 的具体实现类中的 onSensorChanged 方法
-                            hookConcreteListenerClass(listener.javaClass, classLoader)
+                                // 动态 Hook 该 Listener 的具体实现类中的 onSensorChanged 方法
+                                hookConcreteListenerClass(listener.javaClass, classLoader)
+                            }
                         }
 
                         return@hookAllMethods chain.proceed(chain.args.toTypedArray())
@@ -171,8 +171,8 @@ object SensorStepHooker {
                         val sensorType = handleToTypeMap[handle]
                         val speed = config.optDouble("speed_m_s", 0.0)
 
-                        if (sensorType == Sensor.TYPE_STEP_COUNTER || (sensorType == null && values.size == 1 && values[0] > 0)) {
-                            // 计步器传感器
+                        if (sensorType == Sensor.TYPE_STEP_COUNTER) {
+                            // 仅对明确判定的计步器传感器进行步数计算，严禁误判光感/距离传感器
                             val curSteps = calculateCurrentSteps(config)
                             values[0] = curSteps.toFloat()
                         } else if (sensorType == Sensor.TYPE_STEP_DETECTOR) {
@@ -180,7 +180,7 @@ object SensorStepHooker {
                                 values[0] = 1.0f
                             }
                         } else if (sensorType == Sensor.TYPE_ACCELEROMETER && values.size >= 3) {
-                            // 加速度计传感器：移动时叠加生理跑步/步行震动特征
+                            // 加速度计传感器：仅在运动中(speed > 0.1)叠加生理跑步/步行震动特征，静态时绝不篡改
                             if (speed > 0.1) {
                                 applySyntheticVibration(values, config, speed)
                             }
@@ -283,7 +283,7 @@ object SensorStepHooker {
     }
 
     /**
-     * 由 ConfigPoller 每秒主动向监听器推送计步事件（解决设备静止时无物理硬件中断触发的问题）
+     * 由 ConfigPoller 每秒主动向监听器推送计步事件（仅在运动路线模拟中生效）
      */
     fun dispatchStepEvents(config: JSONObject, classLoader: ClassLoader) {
         if (!config.optBoolean("active", false)) return
@@ -291,6 +291,9 @@ object SensorStepHooker {
         if (!enableStep) return
 
         val speed = config.optDouble("speed_m_s", 0.0)
+        // 静态定位时绝不主动推送步频和加速度事件，保证主线程和人脸识别传感器纯净
+        if (speed <= 0.05) return
+
         val now = System.currentTimeMillis()
         val totalSteps = calculateCurrentSteps(config, now)
 

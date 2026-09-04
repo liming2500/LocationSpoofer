@@ -36,61 +36,46 @@ import io.github.libxposed.api.*
  */
 internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
 
-    // 1. 拦截 AppOpsManager 的 OP_MOCK_LOCATION (58)
+    // 1. 拦截 AppOpsManager 的权限自检与 OP_MOCK_LOCATION (58)
     try {
         val appOpsClass = XposedHelpers.findClassIfExists("android.app.AppOpsManager", classLoader)
         if (appOpsClass != null) {
-            try {
-                XposedHelpers.hookAllMethods(appOpsClass, "checkOp") { chain, method ->
-                    val config = readConfig()
-                    if (config == null || !config.optBoolean("active", false)) {
-                        return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                    }
-                    val opArg = chain.args.getOrNull(0)
-                    val isMockOp = if (opArg is Int) opArg == 58 else if (opArg is String) opArg == "android:mock_location" else false
-                    if (isMockOp) return@hookAllMethods 1 // MODE_IGNORED
-                    return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                }
-            } catch (_: Throwable) {}
+            val locationOpSet = setOf(
+                0, 1, 2, 12, 41, 42, 59, 77, // OP_COARSE_LOCATION, OP_FINE_LOCATION, OP_GPS, OP_NEIGHBORING_CELLS, OP_MONITOR_LOCATION, OP_MONITOR_HIGH_POWER_LOCATION, OP_BLUETOOTH_SCAN etc.
+                "android:coarse_location", "android:fine_location", "android:gps",
+                "android:monitor_location", "android:monitor_location_high_power",
+                "android:bluetooth_scan", "android:bluetooth_connect", "android:bluetooth_advertise"
+            )
 
-            try {
-                XposedHelpers.hookAllMethods(appOpsClass, "checkOpNoThrow") { chain, method ->
-                    val config = readConfig()
-                    if (config == null || !config.optBoolean("active", false)) {
-                        return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                    }
-                    val opArg = chain.args.getOrNull(0)
-                    val isMockOp = if (opArg is Int) opArg == 58 else if (opArg is String) opArg == "android:mock_location" else false
-                    if (isMockOp) return@hookAllMethods 1 // MODE_IGNORED
-                    return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                }
-            } catch (_: Throwable) {}
+            val opMethods = arrayOf("checkOp", "checkOpNoThrow", "noteOp", "noteOpNoThrow", "noteProxyOp", "noteProxyOpNoThrow")
+            for (mName in opMethods) {
+                try {
+                    XposedHelpers.hookAllMethods(appOpsClass, mName) { chain, _ ->
+                        val config = readConfig()
+                        if (config == null || !config.optBoolean("active", false)) {
+                            return@hookAllMethods chain.proceed(chain.args.toTypedArray())
+                        }
+                        val opArg = chain.args.getOrNull(0)
+                        val isMockOp = when (opArg) {
+                            58 -> true
+                            "android:mock_location", "mock_location" -> true
+                            else -> false
+                        }
+                        if (isMockOp) {
+                            // 严正返回 MODE_IGNORED (1)，向应用与安全SDK隐藏模拟位置开关
+                            return@hookAllMethods 1
+                        }
 
-            try {
-                XposedHelpers.hookAllMethods(appOpsClass, "noteOp") { chain, method ->
-                    val config = readConfig()
-                    if (config == null || !config.optBoolean("active", false)) {
-                        return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                    }
-                    val opArg = chain.args.getOrNull(0)
-                    val isMockOp = if (opArg is Int) opArg == 58 else if (opArg is String) opArg == "android:mock_location" else false
-                    if (isMockOp) return@hookAllMethods 1 // MODE_IGNORED
-                    return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                }
-            } catch (_: Throwable) {}
+                        // 定位与蓝牙相关操作自检，返回 MODE_ALLOWED (0)
+                        if (opArg != null && locationOpSet.contains(opArg)) {
+                            return@hookAllMethods 0
+                        }
 
-            try {
-                XposedHelpers.hookAllMethods(appOpsClass, "noteOpNoThrow") { chain, method ->
-                    val config = readConfig()
-                    if (config == null || !config.optBoolean("active", false)) {
+                        // 其余操作（如相机 OP_CAMERA、录音等）正常放行，避免破坏人脸识别活体检测底层权限
                         return@hookAllMethods chain.proceed(chain.args.toTypedArray())
                     }
-                    val opArg = chain.args.getOrNull(0)
-                    val isMockOp = if (opArg is Int) opArg == 58 else if (opArg is String) opArg == "android:mock_location" else false
-                    if (isMockOp) return@hookAllMethods 1 // MODE_IGNORED
-                    return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                }
-            } catch (_: Throwable) {}
+                } catch (_: Throwable) {}
+            }
         }
     } catch (e: Throwable) {
         XposedBridge.log(e)
@@ -192,26 +177,7 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
         }
     } catch (_: Throwable) {}
 
-    // 4. 拦截 AppOpsManager 操作权限自检
-    try {
-        val appOpsClass = XposedHelpers.findClassIfExists("android.app.AppOpsManager", classLoader)
-        if (appOpsClass != null) {
-            val opMethods = arrayOf("checkOp", "checkOpNoThrow", "noteOp", "noteOpNoThrow", "noteProxyOp", "noteProxyOpNoThrow")
-            for (mName in opMethods) {
-                try {
-                    XposedHelpers.hookAllMethods(appOpsClass, mName) { chain, _ ->
-                        val config = readConfig()
-                        if (config != null && config.optBoolean("active", false)) {
-                            return@hookAllMethods 0 // AppOpsManager.MODE_ALLOWED
-                        }
-                        return@hookAllMethods chain.proceed(chain.args.toTypedArray())
-                    }
-                } catch (_: Throwable) {}
-            }
-        }
-    } catch (_: Throwable) {}
-
-    // 5. 拦截 PackageManager.hasSystemFeature (确保蓝牙LE与定位硬件特性恒支持)
+    // 4. 拦截 PackageManager.hasSystemFeature (确保蓝牙LE与定位硬件特性恒支持)
     try {
         val appPmClass = XposedHelpers.findClassIfExists("android.app.ApplicationPackageManager", classLoader)
         val pmClass = XposedHelpers.findClassIfExists("android.content.pm.PackageManager", classLoader)

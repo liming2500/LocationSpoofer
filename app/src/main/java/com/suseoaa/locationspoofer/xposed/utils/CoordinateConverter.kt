@@ -124,7 +124,7 @@ internal fun LocationHooker.getAppTargetCoordinate(
     rawGcjLat: Double,
     rawGcjLng: Double,
     config: JSONObject?,
-    defaultSystem: String = "WGS-84"
+    defaultSystem: String = "GCJ-02"
 ): Pair<Double, Double> {
     if (config == null) return when (defaultSystem) {
         "WGS-84" -> gcj02ToWgs84(rawGcjLat, rawGcjLng)
