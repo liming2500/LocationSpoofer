@@ -143,14 +143,27 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
 
     // 3. 拦截权限自检 Context / ContextWrapper / ContextImpl
     try {
-        val permissionList = setOf(
+        // 定位权限：目标 App 本来就必须持有才有模拟的意义，谎报的收益大、风险低。
+        val locationPermissions = setOf(
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.ACCESS_COARSE_LOCATION",
-            "android.permission.ACCESS_BACKGROUND_LOCATION",
+            "android.permission.ACCESS_BACKGROUND_LOCATION"
+        )
+
+        // 蓝牙权限只在真正开启蓝牙模拟时才谎报，且**绝不包含 BLUETOOTH_CONNECT**。
+        //
+        // 原因：权限校验有客户端和服务端两道。我们只能骗客户端的 checkSelfPermission，
+        // 骗不了 Binder 对端系统进程里的那道（如 AdapterService 的 checkPermissionForDataDelivery）。
+        // 一旦谎报 BLUETOOTH_CONNECT，App 自检通过后会真的去调
+        // BluetoothAdapter.getProfileConnectionState() 这类我们并未拦截的 API，
+        // 请求打到蓝牙进程被如实拒绝，抛出 SecurityException 直接把 App 搞崩
+        // —— 高德地图闪退就是这么来的（用户当时甚至没开蓝牙模拟）。
+        // BLUETOOTH_SCAN 保留：它守的是 startScan/startDiscovery，而这些我们在
+        // BluetoothHooker 里是完整拦截、不放行到服务端的，所以谎报它才有意义且安全。
+        val bluetoothPermissions = setOf(
             "android.permission.BLUETOOTH",
             "android.permission.BLUETOOTH_ADMIN",
             "android.permission.BLUETOOTH_SCAN",
-            "android.permission.BLUETOOTH_CONNECT",
             "android.permission.BLUETOOTH_ADVERTISE"
         )
         val contextClasses = listOfNotNull(
@@ -166,7 +179,12 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
                         val config = readConfig()
                         if (config != null && config.optBoolean("active", false)) {
                             val perm = chain.args.firstOrNull { it is String } as? String
-                            if (perm != null && permissionList.contains(perm)) {
+                            val shouldFake = perm != null && (
+                                    locationPermissions.contains(perm) ||
+                                            (bluetoothPermissions.contains(perm) &&
+                                                    config.optBoolean("mock_bluetooth", false))
+                                    )
+                            if (shouldFake) {
                                 return@hookAllMethods 0 // PackageManager.PERMISSION_GRANTED
                             }
                         }
@@ -185,11 +203,19 @@ internal fun LocationHooker.hookAntiDetection(classLoader: ClassLoader) {
             try {
                 XposedHelpers.hookAllMethods(clazz, "hasSystemFeature") { chain, _ ->
                     val feat = chain.args.firstOrNull { it is String } as? String
-                    if (feat == "android.hardware.bluetooth_le" || feat == "android.hardware.bluetooth" ||
-                        feat == "android.hardware.location.gps" || feat == "android.hardware.location.network") {
+                    val isBtFeature = feat == "android.hardware.bluetooth_le" ||
+                            feat == "android.hardware.bluetooth"
+                    val isLocationFeature = feat == "android.hardware.location.gps" ||
+                            feat == "android.hardware.location.network"
+                    if (isBtFeature || isLocationFeature) {
                         val config = readConfig()
                         if (config != null && config.optBoolean("active", false)) {
-                            return@hookAllMethods true
+                            // 蓝牙硬件特性同样只在开启蓝牙模拟时才谎报：
+                            // 没开模拟却声称设备有蓝牙，只会把 App 推上它本来不会走的蓝牙分支，
+                            // 后续那些我们没拦截的蓝牙 API 该失败还是失败（见 BLUETOOTH_CONNECT 的教训）。
+                            if (isLocationFeature || config.optBoolean("mock_bluetooth", false)) {
+                                return@hookAllMethods true
+                            }
                         }
                     }
                     return@hookAllMethods chain.proceed(chain.args.toTypedArray())
