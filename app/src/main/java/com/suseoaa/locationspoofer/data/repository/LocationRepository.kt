@@ -25,6 +25,37 @@ class LocationRepository(
 ) {
     suspend fun checkRootAccess(): Boolean = rootManager.checkRootAccess()
 
+    /**
+     * 设备重启 / App 更新后的统一自愈入口：重新下发 live sepolicy 规则，
+     * 并在模拟定位此前处于开启状态时重新调用 startSpoofing() 把配置完整落盘。
+     * 供 BootCompletedReceiver 和 MainViewModel.initialize() 共同复用，
+     * 避免这段逻辑两处各写一份。
+     */
+    suspend fun recoverAfterBoot(context: Context): Boolean {
+        val hasRoot = rootManager.checkRootAccess()
+
+        if (settingsManager.isSpoofingActive) {
+            val lastLat = settingsManager.lastSpoofedLat.toDoubleOrNull() ?: 0.0
+            val lastLng = settingsManager.lastSpoofedLng.toDoubleOrNull() ?: 0.0
+            if (lastLat != 0.0 && lastLng != 0.0) {
+                startSpoofing(
+                    context, lastLat, lastLng,
+                    "STILL", 0f, System.currentTimeMillis(),
+                    emptyList(), false,
+                    settingsManager.getAppCoordinateSystems(),
+                    mockWifi = settingsManager.mockWifi,
+                    mockCell = settingsManager.mockCell,
+                    mockBluetooth = settingsManager.mockBluetooth,
+                    enableJitter = settingsManager.enableJitter
+                )
+            }
+        } else if (SpoofingService.isRunning) {
+            stopSpoofing(context)
+        }
+
+        return hasRoot
+    }
+
     fun isModuleActive(): Boolean = lsposedManager.isModuleActive()
 
     suspend fun startSpoofing(

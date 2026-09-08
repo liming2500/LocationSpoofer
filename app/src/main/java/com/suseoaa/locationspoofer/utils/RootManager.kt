@@ -124,6 +124,18 @@ class RootManager {
             appendLine("chcon u:object_r:$CONFIG_SELINUX_TYPE:s0 $probePath 2>/dev/null")
             appendLine("echo LABEL_CHECK:\$(ls -Z $probePath 2>/dev/null)")
             appendLine("rm -f $probePath 2>/dev/null")
+            // 防御性保险：重启后这个 type 曾一度在内核里不存在（见开机日志里的
+            // "is not valid (left unmapped)"），磁盘上残留的旧配置文件此时读不到。
+            // 规则重新打上后，理论上旧文件的 xattr 标签会自动被重新解析为有效，
+            // 但个别 ROM 在开机流程里可能对这几个路径跑过 restorecon 把标签冲掉，
+            // 这里顺手在同一次 su 里重新 chcon 一遍，不需要额外开进程，成本接近零。
+            for (configPath in listOf(
+                "/data/local/tmp/locationspoofer_config.json",
+                "/data/system/locationspoofer_config.json",
+                "/data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json"
+            )) {
+                appendLine("[ -f $configPath ] && chcon u:object_r:$CONFIG_SELINUX_TYPE:s0 $configPath 2>/dev/null || true")
+            }
         }
         val scriptPath = "/data/local/tmp/.lsp_sepolicy_apply.sh"
         val runCommand = """

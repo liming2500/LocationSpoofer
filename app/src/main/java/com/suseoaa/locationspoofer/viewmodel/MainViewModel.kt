@@ -26,7 +26,6 @@ import com.suseoaa.locationspoofer.data.repository.LocationRepository
 import com.suseoaa.locationspoofer.data.repository.SettingsRepository
 import com.suseoaa.locationspoofer.data.repository.WifiRepository
 import com.suseoaa.locationspoofer.data.state.SpoofingState
-import com.suseoaa.locationspoofer.service.SpoofingService
 import com.suseoaa.locationspoofer.ui.screen.AppPoiItem
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingUiState
@@ -109,26 +108,7 @@ class MainViewModel(
     private fun initialize() {
         viewModelScope.launch(Dispatchers.IO) {
             mergeLegacyRecords()
-            val root = locationRepository.checkRootAccess()
-
-            if (settingsRepository.isSpoofingActive) {
-                val lastLat = settingsRepository.lastSpoofedLat.toDoubleOrNull() ?: 0.0
-                val lastLng = settingsRepository.lastSpoofedLng.toDoubleOrNull() ?: 0.0
-                if (lastLat != 0.0 && lastLng != 0.0) {
-                    locationRepository.startSpoofing(
-                        context, lastLat, lastLng,
-                        "STILL", 0f, System.currentTimeMillis(),
-                        emptyList(), false,
-                        settingsRepository.getAppCoordinateSystems(),
-                        mockWifi = settingsRepository.mockWifi,
-                        mockCell = settingsRepository.mockCell,
-                        mockBluetooth = settingsRepository.mockBluetooth,
-                        enableJitter = settingsRepository.enableJitter
-                    )
-                }
-            } else if (SpoofingService.isRunning) {
-                locationRepository.stopSpoofing(context)
-            }
+            val root = locationRepository.recoverAfterBoot(context)
 
             _uiState.update {
                 it.copy(
