@@ -1,11 +1,25 @@
 package com.suseoaa.locationspoofer.utils
 
+import com.suseoaa.locationspoofer.data.model.RootSetupTestResult
+import com.suseoaa.locationspoofer.data.model.RootSolution
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
 class RootManager {
+
+    /** ensureSepolicyRules()/testRootSetup() 共享的内部诊断结果，不含 root 检测本身的信息 */
+    private data class SepolicySetupDetail(
+        val toolUsed: String?,
+        val typeRuleOk: Boolean,
+        val allowRuleResults: List<Pair<String, Boolean>>,
+        val labelCheckRaw: String?,
+        val labelVerified: Boolean,
+        val configFileChconResults: List<Pair<String, Boolean>>,
+        val rawScriptOutput: String,
+        val overallVerified: Boolean
+    )
 
     companion object {
         private const val TAG = "LocationSpoofer"
@@ -28,31 +42,61 @@ class RootManager {
             "system_app"
         )
 
+        private val CONFIG_FILE_PATHS = listOf(
+            "/data/local/tmp/locationspoofer_config.json",
+            "/data/system/locationspoofer_config.json",
+            "/data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json"
+        )
+
         /**
-         * 各 root 方案的 live sepolicy patch 工具，按顺序探测，谁能用就用谁。
+         * 按 root 方案分组的 live sepolicy patch 候选命令：同一方案内按顺序探测、谁能用就用谁，
+         * 不同方案之间不再互相尝试——用户显式选择方案后，只在该方案已知的候选范围内找工具，
+         * 取代旧的"一份大杂烩表、谁能用就用谁"的跨方案兜底探测。
          *
-         * Magisk 官方文档写明 magiskpolicy 是**独立二进制**（别名 supolicy），不是 magisk 主程序的
-         * applet（magisk 只有 su / resetprop 两个 applet），因此不存在 `magisk magiskpolicy` 这种调用。
-         * 而现代 Magisk 的 su shell PATH 里不一定有它，必须补上 /data/adb/magisk 下的绝对路径，
-         * 否则在 Magisk 上会探测不到任何工具、一条规则都下发不了。
+         * Magisk 与 APatch：APatch 官方文档确认它内部直接复用 Magisk 的 magiskpolicy 二进制
+         * （不是独立实现），只是运行时释放到 /data/adb/ap/bin/magiskpolicy 这个固定路径，
+         * 所以两者候选表结构相同、只是默认路径优先级不同。
+         *
+         * KernelSU / SukiSU Ultra / ReSukiSU Ultra：后两者都是 KernelSU 的下游 fork（ReSukiSU
+         * 是 SukiSU Ultra 的再下游），没有查到任何官方文档证据表明它们的 ksud 二进制路径或
+         * sepolicy 命令语法与上游 KernelSU 有差异，/data/adb/ksu/bin 这个目录约定在整个生态里
+         * 反复被确认为标准位置。这三个方案在这里复用同一份候选表——这不是"没做区分"，而是它们
+         * 本就该收敛到同一条实现；UI 上把它们分成三个选项，是为了让用户能明确表达自己用的是哪个
+         * 分支，方便以后一旦发现某个 fork 真的有例外情况时单独加候选，而不必退回大杂烩探测。
          */
-        private val SEPOLICY_TOOL_PROBES = listOf(
+        private val MAGISK_CANDIDATES = listOf(
             "magiskpolicy --live" to "command -v magiskpolicy",
-            "supolicy --live" to "command -v supolicy",
-            "/data/adb/magisk/magiskpolicy --live" to "[ -x /data/adb/magisk/magiskpolicy ]",
+            "/data/adb/magisk/magiskpolicy --live" to "[ -x /data/adb/magisk/magiskpolicy ]"
+        )
+        private val APATCH_CANDIDATES = listOf(
+            "/data/adb/ap/bin/magiskpolicy --live" to "[ -x /data/adb/ap/bin/magiskpolicy ]",
+            "magiskpolicy --live" to "command -v magiskpolicy"
+        )
+        private val KERNELSU_FAMILY_CANDIDATES = listOf(
             "ksud sepolicy patch" to "command -v ksud",
-            "/data/adb/ap/bin/magiskpolicy --live" to "[ -x /data/adb/ap/bin/magiskpolicy ]"
+            "/data/adb/ksu/bin/ksud sepolicy patch" to "[ -x /data/adb/ksu/bin/ksud ]"
+        )
+        private val TOOL_CANDIDATES: Map<RootSolution, List<Pair<String, String>>> = mapOf(
+            RootSolution.MAGISK to MAGISK_CANDIDATES,
+            RootSolution.APATCH to APATCH_CANDIDATES,
+            RootSolution.KERNELSU to KERNELSU_FAMILY_CANDIDATES,
+            RootSolution.SUKISU_ULTRA to KERNELSU_FAMILY_CANDIDATES,
+            RootSolution.RESUKISU_ULTRA to KERNELSU_FAMILY_CANDIDATES,
+            // AUTO：没有明确方案时的兜底，沿用改造前的全集探测行为，外加 supolicy 这个老式工具
+            RootSolution.AUTO to (MAGISK_CANDIDATES + APATCH_CANDIDATES + KERNELSU_FAMILY_CANDIDATES +
+                listOf("supolicy --live" to "command -v supolicy")).distinct()
         )
     }
 
-    suspend fun checkRootAccess(): Boolean = withContext(Dispatchers.IO) {
-        val hasRoot = executeCommand("id").contains("uid=0(root)")
-        if (hasRoot) {
-            applyRootBackgroundExemptions()
-            ensureSepolicyRules()
+    suspend fun checkRootAccess(solution: RootSolution = RootSolution.AUTO): Boolean =
+        withContext(Dispatchers.IO) {
+            val hasRoot = executeCommand("id").contains("uid=0(root)")
+            if (hasRoot) {
+                applyRootBackgroundExemptions()
+                ensureSepolicyRules(solution)
+            }
+            hasRoot
         }
-        hasRoot
-    }
 
     suspend fun applyRootBackgroundExemptions(packageName: String = "com.suseoaa.locationspoofer"): Boolean =
         withContext(Dispatchers.IO) {
@@ -70,24 +114,78 @@ class RootManager {
             result != "ERROR"
         }
 
+    suspend fun ensureSepolicyRules(solution: RootSolution = RootSolution.AUTO): Boolean =
+        withContext(Dispatchers.IO) {
+            runSepolicySetup(solution).overallVerified
+        }
+
+    /**
+     * 检测 root 权限与 sepolicy 规则注入是否正常，返回完整的分步骤诊断结果，
+     * 供设置页"测试"按钮展示——即使规则应用失败，用户也能在 App 里直接看到具体卡在哪一步，
+     * 不需要再依赖容易被系统冲刷掉的 logcat。
+     */
+    suspend fun testRootSetup(solution: RootSolution = RootSolution.AUTO): RootSetupTestResult =
+        withContext(Dispatchers.IO) {
+            val idOutput = executeCommand("id")
+            val hasRoot = idOutput.contains("uid=0(root)")
+            val detail = if (hasRoot) {
+                runSepolicySetup(solution)
+            } else {
+                SepolicySetupDetail(
+                    toolUsed = null,
+                    typeRuleOk = false,
+                    allowRuleResults = SEPOLICY_READ_DOMAINS.map { it to false },
+                    labelCheckRaw = null,
+                    labelVerified = false,
+                    configFileChconResults = CONFIG_FILE_PATHS.map { it to false },
+                    rawScriptOutput = "",
+                    overallVerified = false
+                )
+            }
+            RootSetupTestResult(
+                hasRoot = hasRoot,
+                idOutput = idOutput,
+                solution = solution,
+                toolUsed = detail.toolUsed,
+                typeRuleOk = detail.typeRuleOk,
+                allowRuleResults = detail.allowRuleResults,
+                labelCheckRaw = detail.labelCheckRaw,
+                labelVerified = detail.labelVerified,
+                configFileChconResults = detail.configFileChconResults,
+                rawScriptOutput = detail.rawScriptOutput,
+                overallVerified = detail.overallVerified
+            )
+        }
+
     /**
      * 为跨进程配置文件动态打入 live SELinux 策略：新建专属 type，只放行需要读它的域。
      * 取代旧的"chmod 666 + 蹭 shell_data_file/system_data_file 通用类型"方案。
-     * 探测不到任何工具时记录日志、不做兜底降级。
+     * 探测不到 solution 对应候选范围内的任何工具时记录日志、不做跨方案兜底降级
+     * （AUTO 除外，它本身就是"全候选合并"，充当没有明确方案时的兜底）。
      *
      * 规则不能作为内联 CLI 参数拼进 `su -c "..."` 字符串下发：实测在 KernelSU 上，
      * 带空格/花括号的引号参数经过 su -c 转发后会被拆成多个参数，导致 ksud/magiskpolicy
      * 把规则解析错(报 "unexpected argument")。改为把规则写成脚本文件、用 sh 执行该文件，
      * 规则内容不再经过任何命令行参数层，从根上避免这类跨 shell 转发丢引号的问题。
      */
-    suspend fun ensureSepolicyRules(): Boolean = withContext(Dispatchers.IO) {
-        val tool = SEPOLICY_TOOL_PROBES.firstOrNull { (_, probe) -> toolAvailable(probe) }?.first
+    private fun runSepolicySetup(solution: RootSolution): SepolicySetupDetail {
+        val candidates = TOOL_CANDIDATES[solution] ?: TOOL_CANDIDATES.getValue(RootSolution.AUTO)
+        val tool = candidates.firstOrNull { (_, probe) -> toolAvailable(probe) }?.first
         if (tool == null) {
             android.util.Log.w(
                 TAG,
-                "未找到可用的 sepolicy 工具（magiskpolicy/supolicy/ksud），配置文件可能无法被目标应用读取"
+                "方案 $solution 下未找到可用的 sepolicy 工具（候选: ${candidates.map { it.first }}），配置文件可能无法被目标应用读取"
             )
-            return@withContext false
+            return SepolicySetupDetail(
+                toolUsed = null,
+                typeRuleOk = false,
+                allowRuleResults = SEPOLICY_READ_DOMAINS.map { it to false },
+                labelCheckRaw = null,
+                labelVerified = false,
+                configFileChconResults = CONFIG_FILE_PATHS.map { it to false },
+                rawScriptOutput = "",
+                overallVerified = false
+            )
         }
 
         // 属性集合必须写成花括号 + 空格分隔，绝对不能用逗号：
@@ -129,12 +227,11 @@ class RootManager {
             // 规则重新打上后，理论上旧文件的 xattr 标签会自动被重新解析为有效，
             // 但个别 ROM 在开机流程里可能对这几个路径跑过 restorecon 把标签冲掉，
             // 这里顺手在同一次 su 里重新 chcon 一遍，不需要额外开进程，成本接近零。
-            for (configPath in listOf(
-                "/data/local/tmp/locationspoofer_config.json",
-                "/data/system/locationspoofer_config.json",
-                "/data/data/com.suseoaa.locationspoofer/files/locationspoofer_config.json"
-            )) {
-                appendLine("[ -f $configPath ] && chcon u:object_r:$CONFIG_SELINUX_TYPE:s0 $configPath 2>/dev/null || true")
+            CONFIG_FILE_PATHS.forEachIndexed { index, configPath ->
+                appendLine(
+                    "if [ -f $configPath ]; then chcon u:object_r:$CONFIG_SELINUX_TYPE:s0 $configPath 2>/dev/null; " +
+                        "echo CHCON_${index}_EXIT:\$?; else echo CHCON_${index}_EXIT:MISSING; fi"
+                )
             }
         }
         val scriptPath = "/data/local/tmp/.lsp_sepolicy_apply.sh"
@@ -151,11 +248,15 @@ class RootManager {
             Regex("ALLOW_${index}_EXIT:(\\d+)").find(output)?.groupValues?.get(1) == "0"
         }
         val allowOkCount = allowResults.count { it }
+        val allowRuleResults = SEPOLICY_READ_DOMAINS.mapIndexed { index, domain -> domain to allowResults[index] }
         val labelLine = Regex("LABEL_CHECK:(.*)").find(output)?.groupValues?.get(1)?.trim()
         val labelApplied = labelLine?.contains(CONFIG_SELINUX_TYPE) == true
+        val configFileChconResults = CONFIG_FILE_PATHS.mapIndexed { index, path ->
+            path to (Regex("CHCON_${index}_EXIT:(\\d+)").find(output)?.groupValues?.get(1) == "0")
+        }
 
         if (!typeOk) {
-            android.util.Log.w(TAG, "sepolicy type 规则应用失败（工具: $tool），输出: $output")
+            android.util.Log.w(TAG, "sepolicy type 规则应用失败（方案: $solution，工具: $tool），输出: $output")
         }
         if (allowOkCount < allowRules.size) {
             val failedDomains = SEPOLICY_READ_DOMAINS.filterIndexed { i, _ -> !allowResults[i] }
@@ -172,16 +273,26 @@ class RootManager {
         if (verified) {
             android.util.Log.i(
                 TAG,
-                "sepolicy 规则已通过 $tool 应用并验证（${allowOkCount}/${allowRules.size} 个域授权成功，标签校验: ${labelLine ?: "跳过"}）"
+                "sepolicy 规则已通过 $tool 应用并验证（方案: $solution，${allowOkCount}/${allowRules.size} 个域授权成功，标签校验: ${labelLine ?: "跳过"}）"
             )
         } else {
             android.util.Log.w(
                 TAG,
-                "sepolicy 规则未能生效（工具: $tool，标签校验: ${labelLine ?: "未执行"}），" +
-                        "目标应用大概率读不到配置文件、模拟会失效。完整输出: $output"
+                "sepolicy 规则未能生效（方案: $solution，工具: $tool，标签校验: ${labelLine ?: "未执行"}），" +
+                    "目标应用大概率读不到配置文件、模拟会失效。完整输出: $output"
             )
         }
-        verified
+
+        return SepolicySetupDetail(
+            toolUsed = tool,
+            typeRuleOk = typeOk,
+            allowRuleResults = allowRuleResults,
+            labelCheckRaw = labelLine,
+            labelVerified = labelApplied,
+            configFileChconResults = configFileChconResults,
+            rawScriptOutput = output,
+            overallVerified = verified
+        )
     }
 
     private fun toolAvailable(probeCommand: String): Boolean {

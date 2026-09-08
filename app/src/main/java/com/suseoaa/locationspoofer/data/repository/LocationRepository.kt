@@ -6,6 +6,8 @@ import android.location.LocationManager
 import android.os.Build
 import com.suseoaa.locationspoofer.data.db.SavedRouteDao
 import com.suseoaa.locationspoofer.data.db.SavedRouteEntity
+import com.suseoaa.locationspoofer.data.model.RootSetupTestResult
+import com.suseoaa.locationspoofer.data.model.RootSolution
 import com.suseoaa.locationspoofer.data.model.RoutePoint
 import com.suseoaa.locationspoofer.data.state.SpoofingState
 import com.suseoaa.locationspoofer.service.SpoofingService
@@ -23,7 +25,18 @@ class LocationRepository(
     private val settingsManager: SettingsManager,
     private val savedRouteDao: SavedRouteDao
 ) {
-    suspend fun checkRootAccess(): Boolean = rootManager.checkRootAccess()
+    /** 用户在设置里选择的 root 方案；解析失败（脏数据/尚未设置）时退回 AUTO 全集探测 */
+    private fun currentRootSolution(): RootSolution =
+        try {
+            RootSolution.valueOf(settingsManager.rootSolution)
+        } catch (e: Exception) {
+            RootSolution.AUTO
+        }
+
+    suspend fun checkRootAccess(): Boolean = rootManager.checkRootAccess(currentRootSolution())
+
+    /** 检测 root 权限与 sepolicy 规则注入是否正常，返回完整诊断结果供设置页"测试"按钮展示 */
+    suspend fun testRootSetup(): RootSetupTestResult = rootManager.testRootSetup(currentRootSolution())
 
     /**
      * 设备重启 / App 更新后的统一自愈入口：重新下发 live sepolicy 规则，
@@ -32,7 +45,7 @@ class LocationRepository(
      * 避免这段逻辑两处各写一份。
      */
     suspend fun recoverAfterBoot(context: Context): Boolean {
-        val hasRoot = rootManager.checkRootAccess()
+        val hasRoot = rootManager.checkRootAccess(currentRootSolution())
 
         if (settingsManager.isSpoofingActive) {
             val lastLat = settingsManager.lastSpoofedLat.toDoubleOrNull() ?: 0.0

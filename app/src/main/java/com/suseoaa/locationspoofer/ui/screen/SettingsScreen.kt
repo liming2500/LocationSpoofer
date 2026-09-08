@@ -37,10 +37,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.os.LocaleListCompat
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.model.AppState
 import com.suseoaa.locationspoofer.data.model.MapEngine
+import com.suseoaa.locationspoofer.data.model.RootSetupTestResult
+import com.suseoaa.locationspoofer.data.model.RootSolution
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentGreen
 import com.suseoaa.locationspoofer.ui.theme.AccentOrange
@@ -491,6 +495,139 @@ fun SettingsScreen(
                         }
                     }
 
+                    // 3.5 Root 方案与权限诊断卡片
+                    MiuixCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 18.dp,
+                        insideMargin = PaddingValues(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(11.dp))
+                                    .background(AccentBlue.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Shield,
+                                    null,
+                                    tint = AccentBlue,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.root_solution_title),
+                                    fontSize = 15.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.root_solution_desc),
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        val rootSolutions = listOf(
+                            RootSolution.AUTO to stringResource(R.string.root_solution_auto),
+                            RootSolution.MAGISK to stringResource(R.string.root_solution_magisk),
+                            RootSolution.KERNELSU to stringResource(R.string.root_solution_kernelsu),
+                            RootSolution.APATCH to stringResource(R.string.root_solution_apatch),
+                            RootSolution.SUKISU_ULTRA to stringResource(R.string.root_solution_sukisu_ultra),
+                            RootSolution.RESUKISU_ULTRA to stringResource(R.string.root_solution_resukisu_ultra)
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            rootSolutions.chunked(3).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems.forEach { (solution, label) ->
+                                        val isSelected = uiState.rootSolution == solution
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(
+                                                    if (isSelected) AccentBlue
+                                                    else if (isDark) Color.White.copy(alpha = 0.05f)
+                                                    else Color.Black.copy(alpha = 0.04f)
+                                                )
+                                                .noRippleClickable { viewModel.setRootSolution(solution) }
+                                                .padding(vertical = 9.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // 测试 Root 权限与 sepolicy 规则注入
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
+                                        alpha = 0.03f
+                                    )
+                                )
+                                .noRippleClickable {
+                                    if (!uiState.isTestingRootSetup) viewModel.testRootSetup()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.test_root_setup_title),
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(R.string.test_root_setup_desc),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                )
+                            }
+
+                            if (uiState.isTestingRootSetup) {
+                                CircularProgressIndicator(
+                                    color = AccentBlue,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    contentDescription = stringResource(R.string.test_root_setup_title),
+                                    tint = AccentBlue,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
                     // 4. 后台持续模拟与保活设置卡片
                     MiuixCard(
                         modifier = Modifier.fillMaxWidth(),
@@ -757,6 +894,15 @@ fun SettingsScreen(
             }
         }
     }
+
+    val testResult = uiState.rootSetupTestResult
+    if (testResult != null) {
+        RootSetupTestResultDialog(
+            result = testResult,
+            isDark = isDark,
+            onDismiss = { viewModel.dismissRootSetupTestResult() }
+        )
+    }
 }
 
 @Composable
@@ -826,6 +972,201 @@ private fun ModernSettingsInput(
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         modifier = Modifier.size(12.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticItemRow(label: String, ok: Boolean, detail: String? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.Cancel,
+            contentDescription = null,
+            tint = if (ok) AccentGreen else Color(0xFFE53935),
+            modifier = Modifier
+                .size(16.dp)
+                .padding(top = 1.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (!detail.isNullOrBlank()) {
+                Text(
+                    text = detail,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RootSetupTestResultDialog(
+    result: RootSetupTestResult,
+    isDark: Boolean,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    val overallOk = result.hasRoot && result.overallVerified
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(13.dp))
+                            .background((if (overallOk) AccentGreen else Color(0xFFE53935)).copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            if (overallOk) Icons.Rounded.CheckCircle else Icons.Rounded.Cancel,
+                            contentDescription = null,
+                            tint = if (overallOk) AccentGreen else Color(0xFFE53935),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.root_test_result_title),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    DiagnosticItemRow(
+                        label = stringResource(R.string.root_test_item_root),
+                        ok = result.hasRoot,
+                        detail = result.idOutput.take(120)
+                    )
+                    DiagnosticItemRow(
+                        label = stringResource(R.string.root_test_item_tool),
+                        ok = result.toolUsed != null,
+                        detail = result.toolUsed ?: stringResource(R.string.root_test_tool_not_found)
+                    )
+                    DiagnosticItemRow(
+                        label = stringResource(R.string.root_test_item_type_rule),
+                        ok = result.typeRuleOk
+                    )
+                    result.allowRuleResults.forEach { (domain, ok) ->
+                        DiagnosticItemRow(
+                            label = stringResource(R.string.root_test_item_allow_domain, domain),
+                            ok = ok
+                        )
+                    }
+                    DiagnosticItemRow(
+                        label = stringResource(R.string.root_test_item_label_check),
+                        ok = result.labelVerified,
+                        detail = result.labelCheckRaw
+                    )
+                    result.configFileChconResults.forEach { (path, ok) ->
+                        DiagnosticItemRow(
+                            label = path,
+                            ok = ok
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                    alpha = 0.05f
+                                )
+                            )
+                            .noRippleClickable {
+                                val summary = buildString {
+                                    appendLine("solution=${result.solution}")
+                                    appendLine("hasRoot=${result.hasRoot}")
+                                    appendLine("idOutput=${result.idOutput}")
+                                    appendLine("toolUsed=${result.toolUsed}")
+                                    appendLine("typeRuleOk=${result.typeRuleOk}")
+                                    appendLine("allowRuleResults=${result.allowRuleResults}")
+                                    appendLine("labelVerified=${result.labelVerified}")
+                                    appendLine("labelCheckRaw=${result.labelCheckRaw}")
+                                    appendLine("configFileChconResults=${result.configFileChconResults}")
+                                    appendLine("rawScriptOutput=${result.rawScriptOutput}")
+                                }
+                                clipboardManager.setText(AnnotatedString(summary))
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.copied_to_clipboard),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.copy_diagnostic_info),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                        )
+                    }
+
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.close),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

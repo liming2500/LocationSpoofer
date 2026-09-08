@@ -52,6 +52,10 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("map_engine", "AUTO") ?: "AUTO"
         set(value) = prefs.edit().putString("map_engine", value).apply()
 
+    var rootSolution: String
+        get() = prefs.getString("root_solution", "AUTO") ?: "AUTO"
+        set(value) = prefs.edit().putString("root_solution", value).apply()
+
     var ignoredVersion: String
         get() = prefs.getString("ignored_version", "") ?: ""
         set(value) = prefs.edit().putString("ignored_version", value).apply()

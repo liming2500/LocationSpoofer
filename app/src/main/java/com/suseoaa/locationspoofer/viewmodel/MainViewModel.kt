@@ -21,6 +21,7 @@ import com.suseoaa.locationspoofer.data.model.SavedLocation
 import com.suseoaa.locationspoofer.data.model.SimMode
 import com.suseoaa.locationspoofer.data.model.AppMapType
 import com.suseoaa.locationspoofer.data.model.MapEngine
+import com.suseoaa.locationspoofer.data.model.RootSolution
 import com.suseoaa.locationspoofer.data.model.SearchMode
 import com.suseoaa.locationspoofer.data.repository.LocationRepository
 import com.suseoaa.locationspoofer.data.repository.SettingsRepository
@@ -72,6 +73,11 @@ class MainViewModel(
                 MapEngine.valueOf(settingsRepository.getMapEngine())
             } catch (e: Exception) {
                 MapEngine.AUTO
+            },
+            rootSolution = try {
+                RootSolution.valueOf(settingsRepository.getRootSolution())
+            } catch (e: Exception) {
+                RootSolution.AUTO
             },
             savedLocations = settingsRepository.getSavedLocations(),
             savedRoutes = emptyList(), // 将由 Room Flow 填充
@@ -219,6 +225,23 @@ class MainViewModel(
     fun setMapEngine(engine: MapEngine) {
         settingsRepository.setMapEngine(engine.name)
         _uiState.update { it.copy(mapEngine = engine) }
+    }
+
+    fun setRootSolution(solution: RootSolution) {
+        settingsRepository.setRootSolution(solution.name)
+        _uiState.update { it.copy(rootSolution = solution) }
+    }
+
+    fun testRootSetup() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(isTestingRootSetup = true) }
+            val result = locationRepository.testRootSetup()
+            _uiState.update { it.copy(isTestingRootSetup = false, rootSetupTestResult = result) }
+        }
+    }
+
+    fun dismissRootSetupTestResult() {
+        _uiState.update { it.copy(rootSetupTestResult = null) }
     }
 
     fun setSearchMode(mode: SearchMode) {

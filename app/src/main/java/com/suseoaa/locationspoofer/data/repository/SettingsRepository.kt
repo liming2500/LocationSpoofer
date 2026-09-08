@@ -74,6 +74,12 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
         settingsManager.mapEngine = value
     }
 
+    fun getRootSolution(): String = settingsManager.rootSolution
+
+    fun setRootSolution(value: String) {
+        settingsManager.rootSolution = value
+    }
+
     fun getIgnoredVersion(): String = settingsManager.ignoredVersion
 
     fun setIgnoredVersion(value: String) {

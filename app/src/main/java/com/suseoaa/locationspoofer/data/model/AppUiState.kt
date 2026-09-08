@@ -56,6 +56,9 @@ data class AppState(
     val isLanguageSet: Boolean = true, // 默认为 true，以避免在不需要时发生闪烁
     val currentLanguage: String = "",
     val hasRootAccess: Boolean = false,
+    val rootSolution: RootSolution = RootSolution.AUTO,
+    val isTestingRootSetup: Boolean = false,
+    val rootSetupTestResult: RootSetupTestResult? = null,
     val isLSPosedActive: Boolean = false,
     val longitudeInput: String = "",
     val latitudeInput: String = "",
