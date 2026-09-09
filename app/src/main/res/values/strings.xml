@@ -77,6 +77,9 @@
     <string name="root_test_item_allow_domain">Domain authorized: %1$s</string>
     <string name="root_test_item_label_check">Label verification</string>
     <string name="copy_diagnostic_info">Copy diagnostic info</string>
+    <string name="data_collection_assist_intro">Without root, the main spoofing features are unavailable — but you can still help collect real Wi-Fi/cell signal data at this location. Export it when done and share the file for import on another device.</string>
+    <string name="data_collection_assist_hint">Stay at the target location, tap Start, and wait at least 10 seconds to ensure a scan completes. You can move to other spots and repeat Start/Stop. Tap Export when finished.</string>
+    <string name="data_collection_permission_missing">Location/phone/Bluetooth permissions are required to collect data.</string>
     <string name="lsposed_not_active">LSPosed Module Not Active</string>
     <string name="lsposed_message">Please enable this module in LSPosed Manager,\nselect the target apps, and restart them.</string>
     <string name="initializing_env">Initializing environment...</string>

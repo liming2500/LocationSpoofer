@@ -13,7 +13,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -197,10 +196,9 @@ fun MainScreen(
     when {
         uiState.isInitializing -> InitializingScreen(isDark)
         !uiState.isLanguageSet -> LanguageSelectionScreen(viewModel)
-        !uiState.hasRootAccess -> BlockingScreen(
-            icon = Icons.Rounded.Lock,
-            title = stringResource(R.string.root_required),
-            message = stringResource(R.string.root_message),
+        !uiState.hasRootAccess -> com.suseoaa.locationspoofer.ui.screen.DataCollectionAssistScreen(
+            viewModel = viewModel,
+            uiState = uiState,
             isDark = isDark
         )
         !uiState.isLSPosedActive -> BlockingScreen(

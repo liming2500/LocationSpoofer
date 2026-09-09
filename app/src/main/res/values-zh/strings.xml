@@ -82,6 +82,9 @@
     <string name="root_test_item_allow_domain">域授权: %1$s</string>
     <string name="root_test_item_label_check">标签验证</string>
     <string name="copy_diagnostic_info">复制诊断信息</string>
+    <string name="data_collection_assist_intro">没有 Root 权限，主要的模拟功能暂时用不了，但你依然可以帮忙采集这个地点真实的 Wi-Fi/基站信号数据。采集完成后导出文件，发给对方在另一台设备上导入即可。</string>
+    <string name="data_collection_assist_hint">在目标地点停留后点击"开始采集"，等待至少 10 秒以确保完成一次扫描；可以走到其他地点重复开始/停止来采集多个点位；采集完成后点击"导出"。</string>
+    <string name="data_collection_permission_missing">采集数据需要定位、电话状态、蓝牙权限。</string>
     <string name="lsposed_not_active">LSPosed 模块未激活</string>
     <string name="lsposed_message">请在 LSPosed 管理器中启用本模块，\n勾选需要欺骗的应用后重启目标应用。</string>
     <string name="initializing_env">正在初始化环境...</string>
