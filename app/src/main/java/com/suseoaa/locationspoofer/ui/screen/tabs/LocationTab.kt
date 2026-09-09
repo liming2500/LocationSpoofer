@@ -534,6 +534,7 @@ fun LocationTab(
             onToggleCell = viewModel::toggleMockCell,
             onToggleBluetooth = viewModel::toggleMockBluetooth,
             onToggleJitter = viewModel::toggleEnableJitter,
+            onToggleRestartApps = viewModel::toggleRestartAppsOnSpoof,
             onAltitudeChange = viewModel::setAltitude,
             onSatelliteCountChange = viewModel::setSatelliteCount
         )

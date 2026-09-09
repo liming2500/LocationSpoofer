@@ -456,6 +456,7 @@ fun StartSpoofingDialog(
     onToggleCell: () -> Unit,
     onToggleBluetooth: () -> Unit,
     onToggleJitter: () -> Unit,
+    onToggleRestartApps: () -> Unit,
     onAltitudeChange: (String) -> Unit,
     onSatelliteCountChange: (String) -> Unit
 ) {
@@ -587,6 +588,30 @@ fun StartSpoofingDialog(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Switch(checked = uiState.enableJitter, onCheckedChange = { onToggleJitter() })
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.RestartAlt,
+                        null,
+                        tint = AccentBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.restart_apps_on_spoof),
+                        modifier = Modifier.weight(1f),
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Switch(
+                        checked = uiState.restartAppsOnSpoof,
+                        onCheckedChange = { onToggleRestartApps() })
                 }
 
                 Spacer(Modifier.height(8.dp))

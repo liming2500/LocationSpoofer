@@ -38,6 +38,9 @@ class LocationRepository(
     /** 检测 root 权限与 sepolicy 规则注入是否正常，返回完整诊断结果供设置页"测试"按钮展示 */
     suspend fun testRootSetup(): RootSetupTestResult = rootManager.testRootSetup(currentRootSolution())
 
+    /** 强制停止目标 App，逼迫它们下次启动时以最新的 sepolicy 规则重新走一次访问判定 */
+    suspend fun forceStopApps(packages: List<String>) = rootManager.forceStopApps(packages)
+
     /**
      * 设备重启 / App 更新后的统一自愈入口：重新下发 live sepolicy 规则，
      * 并在模拟定位此前处于开启状态时重新调用 startSpoofing() 把配置完整落盘。

@@ -133,6 +133,12 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
             settingsManager.enableJitter = value
         }
 
+    var restartAppsOnSpoof: Boolean
+        get() = settingsManager.restartAppsOnSpoof
+        set(value) {
+            settingsManager.restartAppsOnSpoof = value
+        }
+
     var altitude: String
         get() = settingsManager.altitude
         set(value) {

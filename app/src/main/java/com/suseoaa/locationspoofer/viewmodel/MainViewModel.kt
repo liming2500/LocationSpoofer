@@ -88,6 +88,7 @@ class MainViewModel(
             mockCell = settingsRepository.mockCell,
             mockBluetooth = settingsRepository.mockBluetooth,
             enableJitter = settingsRepository.enableJitter,
+            restartAppsOnSpoof = settingsRepository.restartAppsOnSpoof,
             altitudeInput = settingsRepository.altitude,
             satelliteCountInput = settingsRepository.satelliteCount,
             wigleToken = settingsRepository.getWigleApiToken(),
@@ -242,6 +243,32 @@ class MainViewModel(
 
     fun dismissRootSetupTestResult() {
         _uiState.update { it.copy(rootSetupTestResult = null) }
+    }
+
+    /** 从 LSPosed 作用域拉取当前 Hook 的目标 App 列表，触发"确认重启应用"弹窗 */
+    fun requestRestartHookedApps() {
+        val apps = lsposedManager.getHookedApps(context)
+        _uiState.update { it.copy(hookedAppsToRestart = apps) }
+    }
+
+    fun dismissRestartHookedAppsDialog() {
+        _uiState.update { it.copy(hookedAppsToRestart = null) }
+    }
+
+    /**
+     * 用户确认后：先重新下发一次 sepolicy 规则（确保是最新的，不假设之前打的还在），
+     * 再强制停止这些目标 App，逼迫它们下次启动时重新走一次全新的 SELinux 判定，
+     * 不再受历史 AVC 缓存或其他模块 sepolicy 操作的影响。
+     */
+    fun confirmRestartHookedApps(onDone: (Int) -> Unit = {}) {
+        val apps = _uiState.value.hookedAppsToRestart ?: return
+        _uiState.update { it.copy(isRestartingHookedApps = true, hookedAppsToRestart = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            locationRepository.checkRootAccess()
+            locationRepository.forceStopApps(apps.map { it.packageName })
+            _uiState.update { it.copy(isRestartingHookedApps = false) }
+            withContext(Dispatchers.Main) { onDone(apps.size) }
+        }
     }
 
     fun setSearchMode(mode: SearchMode) {
@@ -1185,9 +1212,26 @@ class MainViewModel(
             // 稍作等待，确保 root shell 完全同步到磁盘
             kotlinx.coroutines.delay(200)
 
+            if (updatedState.restartAppsOnSpoof) {
+                restartHookedAppsSilently()
+            }
+
             _uiState.update {
                 it.copy(isSpoofingActive = true, isSavingConfig = false)
             }
+        }
+    }
+
+    /**
+     * 强制重启已勾选作用域的目标 App，逼迫它们以刚写入的最新配置/sepolicy 规则重新走一次
+     * 全新的 SELinux 判定——不再受历史 AVC 缓存或其他模块 sepolicy 操作的影响。
+     * 由"开始模拟"弹窗里的开关驱动，用户已经通过默认打开的开关预先同意，这里不再二次确认。
+     */
+    private suspend fun restartHookedAppsSilently() {
+        val apps = lsposedManager.getHookedApps(context)
+        if (apps.isNotEmpty()) {
+            locationRepository.checkRootAccess() // 重新下发 sepolicy 规则，确保重启后读到的是最新的
+            locationRepository.forceStopApps(apps.map { it.packageName })
         }
     }
 
@@ -1978,6 +2022,13 @@ class MainViewModel(
         settingsRepository.enableJitter = newVal
         _uiState.update { it.copy(enableJitter = newVal) }
         syncMockSettings()
+    }
+
+    /** 只影响下一次"开始模拟"的行为，不需要像其他 mock 开关那样实时同步到运行中的配置 */
+    fun toggleRestartAppsOnSpoof() {
+        val newVal = !_uiState.value.restartAppsOnSpoof
+        settingsRepository.restartAppsOnSpoof = newVal
+        _uiState.update { it.copy(restartAppsOnSpoof = newVal) }
     }
 
     private fun syncMockSettings() {

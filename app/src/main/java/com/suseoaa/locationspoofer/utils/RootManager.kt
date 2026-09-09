@@ -5,6 +5,7 @@ import com.suseoaa.locationspoofer.data.model.RootSolution
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 
 class RootManager {
@@ -16,6 +17,7 @@ class RootManager {
         val allowRuleResults: List<Pair<String, Boolean>>,
         val labelCheckRaw: String?,
         val labelVerified: Boolean,
+        val appCanReadProbe: Boolean,
         val configFileChconResults: List<Pair<String, Boolean>>,
         val rawScriptOutput: String,
         val overallVerified: Boolean
@@ -137,6 +139,7 @@ class RootManager {
                     allowRuleResults = SEPOLICY_READ_DOMAINS.map { it to false },
                     labelCheckRaw = null,
                     labelVerified = false,
+                    appCanReadProbe = false,
                     configFileChconResults = CONFIG_FILE_PATHS.map { it to false },
                     rawScriptOutput = "",
                     overallVerified = false
@@ -151,6 +154,7 @@ class RootManager {
                 allowRuleResults = detail.allowRuleResults,
                 labelCheckRaw = detail.labelCheckRaw,
                 labelVerified = detail.labelVerified,
+                appCanReadProbe = detail.appCanReadProbe,
                 configFileChconResults = detail.configFileChconResults,
                 rawScriptOutput = detail.rawScriptOutput,
                 overallVerified = detail.overallVerified
@@ -182,6 +186,7 @@ class RootManager {
                 allowRuleResults = SEPOLICY_READ_DOMAINS.map { it to false },
                 labelCheckRaw = null,
                 labelVerified = false,
+                appCanReadProbe = false,
                 configFileChconResults = CONFIG_FILE_PATHS.map { it to false },
                 rawScriptOutput = "",
                 overallVerified = false
@@ -207,6 +212,9 @@ class RootManager {
 
         val probePath = "/data/local/tmp/.lsp_selinux_probe"
         val script = buildString {
+            // 保险：确保目录本身对非 root 进程可进入(x)，不依赖 applyRootBackgroundExemptions()
+            // 已经被调用过——testRootSetup() 可能在那之前就被触发。
+            appendLine("chmod 755 /data/local/tmp 2>/dev/null || true")
             appendLine("$tool '$typeRule' >/dev/null 2>&1")
             appendLine("echo TYPE_EXIT:\$?")
             appendLine("$tool '$typeAttrRule' >/dev/null 2>&1")
@@ -218,10 +226,14 @@ class RootManager {
             // 端到端验证：真的 chcon 一个探针文件再把标签读回来，确认这个 type 确实存在、
             // 且当前 root 域有权把它打上去。此前只看工具退出码，而 ksud 对错误语法同样返回 0，
             // 导致 Magisk 侧彻底失效却一直没有任何告警。
+            // 注意：这一步验证的是 su/Magisk 自己这个近乎不受 SELinux 限制的强势域能否
+            // 读写该文件，不代表 untrusted_app_all/gmscore_app 这些真正的目标域也被放行了
+            // ——这里先 chmod 644 确保 DAC 不是拦截因素，故意不在这一步删除探针文件，
+            // 留给下面 App 自己进程（而不是 su）做一次真实的跨域读取验证。
             appendLine(": > $probePath 2>/dev/null")
+            appendLine("chmod 644 $probePath 2>/dev/null")
             appendLine("chcon u:object_r:$CONFIG_SELINUX_TYPE:s0 $probePath 2>/dev/null")
             appendLine("echo LABEL_CHECK:\$(ls -Z $probePath 2>/dev/null)")
-            appendLine("rm -f $probePath 2>/dev/null")
             // 防御性保险：重启后这个 type 曾一度在内核里不存在（见开机日志里的
             // "is not valid (left unmapped)"），磁盘上残留的旧配置文件此时读不到。
             // 规则重新打上后，理论上旧文件的 xattr 标签会自动被重新解析为有效，
@@ -255,6 +267,21 @@ class RootManager {
             path to (Regex("CHCON_${index}_EXIT:(\\d+)").find(output)?.groupValues?.get(1) == "0")
         }
 
+        // 真实的跨域验证：App 自己的进程（运行在 untrusted_app 系的域下，和真正要读这份
+        // 配置文件的微信/GMS 等目标 App 是同一类域）直接尝试读探针文件，不再借道 su。
+        // su/Magisk 的域几乎不受这条自定义规则约束，上面的 LABEL_CHECK 只能证明"su 自己
+        // 能操作这个文件"，不能证明目标域真的被放行——这一步才是真正决定"目标 App 能不能
+        // 读到配置"的验证，读不到就直接判定整体未生效，不管前面几步的工具退出码多干净。
+        val appCanReadProbe = try {
+            // 探针文件本来就是空文件，读到空字符串也算成功；关键是这个操作本身
+            // 有没有抛出异常（MAC 拒绝时会是 FileNotFoundException: ... EACCES）。
+            File(probePath).readText()
+            true
+        } catch (e: Exception) {
+            false
+        }
+        executeCommand("rm -f $probePath 2>/dev/null")
+
         if (!typeOk) {
             android.util.Log.w(TAG, "sepolicy type 规则应用失败（方案: $solution，工具: $tool），输出: $output")
         }
@@ -263,22 +290,21 @@ class RootManager {
             android.util.Log.w(TAG, "以下域的 sepolicy 授权失败（该域名可能在本机不存在）: $failedDomains")
         }
 
-        // 标签探针跑通了就以它为准（最可信）；探针本身没跑起来（比如 ls -Z 不可用）才退回看退出码。
-        val verified = if (labelLine.isNullOrBlank()) {
-            typeOk && allowOkCount > 0
-        } else {
-            labelApplied && allowOkCount > 0
-        }
+        // 最终判定必须以 appCanReadProbe 为准：这是唯一真正验证了"目标域能不能读到文件"
+        // 的一步，su 自己的标签探针（labelApplied）只是前置的辅助诊断信息，不能替代它——
+        // 这正是这次改动要修的坑：此前只看 su 自证的结果，出现过"测试全部通过、但微信/
+        // 支付宝实际读取仍 EACCES"的假阳性。
+        val verified = appCanReadProbe && allowOkCount > 0
 
         if (verified) {
             android.util.Log.i(
                 TAG,
-                "sepolicy 规则已通过 $tool 应用并验证（方案: $solution，${allowOkCount}/${allowRules.size} 个域授权成功，标签校验: ${labelLine ?: "跳过"}）"
+                "sepolicy 规则已通过 $tool 应用并验证（方案: $solution，${allowOkCount}/${allowRules.size} 个域授权成功，标签校验: ${labelLine ?: "跳过"}，App 自身实测可读: $appCanReadProbe）"
             )
         } else {
             android.util.Log.w(
                 TAG,
-                "sepolicy 规则未能生效（方案: $solution，工具: $tool，标签校验: ${labelLine ?: "未执行"}），" +
+                "sepolicy 规则未能生效（方案: $solution，工具: $tool，标签校验: ${labelLine ?: "未执行"}，App 自身实测可读: $appCanReadProbe），" +
                     "目标应用大概率读不到配置文件、模拟会失效。完整输出: $output"
             )
         }
@@ -289,6 +315,7 @@ class RootManager {
             allowRuleResults = allowRuleResults,
             labelCheckRaw = labelLine,
             labelVerified = labelApplied,
+            appCanReadProbe = appCanReadProbe,
             configFileChconResults = configFileChconResults,
             rawScriptOutput = output,
             overallVerified = verified
@@ -299,6 +326,17 @@ class RootManager {
         val result = executeCommand("$probeCommand >/dev/null 2>&1; echo EXIT:\$?")
         return result.trim().endsWith("EXIT:0")
     }
+
+    /**
+     * 强制停止目标 App，逼迫它们下次启动时重新走一次全新的 SELinux 访问判定，
+     * 不再受历史 AVC 缓存（进程在规则重新打上之前就已建立的"拒绝"判定不会自动刷新）
+     * 或者其他同样操作 sepolicy 的模块的影响——这是"规则检测通过但目标 App 仍读不到
+     * 配置"这类问题最直接有效的解法。
+     */
+    suspend fun forceStopApps(packages: List<String>): List<Pair<String, Boolean>> =
+        withContext(Dispatchers.IO) {
+            packages.map { pkg -> pkg to (executeCommand("am force-stop $pkg") != "ERROR") }
+        }
 
     suspend fun grantMockLocation(): Boolean = withContext(Dispatchers.IO) {
         val result =

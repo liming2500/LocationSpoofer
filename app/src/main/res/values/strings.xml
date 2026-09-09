@@ -75,7 +75,16 @@
     <string name="root_test_tool_not_found">No usable tool found for this solution</string>
     <string name="root_test_item_type_rule">Type rule applied</string>
     <string name="root_test_item_allow_domain">Domain authorized: %1$s</string>
-    <string name="root_test_item_label_check">Label verification</string>
+    <string name="root_test_item_label_check">Label verification (self-checked by su)</string>
+    <string name="root_test_item_app_read">Read test from app process (decisive)</string>
+    <string name="root_test_item_app_read_detail">Verifies the target domain can actually read the file, unlike the su self-check above</string>
+    <string name="restart_hooked_apps_title">Restart Target Apps to Apply Latest Rules</string>
+    <string name="restart_hooked_apps_desc">Force-stops hooked apps so they re-check SELinux access fresh</string>
+    <string name="restart_hooked_apps_confirm_title">Confirm App Restart</string>
+    <string name="restart_hooked_apps_confirm_message">This will force-stop the following %1$d app(s). Unsaved content in them may be lost.</string>
+    <string name="restart_hooked_apps_confirm_button">Confirm Restart</string>
+    <string name="restart_hooked_apps_done">Restarted %1$d app(s). Please reopen them to verify.</string>
+    <string name="restart_hooked_apps_empty">No apps are currently in scope for this module.</string>
     <string name="copy_diagnostic_info">Copy diagnostic info</string>
     <string name="data_collection_assist_intro">Without root, the main spoofing features are unavailable — but you can still help collect real Wi-Fi/cell signal data at this location. Export it when done and share the file for import on another device.</string>
     <string name="data_collection_assist_hint">Stay at the target location, tap Start, and wait at least 10 seconds to ensure a scan completes. You can move to other spots and repeat Start/Stop. Tap Export when finished.</string>
@@ -180,6 +189,7 @@
     <string name="mock_cell_data">Mock Cell Tower Data</string>
     <string name="mock_bluetooth_data">Mock Bluetooth Data</string>
     <string name="enable_slight_jitter">Enable Slight Jitter</string>
+    <string name="restart_apps_on_spoof">Restart Target Apps on Start</string>
     <string name="app_package_name">App Package Name</string>
     <string name="no_data_collected">No data collected.</string>
     <string name="edit_location_data">Edit Location Data</string>

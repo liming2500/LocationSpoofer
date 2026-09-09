@@ -626,6 +626,57 @@ fun SettingsScreen(
                                 )
                             }
                         }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // 重启目标应用以应用最新规则：检测通过但目标 App 仍读不到配置时，
+                        // 让它们以全新状态重新走一次 SELinux 判定，不再受历史缓存影响。
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(
+                                        alpha = 0.03f
+                                    )
+                                )
+                                .noRippleClickable {
+                                    if (!uiState.isRestartingHookedApps) viewModel.requestRestartHookedApps()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.restart_hooked_apps_title),
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(R.string.restart_hooked_apps_desc),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                                )
+                            }
+
+                            if (uiState.isRestartingHookedApps) {
+                                CircularProgressIndicator(
+                                    color = AccentOrange,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    contentDescription = stringResource(R.string.restart_hooked_apps_title),
+                                    tint = AccentOrange,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     }
 
                     // 4. 后台持续模拟与保活设置卡片
@@ -903,6 +954,24 @@ fun SettingsScreen(
             onDismiss = { viewModel.dismissRootSetupTestResult() }
         )
     }
+
+    val appsToRestart = uiState.hookedAppsToRestart
+    if (appsToRestart != null) {
+        RestartHookedAppsConfirmDialog(
+            apps = appsToRestart,
+            isDark = isDark,
+            onDismiss = { viewModel.dismissRestartHookedAppsDialog() },
+            onConfirm = {
+                viewModel.confirmRestartHookedApps { count ->
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.restart_hooked_apps_done, count),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -1098,6 +1167,11 @@ private fun RootSetupTestResultDialog(
                         ok = result.labelVerified,
                         detail = result.labelCheckRaw
                     )
+                    DiagnosticItemRow(
+                        label = stringResource(R.string.root_test_item_app_read),
+                        ok = result.appCanReadProbe,
+                        detail = stringResource(R.string.root_test_item_app_read_detail)
+                    )
                     result.configFileChconResults.forEach { (path, ok) ->
                         DiagnosticItemRow(
                             label = path,
@@ -1166,6 +1240,134 @@ private fun RootSetupTestResultDialog(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RestartHookedAppsConfirmDialog(
+    apps: List<com.suseoaa.locationspoofer.data.model.AppInfoItem>,
+    isDark: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(13.dp))
+                            .background(Color(0xFFE53935).copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Rounded.RestartAlt,
+                            contentDescription = null,
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.restart_hooked_apps_confirm_title),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                if (apps.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.restart_hooked_apps_empty),
+                        fontSize = 13.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        lineHeight = 20.sp
+                    )
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                    ) {
+                        Text(stringResource(R.string.close), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Text(
+                        text = stringResource(R.string.restart_hooked_apps_confirm_message, apps.size),
+                        fontSize = 13.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        lineHeight = 20.sp
+                    )
+
+                    Text(
+                        text = apps.joinToString("、") { it.appName },
+                        fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                        lineHeight = 18.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(
+                                        alpha = 0.05f
+                                    )
+                                )
+                                .noRippleClickable(onDismiss),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.cancel),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                            )
+                        }
+
+                        Button(
+                            onClick = onConfirm,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .height(42.dp)
+                        ) {
+                            Text(
+                                stringResource(R.string.restart_hooked_apps_confirm_button),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

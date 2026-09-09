@@ -59,6 +59,9 @@ data class AppState(
     val rootSolution: RootSolution = RootSolution.AUTO,
     val isTestingRootSetup: Boolean = false,
     val rootSetupTestResult: RootSetupTestResult? = null,
+    val isRestartingHookedApps: Boolean = false,
+    /** 非空即触发"确认重启应用"弹窗；内容来自 lsposedManager.getHookedApps() */
+    val hookedAppsToRestart: List<AppInfoItem>? = null,
     val isLSPosedActive: Boolean = false,
     val longitudeInput: String = "",
     val latitudeInput: String = "",
@@ -118,6 +121,7 @@ data class AppState(
     val mockCell: Boolean = true,
     val mockBluetooth: Boolean = true,
     val enableJitter: Boolean = true,
+    val restartAppsOnSpoof: Boolean = true,
     val altitudeInput: String = "0.0",
     val satelliteCountInput: String = "20",
     val canMockWifi: Boolean = false,

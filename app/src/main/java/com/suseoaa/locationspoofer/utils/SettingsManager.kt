@@ -92,6 +92,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("enable_jitter", true)
         set(value) = prefs.edit().putBoolean("enable_jitter", value).apply()
 
+    /** 开始模拟时是否强制重启已勾选作用域的目标 App，让它们以最新 sepolicy 规则重新走一次权限判定 */
+    var restartAppsOnSpoof: Boolean
+        get() = prefs.getBoolean("restart_apps_on_spoof", true)
+        set(value) = prefs.edit().putBoolean("restart_apps_on_spoof", value).apply()
+
     var altitude: String
         get() = prefs.getString("altitude", "0.0") ?: "0.0"
         set(value) = prefs.edit().putString("altitude", value).apply()

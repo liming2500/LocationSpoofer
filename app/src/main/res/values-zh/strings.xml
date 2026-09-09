@@ -80,7 +80,16 @@
     <string name="root_test_tool_not_found">当前方案下未探测到可用工具</string>
     <string name="root_test_item_type_rule">type 规则应用</string>
     <string name="root_test_item_allow_domain">域授权: %1$s</string>
-    <string name="root_test_item_label_check">标签验证</string>
+    <string name="root_test_item_label_check">标签验证(su 自证，仅供参考)</string>
+    <string name="root_test_item_app_read">App 进程实测读取(决定性结果)</string>
+    <string name="root_test_item_app_read_detail">验证目标域是否真的能读到文件，比上面 su 自证更可靠</string>
+    <string name="restart_hooked_apps_title">重启目标应用以应用最新规则</string>
+    <string name="restart_hooked_apps_desc">强制停止已勾选的应用，让它们重新走一次全新的权限判定</string>
+    <string name="restart_hooked_apps_confirm_title">确认重启应用</string>
+    <string name="restart_hooked_apps_confirm_message">这会强制关闭以下 %1$d 个应用，其中未保存的内容可能丢失。</string>
+    <string name="restart_hooked_apps_confirm_button">确认重启</string>
+    <string name="restart_hooked_apps_done">已重启 %1$d 个应用，请重新打开验证。</string>
+    <string name="restart_hooked_apps_empty">当前没有为本模块勾选作用域的应用。</string>
     <string name="copy_diagnostic_info">复制诊断信息</string>
     <string name="data_collection_assist_intro">没有 Root 权限，主要的模拟功能暂时用不了，但你依然可以帮忙采集这个地点真实的 Wi-Fi/基站信号数据。采集完成后导出文件，发给对方在另一台设备上导入即可。</string>
     <string name="data_collection_assist_hint">在目标地点停留后点击"开始采集"，等待至少 10 秒以确保完成一次扫描；可以走到其他地点重复开始/停止来采集多个点位；采集完成后点击"导出"。</string>
@@ -185,6 +194,7 @@
     <string name="mock_cell_data">模拟基站数据</string>
     <string name="mock_bluetooth_data">模拟蓝牙数据</string>
     <string name="enable_slight_jitter">开启轻微抖动</string>
+    <string name="restart_apps_on_spoof">开始模拟时重启目标应用</string>
     <string name="app_package_name">应用包名</string>
     <string name="no_data_collected">暂无采集数据</string>
     <string name="edit_location_data">编辑位置数据</string>
