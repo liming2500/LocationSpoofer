@@ -49,6 +49,12 @@ import kotlinx.serialization.decodeFromString
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
+sealed interface FavoriteToggleResult {
+    data class Added(val name: String) : FavoriteToggleResult
+    data class Removed(val name: String) : FavoriteToggleResult
+    data object Failed : FavoriteToggleResult
+}
+
 class MainViewModel(
     private val locationRepository: LocationRepository,
     private val settingsRepository: SettingsRepository,
@@ -1695,6 +1701,45 @@ class MainViewModel(
             )
             _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
             onResult(name)
+        }
+    }
+
+    fun toggleCollectedLocationFavorite(
+        locationId: Long,
+        onResult: (FavoriteToggleResult) -> Unit
+    ) {
+        viewModelScope.launch {
+            val record = withContext(Dispatchers.IO) {
+                environmentDao.getCompleteLocationById(locationId)
+            }
+            if (record == null) {
+                onResult(FavoriteToggleResult.Failed)
+                return@launch
+            }
+
+            val lat = record.location.lat
+            val lng = record.location.lng
+            // 收藏夹是独立快照，name 可能被改过，只能按经纬度关联
+            val existing = settingsRepository.getSavedLocations()
+                .firstOrNull { it.lat == lat && it.lng == lng }
+
+            if (existing != null) {
+                settingsRepository.removeSavedLocation(existing)
+                _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
+                onResult(FavoriteToggleResult.Removed(existing.name))
+            } else {
+                val name = when {
+                    record.location.remark.isNotBlank() -> record.location.remark
+                    record.location.placeName.isNotBlank() -> record.location.placeName
+                    else -> String.format(Locale.US, "(%.5f, %.5f)", lat, lng)
+                }
+                val (wifiJson, cellJson, btJson) = locationToJson(listOf(record), lat, lng)
+                settingsRepository.addSavedLocation(
+                    SavedLocation(name, lat, lng, wifiJson, cellJson, btJson)
+                )
+                _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
+                onResult(FavoriteToggleResult.Added(name))
+            }
         }
     }
 
