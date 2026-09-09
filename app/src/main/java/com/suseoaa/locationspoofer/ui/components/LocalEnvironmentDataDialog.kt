@@ -23,6 +23,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.suseoaa.locationspoofer.R
 import com.suseoaa.locationspoofer.data.db.CompleteLocation
+import com.suseoaa.locationspoofer.data.model.SavedLocation
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,6 +39,7 @@ import java.util.Locale
 fun LocalEnvironmentDataDialog(
     dataList: List<CompleteLocation>,
     isLoading: Boolean,
+    savedLocations: List<SavedLocation>,
     onSelectPoint: (item: CompleteLocation) -> Unit,
     onFavorite: (item: CompleteLocation) -> Unit,
     onImportClick: () -> Unit,
@@ -45,6 +47,10 @@ fun LocalEnvironmentDataDialog(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val timeFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+
+    val favoritedCoords = remember(savedLocations) {
+        savedLocations.mapTo(HashSet()) { it.lat to it.lng }
+    }
 
     val filteredList = remember(dataList, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -270,6 +276,7 @@ fun LocalEnvironmentDataDialog(
                             LocalDataItem(
                                 item = item,
                                 timeStr = timeFormat.format(Date(item.location.timestamp)),
+                                isFavorited = favoritedCoords.contains(item.location.lat to item.location.lng),
                                 onClick = {
                                     onSelectPoint(item)
                                     onDismiss()
@@ -327,6 +334,7 @@ fun LocalEnvironmentDataDialog(
 private fun LocalDataItem(
     item: CompleteLocation,
     timeStr: String,
+    isFavorited: Boolean,
     onClick: () -> Unit,
     onFavorite: () -> Unit
 ) {
@@ -370,8 +378,9 @@ private fun LocalDataItem(
                         fontSize = 15.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f, fill = false)
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(end = 8.dp)
                     )
                     Text(
                         text = timeStr,
@@ -430,8 +439,10 @@ private fun LocalDataItem(
 
             IconButton(onClick = onFavorite, modifier = Modifier.size(36.dp)) {
                 Icon(
-                    Icons.Rounded.StarOutline,
-                    contentDescription = stringResource(R.string.add_to_favorites),
+                    imageVector = if (isFavorited) Icons.Rounded.Star else Icons.Rounded.StarOutline,
+                    contentDescription = stringResource(
+                        if (isFavorited) R.string.remove_from_favorites else R.string.add_to_favorites
+                    ),
                     tint = AccentOrange,
                     modifier = Modifier.size(20.dp)
                 )

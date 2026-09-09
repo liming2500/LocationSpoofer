@@ -65,6 +65,7 @@ import com.suseoaa.locationspoofer.ui.screen.*
 import com.suseoaa.locationspoofer.ui.screen.spoofing.SpoofingIntent
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
+import com.suseoaa.locationspoofer.viewmodel.FavoriteToggleResult
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import com.suseoaa.locationspoofer.viewmodel.ManageDataViewModel
 import kotlinx.coroutines.launch
@@ -449,6 +450,7 @@ fun LocationTab(
         LocalEnvironmentDataDialog(
             dataList = manageDataUiState.dataList,
             isLoading = manageDataUiState.isLoading,
+            savedLocations = uiState.savedLocations,
             onSelectPoint = { item ->
                 val lat = item.location.lat
                 val lng = item.location.lng
@@ -472,16 +474,21 @@ fun LocationTab(
                 ).show()
             },
             onFavorite = { item ->
-                viewModel.saveCollectedLocationToFavorites(item.location.id) { name ->
-                    Toast.makeText(
-                        context,
-                        if (name != null) {
-                            context.getString(R.string.favorited_toast, name)
-                        } else {
-                            context.getString(R.string.favorite_failed)
-                        },
-                        Toast.LENGTH_SHORT
-                    ).show()
+                viewModel.toggleCollectedLocationFavorite(item.location.id) { result ->
+                    val message = when (result) {
+                        is FavoriteToggleResult.Added -> context.getString(
+                            R.string.favorited_toast,
+                            result.name
+                        )
+
+                        is FavoriteToggleResult.Removed -> context.getString(
+                            R.string.unfavorited_toast,
+                            result.name
+                        )
+
+                        FavoriteToggleResult.Failed -> context.getString(R.string.favorite_failed)
+                    }
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                 }
             },
             onImportClick = {
