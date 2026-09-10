@@ -189,8 +189,6 @@
     <string name="features_tab_title">الميزات</string>
     <string name="features_tab_desc">أدوات الإدارة وبيانات البيئة المحلية</string>
     <string name="app_slogan">أداة لتزييف الموقع، لا أكثر.</string>
-    <string name="software_config_title">تكوين البرنامج</string>
-    <string name="software_config_desc">إعدادات اللغة ومحرك الخرائط ومصادر البيانات</string>
     <string name="default_language">اللغة الافتراضية</string>
     <string name="map_engine_auto">اختيار تلقائي</string>
     <string name="map_engine_amap">خرائط Amap</string>
@@ -291,8 +289,6 @@
     <string name="set_place_name_hint">تعيين اسم الموقع (مثل: المكتب، المنزل)</string>
     <string name="add_remark_hint">إضافة ملاحظة مخصصة...</string>
     <string name="save_changes">حفظ التغييرات</string>
-    <string name="software_config">تكوين البرنامج</string>
-    <string name="settings_subtitle">لغة الواجهة ومحرك الخرائط ومصادر البيانات</string>
     <string name="switch_language_desc">تبديل لغة عرض التطبيق</string>
     <string name="map_engine_and_keys">اختيار محرك الخرائط ومفاتيح API المخصصة</string>
     <string name="current_engine">المحرك الحالي</string>
