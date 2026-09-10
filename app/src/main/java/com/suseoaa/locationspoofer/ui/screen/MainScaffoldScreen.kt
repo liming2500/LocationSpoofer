@@ -62,7 +62,12 @@ enum class MainSubScreen {
     ScannerMap,
     ManageData,
     Update,
-    Settings
+    LanguageSettings,
+    MapEngineSettings,
+    SignatureAuth,
+    RootDiagnostics,
+    BackgroundKeepAlive,
+    EnvTokens
 }
 
 @Composable
@@ -316,7 +321,12 @@ fun MainScaffoldScreen(
                             updateUiState = updateUiState,
                             tabBarHeight = paddingValues.calculateBottomPadding(),
                             onNavigateToUpdate = { currentSubScreen = MainSubScreen.Update },
-                            onNavigateToSettings = { currentSubScreen = MainSubScreen.Settings }
+                            onNavigateToLanguage = { currentSubScreen = MainSubScreen.LanguageSettings },
+                            onNavigateToMapEngine = { currentSubScreen = MainSubScreen.MapEngineSettings },
+                            onNavigateToSignatureAuth = { currentSubScreen = MainSubScreen.SignatureAuth },
+                            onNavigateToRootDiagnostics = { currentSubScreen = MainSubScreen.RootDiagnostics },
+                            onNavigateToBackgroundKeepAlive = { currentSubScreen = MainSubScreen.BackgroundKeepAlive },
+                            onNavigateToEnvTokens = { currentSubScreen = MainSubScreen.EnvTokens }
                         )
                     }
                 }
@@ -369,7 +379,42 @@ fun MainScaffoldScreen(
                         onBack = { currentSubScreen = MainSubScreen.None }
                     )
 
-                    MainSubScreen.Settings -> SettingsScreen(
+                    MainSubScreen.LanguageSettings -> com.suseoaa.locationspoofer.ui.screen.settings.LanguageSettingsScreen(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        isDark = isDark,
+                        onClose = { currentSubScreen = MainSubScreen.None }
+                    )
+
+                    MainSubScreen.MapEngineSettings -> com.suseoaa.locationspoofer.ui.screen.settings.MapEngineSettingsScreen(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        isDark = isDark,
+                        onClose = { currentSubScreen = MainSubScreen.None }
+                    )
+
+                    MainSubScreen.SignatureAuth -> com.suseoaa.locationspoofer.ui.screen.settings.SignatureAuthScreen(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        isDark = isDark,
+                        onClose = { currentSubScreen = MainSubScreen.None }
+                    )
+
+                    MainSubScreen.RootDiagnostics -> com.suseoaa.locationspoofer.ui.screen.settings.RootDiagnosticsScreen(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        isDark = isDark,
+                        onClose = { currentSubScreen = MainSubScreen.None }
+                    )
+
+                    MainSubScreen.BackgroundKeepAlive -> com.suseoaa.locationspoofer.ui.screen.settings.BackgroundKeepAliveScreen(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        isDark = isDark,
+                        onClose = { currentSubScreen = MainSubScreen.None }
+                    )
+
+                    MainSubScreen.EnvTokens -> com.suseoaa.locationspoofer.ui.screen.settings.EnvTokensScreen(
                         viewModel = viewModel,
                         uiState = uiState,
                         isDark = isDark,

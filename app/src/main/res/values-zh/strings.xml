@@ -230,8 +230,6 @@
     <string name="features_tab_title">功能</string>
     <string name="features_tab_desc">管理工具与本地环境数据</string>
     <string name="app_slogan">这是一个模拟定位软件，仅此而已</string>
-    <string name="software_config_title">软件配置</string>
-    <string name="software_config_desc">语言设置、地图引擎与数据源</string>
     <string name="default_language">默认语言</string>
     <string name="map_engine_auto">自动选择</string>
     <string name="map_engine_amap">高德地图</string>
@@ -332,8 +330,6 @@
     <string name="set_place_name_hint">设置位置名称（如：教学楼、宿舍等）</string>
     <string name="add_remark_hint">添加自定义备注说明...</string>
     <string name="save_changes">保存更改</string>
-    <string name="software_config">软件配置</string>
-    <string name="settings_subtitle">界面语言、地图引擎与数据源配置</string>
     <string name="switch_language_desc">切换应用界面显示语言</string>
     <string name="map_engine_and_keys">选择地图渲染引擎及自定义 Key</string>
     <string name="current_engine">当前引擎</string>

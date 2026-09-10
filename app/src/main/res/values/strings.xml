@@ -231,8 +231,6 @@
     <string name="features_tab_title">Features</string>
     <string name="features_tab_desc">Management tools &amp; local environment data</string>
     <string name="app_slogan">A location spoofing tool, and that\'s it.</string>
-    <string name="software_config_title">Software Configuration</string>
-    <string name="software_config_desc">Language, Map Engine &amp; Data Source</string>
     <string name="default_language">Default Language</string>
     <string name="map_engine_auto">Auto Select</string>
     <string name="map_engine_amap">AMap</string>
@@ -333,8 +331,6 @@
     <string name="set_place_name_hint">Set place name (e.g., Office, Home)</string>
     <string name="add_remark_hint">Add custom remark note...</string>
     <string name="save_changes">Save Changes</string>
-    <string name="software_config">Software Configuration</string>
-    <string name="settings_subtitle">Interface language, map engine &amp; data sources</string>
     <string name="switch_language_desc">Switch application display language</string>
     <string name="map_engine_and_keys">Select map rendering engine and custom API keys</string>
     <string name="current_engine">Current Engine</string>

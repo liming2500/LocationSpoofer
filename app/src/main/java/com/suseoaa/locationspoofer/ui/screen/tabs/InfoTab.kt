@@ -8,8 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +44,7 @@ import com.suseoaa.locationspoofer.ui.screen.UpdateCheckCard
 import com.suseoaa.locationspoofer.ui.screen.isNewerVersion
 import com.suseoaa.locationspoofer.ui.theme.AccentBlue
 import com.suseoaa.locationspoofer.ui.theme.AccentGreen
+import com.suseoaa.locationspoofer.ui.theme.AccentOrange
 import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
@@ -51,7 +58,12 @@ fun InfoTab(
     updateUiState: UpdateUiState? = null,
     tabBarHeight: Dp = 90.dp,
     onNavigateToUpdate: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToLanguage: () -> Unit = {},
+    onNavigateToMapEngine: () -> Unit = {},
+    onNavigateToSignatureAuth: () -> Unit = {},
+    onNavigateToRootDiagnostics: () -> Unit = {},
+    onNavigateToBackgroundKeepAlive: () -> Unit = {},
+    onNavigateToEnvTokens: () -> Unit = {}
 ) {
     val isDark = isSystemInDarkTheme()
 
@@ -169,92 +181,57 @@ fun InfoTab(
                 )
             }
 
-            // 2. 软件配置聚合卡片 (选择语言、地图配置、数据源Token合并入口)
+            // 2. 设置聚合卡片：原来的 6 个"软件配置"区块拆开后，各自独立成页，
+            // 这里收进一个紧凑列表，避免变成 6 个各自占一屏高度的大卡片。
             item {
                 MiuixCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .noRippleClickable(onClick = onNavigateToSettings),
+                    modifier = Modifier.fillMaxWidth(),
                     cornerRadius = 18.dp,
-                    insideMargin = PaddingValues(16.dp)
+                    insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(13.dp))
-                                .background(AccentBlue.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Tune,
-                                contentDescription = null,
-                                tint = AccentBlue,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        Spacer(Modifier.width(14.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.software_config_title),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                text = stringResource(R.string.software_config_desc),
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-
-                            Spacer(Modifier.height(8.dp))
-
-                            // 状态预览芯片
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(AccentBlue.copy(alpha = if (isDark) 0.14f else 0.08f))
-                                        .padding(horizontal = 7.dp, vertical = 2.5.dp)
-                                ) {
-                                    Text(
-                                        text = currentLangName,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = AccentBlue
-                                    )
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(AccentGreen.copy(alpha = if (isDark) 0.14f else 0.08f))
-                                        .padding(horizontal = 7.dp, vertical = 2.5.dp)
-                                ) {
-                                    Text(
-                                        text = currentEngineName,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = AccentGreen
-                                    )
-                                }
-                            }
-                        }
-
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                            modifier = Modifier.size(20.dp)
+                    Column {
+                        SettingsEntryRow(
+                            icon = Icons.Rounded.Language,
+                            tint = AccentBlue,
+                            title = stringResource(R.string.select_language),
+                            previewChip = currentLangName,
+                            onClick = onNavigateToLanguage
+                        )
+                        SettingsEntryDivider()
+                        SettingsEntryRow(
+                            icon = Icons.Rounded.Map,
+                            tint = AccentGreen,
+                            title = stringResource(R.string.map_config),
+                            previewChip = currentEngineName,
+                            onClick = onNavigateToMapEngine
+                        )
+                        SettingsEntryDivider()
+                        SettingsEntryRow(
+                            icon = Icons.Rounded.Security,
+                            tint = AccentOrange,
+                            title = stringResource(R.string.env_and_signature),
+                            onClick = onNavigateToSignatureAuth
+                        )
+                        SettingsEntryDivider()
+                        SettingsEntryRow(
+                            icon = Icons.Rounded.Shield,
+                            tint = AccentBlue,
+                            title = stringResource(R.string.root_solution_title),
+                            onClick = onNavigateToRootDiagnostics
+                        )
+                        SettingsEntryDivider()
+                        SettingsEntryRow(
+                            icon = Icons.Rounded.BatteryChargingFull,
+                            tint = AccentOrange,
+                            title = stringResource(R.string.background_keep_alive_title),
+                            onClick = onNavigateToBackgroundKeepAlive
+                        )
+                        SettingsEntryDivider()
+                        SettingsEntryRow(
+                            icon = Icons.Rounded.VpnKey,
+                            tint = AccentBlue,
+                            title = stringResource(R.string.env_datasource_tokens_title),
+                            onClick = onNavigateToEnvTokens
                         )
                     }
                 }
@@ -267,4 +244,67 @@ fun InfoTab(
             }
         }
     }
+}
+
+/** 设置聚合卡片里的单行入口：图标 + 标题 + 可选状态预览 chip + 箭头。 */
+@Composable
+private fun SettingsEntryRow(
+    icon: ImageVector,
+    tint: Color,
+    title: String,
+    onClick: () -> Unit,
+    previewChip: String? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .noRippleClickable(onClick = onClick)
+            .padding(vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(tint.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = title,
+            fontSize = 14.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (previewChip != null) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(tint.copy(alpha = 0.1f))
+                    .padding(horizontal = 7.dp, vertical = 2.5.dp)
+            ) {
+                Text(text = previewChip, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = tint)
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@Composable
+private fun SettingsEntryDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(0.6.dp)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+    )
 }
