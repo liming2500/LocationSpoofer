@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -48,8 +49,14 @@ fun LocalEnvironmentDataDialog(
     var searchQuery by remember { mutableStateOf("") }
     val timeFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
 
-    val favoritedCoords = remember(savedLocations) {
-        savedLocations.mapTo(HashSet()) { it.lat to it.lng }
+    // 优先按 sourceLocationId 判断是否已收藏（编辑坐标后依然认得出）；
+    // 没有来源 id 的老收藏才退回按坐标匹配。
+    val favoritedLocationIds = remember(savedLocations) {
+        savedLocations.mapNotNullTo(HashSet()) { it.sourceLocationId }
+    }
+    val favoritedCoordsFallback = remember(savedLocations) {
+        savedLocations.filter { it.sourceLocationId == null }
+            .mapTo(HashSet()) { it.lat to it.lng }
     }
 
     val filteredList = remember(dataList, searchQuery) {
@@ -276,7 +283,8 @@ fun LocalEnvironmentDataDialog(
                             LocalDataItem(
                                 item = item,
                                 timeStr = timeFormat.format(Date(item.location.timestamp)),
-                                isFavorited = favoritedCoords.contains(item.location.lat to item.location.lng),
+                                isFavorited = favoritedLocationIds.contains(item.location.id) ||
+                                    favoritedCoordsFallback.contains(item.location.lat to item.location.lng),
                                 onClick = {
                                     onSelectPoint(item)
                                     onDismiss()
@@ -367,10 +375,12 @@ private fun LocalDataItem(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // 主标题与时间
+                // 主标题与时间。标题不再限死单行，但仍要设上限，
+                // 否则几百字的长备注会把卡片撑得很高；顶部对齐而不是垂直居中，
+                // 这样标题一旦换行，时间戳依旧停在第一行同一水平线上，不会飘到文字块中间。
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
@@ -378,6 +388,8 @@ private fun LocalDataItem(
                         fontSize = 15.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .weight(1f, fill = false)
                             .padding(end = 8.dp)

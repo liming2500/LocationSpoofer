@@ -46,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 fun SwipeableDataListItem(
     item: CompleteLocation,
     isDark: Boolean,
+    isFavorited: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -124,13 +125,17 @@ fun SwipeableDataListItem(
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Icon(
-                        Icons.Rounded.Star,
-                        contentDescription = stringResource(R.string.add_to_favorites),
+                        if (isFavorited) Icons.Rounded.Star else Icons.Rounded.StarOutline,
+                        contentDescription = stringResource(
+                            if (isFavorited) R.string.remove_from_favorites else R.string.add_to_favorites
+                        ),
                         tint = Color.White,
                         modifier = Modifier.size(19.dp)
                     )
                     Text(
-                        text = stringResource(R.string.add_to_favorites),
+                        text = stringResource(
+                            if (isFavorited) R.string.remove_from_favorites else R.string.add_to_favorites
+                        ),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White

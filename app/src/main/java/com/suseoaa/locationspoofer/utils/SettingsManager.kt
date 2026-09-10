@@ -119,7 +119,9 @@ class SettingsManager(context: Context) {
                         lng = obj.optDouble("lng", 0.0),
                         wifiJson = obj.optString("wifiJson", "[]"),
                         cellJson = obj.optString("cellJson", "[]"),
-                        bluetoothJson = obj.optString("bluetoothJson", "[]")
+                        bluetoothJson = obj.optString("bluetoothJson", "[]"),
+                        // 老版本写入的收藏没有这个 key，has() 为 false 时保持 null
+                        sourceLocationId = if (obj.has("sourceLocationId")) obj.optLong("sourceLocationId") else null
                     )
                 )
             }
@@ -129,16 +131,29 @@ class SettingsManager(context: Context) {
         return list
     }
 
+    /**
+     * 两条收藏是否视为"同一条"：都来自同一条采集记录（sourceLocationId 相同且非空）时按
+     * 来源关联判断——这样编辑过采集点坐标也认得出来；否则退回按 name+lat+lng 精确匹配
+     * （手动收藏、或老版本写入的没有来源 id 的收藏）。不能只按坐标匹配，那样会把同一坐标
+     * 下其他名字/其他来源的收藏一并命中。
+     */
+    private fun isSameSavedLocation(a: SavedLocation, b: SavedLocation): Boolean {
+        if (a.sourceLocationId != null && b.sourceLocationId != null) {
+            return a.sourceLocationId == b.sourceLocationId
+        }
+        return a.name == b.name && a.lat == b.lat && a.lng == b.lng
+    }
+
     fun addSavedLocation(location: SavedLocation) {
         val list = getSavedLocations().toMutableList()
-        list.removeAll { it.name == location.name && it.lat == location.lat && it.lng == location.lng }
+        list.removeAll { isSameSavedLocation(it, location) }
         list.add(location)
         saveLocationList(list)
     }
 
     fun removeSavedLocation(location: SavedLocation) {
         val list = getSavedLocations().toMutableList()
-        list.removeAll { it.lat == location.lat && it.lng == location.lng }
+        list.removeAll { isSameSavedLocation(it, location) }
         saveLocationList(list)
     }
 
@@ -152,6 +167,9 @@ class SettingsManager(context: Context) {
             obj.put("wifiJson", it.wifiJson)
             obj.put("cellJson", it.cellJson)
             obj.put("bluetoothJson", it.bluetoothJson)
+            if (it.sourceLocationId != null) {
+                obj.put("sourceLocationId", it.sourceLocationId)
+            }
             jsonArray.put(obj)
         }
         prefs.edit().putString("saved_locations", jsonArray.toString()).apply()

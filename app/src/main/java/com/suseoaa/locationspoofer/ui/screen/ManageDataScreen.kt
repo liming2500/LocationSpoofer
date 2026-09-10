@@ -38,6 +38,7 @@ import com.suseoaa.locationspoofer.ui.theme.AccentGreen
 import com.suseoaa.locationspoofer.ui.theme.AppColors
 import com.suseoaa.locationspoofer.ui.theme.noRippleClickable
 import com.suseoaa.locationspoofer.utils.MapCoverageHelper
+import com.suseoaa.locationspoofer.viewmodel.FavoriteToggleResult
 import com.suseoaa.locationspoofer.viewmodel.MainViewModel
 import com.suseoaa.locationspoofer.viewmodel.ManageDataViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -58,6 +59,16 @@ fun ManageDataScreen(
 
     val manageDataUiState by manageDataViewModel.uiState.collectAsState()
     val dataList = manageDataUiState.dataList
+
+    // 优先按 sourceLocationId 判断是否已收藏（编辑坐标后依然认得出）；
+    // 没有来源 id 的老收藏才退回按坐标匹配。
+    val favoritedLocationIds = remember(uiState.savedLocations) {
+        uiState.savedLocations.mapNotNullTo(HashSet()) { it.sourceLocationId }
+    }
+    val favoritedCoordsFallback = remember(uiState.savedLocations) {
+        uiState.savedLocations.filter { it.sourceLocationId == null }
+            .mapTo(HashSet()) { it.lat to it.lng }
+    }
 
     LaunchedEffect(dataList) {
         viewModel.onManageDataChanged()
@@ -265,6 +276,8 @@ fun ManageDataScreen(
                             SwipeableDataListItem(
                                 item = item,
                                 isDark = isDark,
+                                isFavorited = favoritedLocationIds.contains(item.location.id) ||
+                                    favoritedCoordsFallback.contains(item.location.lat to item.location.lng),
                                 onClick = {
                                     viewModel.selectCollectedLocation(item.location.id)
                                     mapController?.animateCamera(
@@ -276,16 +289,21 @@ fun ManageDataScreen(
                                 onEdit = { editingItem = item },
                                 onDelete = { itemToDelete = item },
                                 onFavorite = {
-                                    viewModel.saveCollectedLocationToFavorites(item.location.id) { name ->
-                                        Toast.makeText(
-                                            context,
-                                            if (name != null) {
-                                                context.getString(R.string.favorited_toast, name)
-                                            } else {
-                                                context.getString(R.string.favorite_failed)
-                                            },
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                    viewModel.toggleCollectedLocationFavorite(item.location.id) { result ->
+                                        val message = when (result) {
+                                            is FavoriteToggleResult.Added -> context.getString(
+                                                R.string.favorited_toast,
+                                                result.name
+                                            )
+
+                                            is FavoriteToggleResult.Removed -> context.getString(
+                                                R.string.unfavorited_toast,
+                                                result.name
+                                            )
+
+                                            FavoriteToggleResult.Failed -> context.getString(R.string.favorite_failed)
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             )
@@ -332,6 +350,9 @@ fun ManageDataScreen(
                     selectedBluetoothAddress,
                     selectedCellKey
                 )
+                // 坐标可能被改了，同步一下这条记录对应的收藏（如果有），
+                // 不然收藏会因为坐标变了而找不到关联、变成孤儿数据。
+                viewModel.syncFavoriteCoordinateIfExists(currentItem.location.id, lat, lng)
                 viewModel.selectCollectedLocation(currentItem.location.id)
                 editingItem = null
             },

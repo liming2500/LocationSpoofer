@@ -500,7 +500,7 @@
     <string name="import_parse_failed">无法解析该文件，请选择有效的备份文件</string>
     <string name="add_to_favorites">收藏</string>
     <string name="favorited_toast">已收藏“%1$s”</string>
-    <string name="favorite_failed">收藏失败</string>
+    <string name="favorite_failed">操作失败，该记录可能已被删除</string>
     <string name="remove_from_favorites">取消收藏</string>
     <string name="unfavorited_toast">已取消收藏“%1$s”</string>
     <string name="env_simulation_section">环境模拟</string>

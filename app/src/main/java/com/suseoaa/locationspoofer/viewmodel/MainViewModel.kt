@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -1668,79 +1669,81 @@ class MainViewModel(
         _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
     }
 
-    /**
-     * 把一个采集点直接收藏起来（供"本地采集数据源"与"管理采集数据"两个页面调用）。
-     *
-     * 刻意不复用 evaluateMockCapabilitiesSuspend：那条路会顺带改写 uiState 里
-     * 当前待模拟的环境数据，而"收藏某个点"不应该悄悄改变你接下来要模拟的内容。
-     * 这里只用纯函数 locationToJson 做转换，无副作用。
-     * addSavedLocation 已按 name+lat+lng 去重，重复收藏是覆盖而不是叠加。
-     */
-    fun saveCollectedLocationToFavorites(locationId: Long, onResult: (String?) -> Unit) {
-        viewModelScope.launch {
-            val record = withContext(Dispatchers.IO) {
-                environmentDao.getCompleteLocationById(locationId)
-            }
-            if (record == null) {
-                onResult(null)
-                return@launch
-            }
-
-            val lat = record.location.lat
-            val lng = record.location.lng
-            // 与 selectCollectedLocation 保持一致的命名回退
-            val name = when {
-                record.location.remark.isNotBlank() -> record.location.remark
-                record.location.placeName.isNotBlank() -> record.location.placeName
-                else -> String.format(Locale.US, "(%.5f, %.5f)", lat, lng)
-            }
-
-            val (wifiJson, cellJson, btJson) = locationToJson(listOf(record), lat, lng)
-            settingsRepository.addSavedLocation(
-                SavedLocation(name, lat, lng, wifiJson, cellJson, btJson)
-            )
-            _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
-            onResult(name)
+    /** 与卡片标题（LocalDataItem.primaryTitle）保持一致的取名优先级：地名优先，其次备注——
+     *  否则收藏成功的 Toast 报的名字会和用户在列表上看到的标题对不上。 */
+    private fun resolveFavoriteName(record: com.suseoaa.locationspoofer.data.db.CompleteLocation): String {
+        val lat = record.location.lat
+        val lng = record.location.lng
+        return when {
+            record.location.placeName.isNotBlank() -> record.location.placeName
+            record.location.remark.isNotBlank() -> record.location.remark
+            else -> String.format(Locale.US, "(%.5f, %.5f)", lat, lng)
         }
     }
 
+    /** 串行化收藏切换：避免短时间内两次点击的"判断是否已收藏"互相在对方写入落盘前读取，
+     *  导致本该互相抵消的两次操作都走进同一个分支。 */
+    private val favoriteToggleMutex = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * 收藏/取消收藏一条采集记录。"本地采集数据源"弹窗和"管理采集数据"页共用同一个入口，
+     * 避免两处各自维护一份几乎相同的逻辑而互相漂移。
+     */
     fun toggleCollectedLocationFavorite(
         locationId: Long,
         onResult: (FavoriteToggleResult) -> Unit
     ) {
         viewModelScope.launch {
-            val record = withContext(Dispatchers.IO) {
-                environmentDao.getCompleteLocationById(locationId)
-            }
-            if (record == null) {
-                onResult(FavoriteToggleResult.Failed)
-                return@launch
-            }
-
-            val lat = record.location.lat
-            val lng = record.location.lng
-            // 收藏夹是独立快照，name 可能被改过，只能按经纬度关联
-            val existing = settingsRepository.getSavedLocations()
-                .firstOrNull { it.lat == lat && it.lng == lng }
-
-            if (existing != null) {
-                settingsRepository.removeSavedLocation(existing)
-                _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
-                onResult(FavoriteToggleResult.Removed(existing.name))
-            } else {
-                val name = when {
-                    record.location.remark.isNotBlank() -> record.location.remark
-                    record.location.placeName.isNotBlank() -> record.location.placeName
-                    else -> String.format(Locale.US, "(%.5f, %.5f)", lat, lng)
+            favoriteToggleMutex.withLock {
+                val record = withContext(Dispatchers.IO) {
+                    environmentDao.getCompleteLocationById(locationId)
                 }
-                val (wifiJson, cellJson, btJson) = locationToJson(listOf(record), lat, lng)
-                settingsRepository.addSavedLocation(
-                    SavedLocation(name, lat, lng, wifiJson, cellJson, btJson)
-                )
-                _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
-                onResult(FavoriteToggleResult.Added(name))
+                if (record == null) {
+                    onResult(FavoriteToggleResult.Failed)
+                    return@withLock
+                }
+
+                val lat = record.location.lat
+                val lng = record.location.lng
+                // 优先按来源 id 关联：这样即便之后编辑了这条采集点的坐标，依然认得出
+                // "这是同一条"，不会静默失联。只有老版本写入、没有 sourceLocationId 的
+                // 收藏才退回按坐标匹配。删除时会精确匹配 sourceLocationId 或
+                // name+lat+lng（见 SettingsManager.isSameSavedLocation），不会波及
+                // 同坐标下其他名字/其他来源的收藏。
+                val existing = settingsRepository.getSavedLocations().firstOrNull {
+                    it.sourceLocationId == locationId ||
+                        (it.sourceLocationId == null && it.lat == lat && it.lng == lng)
+                }
+
+                if (existing != null) {
+                    settingsRepository.removeSavedLocation(existing)
+                    _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
+                    onResult(FavoriteToggleResult.Removed(existing.name))
+                } else {
+                    val name = resolveFavoriteName(record)
+                    val (wifiJson, cellJson, btJson) = locationToJson(listOf(record), lat, lng)
+                    settingsRepository.addSavedLocation(
+                        SavedLocation(name, lat, lng, wifiJson, cellJson, btJson, sourceLocationId = locationId)
+                    )
+                    _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
+                    onResult(FavoriteToggleResult.Added(name))
+                }
             }
         }
+    }
+
+    /**
+     * 编辑采集点坐标后，同步更新它对应的收藏记录坐标（按 sourceLocationId 关联），
+     * 避免收藏因为坐标变了而找不到关联、变成孤儿数据。老版本收藏（没有 sourceLocationId）
+     * 本来就是按坐标关联的独立快照，不受这次编辑影响，这里也不会去动它们。
+     */
+    fun syncFavoriteCoordinateIfExists(locationId: Long, newLat: Double, newLng: Double) {
+        val existing = settingsRepository.getSavedLocations()
+            .firstOrNull { it.sourceLocationId == locationId } ?: return
+        if (existing.lat == newLat && existing.lng == newLng) return
+        settingsRepository.removeSavedLocation(existing)
+        settingsRepository.addSavedLocation(existing.copy(lat = newLat, lng = newLng))
+        _uiState.update { it.copy(savedLocations = settingsRepository.getSavedLocations()) }
     }
 
     private fun parseWifiCount(wifiJson: String?): Int {
@@ -3080,7 +3083,7 @@ class MainViewModel(
                 } else {
                     mapMoveJob?.cancel()
                     mapMoveJob = viewModelScope.launch {
-                        kotlinx.coroutines.delay(500 - (now - lastMapMoveTime))
+                        delay(500 - (now - lastMapMoveTime))
                         lastMapMoveTime = System.currentTimeMillis()
                         confirmMapPoint(intent.lat, intent.lng, isDragging = true)
                     }
