@@ -62,7 +62,10 @@ object RouteEngine {
         val routeArray = config.optJSONArray("route_points")
 
         if (!config.optBoolean("is_route_mode", false) || routeArray == null || routeArray.length() < 2) {
-            if (config.optString("sim_mode") == "JOYSTICK") {
+            // 只有"D 摇杆模式且确实带速度"才做外推；速度为 0 的 JOYSTICK 等同于定点，
+            // 走定点分支可以让目标 App 看到与默认定点完全一致的字段。
+            val joystickSpeed = config.optDouble("speed_m_s", 0.0)
+            if (config.optString("sim_mode") == "JOYSTICK" && joystickSpeed > 0.05) {
                 return extrapolateJoystick(config, now, base, baseBearing)
             }
             return SpoofedMotion(base.lat, base.lng, baseBearing, 0f)

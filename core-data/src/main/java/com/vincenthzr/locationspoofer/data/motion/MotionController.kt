@@ -57,6 +57,11 @@ class MotionController(
     /** 控制器的副作用出口：写运动配置、保存录制的路线 */
     interface MotionSink {
         suspend fun writeManual(lat: Double, lng: Double, bearing: Float, speedMs: Double, timestamp: Long)
+
+        /** 与默认定点完全一致的静止写入（就位等待用），不带任何路线残留字段 */
+        suspend fun writeStill(lat: Double, lng: Double, bearing: Float, timestamp: Long) {
+            writeManual(lat, lng, bearing, 0.0, timestamp)
+        }
         suspend fun writeRoute(
             lat: Double,
             lng: Double,
@@ -258,16 +263,21 @@ class MotionController(
         requestRouteWrite(now)
     }
 
-    /** 等待开始时，只写定点配置，让目标 App 把当前坐标当成"静止但有效"的定位 */
+    /**
+     * 等待开始时，写入**与默认定点完全相同**的配置（STILL、无路线字段），
+     * 让目标 App 把当前坐标当成"静止但有效"的定位，而不是 JOYSTICK 或路线模式。
+     */
     private fun requestWaitingWrite(now: Long) {
         val s = _state.value
+        lastWriteTs = now
         SpoofingState.latitude = s.lat
         SpoofingState.longitude = s.lng
         SpoofingState.simMode = "STILL"
         SpoofingState.startTimestamp = now
         SpoofingState.isRouteMode = false
         SpoofingState.routeDistanceOffset = 0.0
-        enqueueWrite { sink.writeManual(s.lat, s.lng, s.bearing, 0.0, now) }
+        // 等待期间写的是定点配置，开始后要重新写回路线配置，因此清掉进行中的路线状态缓存
+        enqueueWrite { sink.writeStill(s.lat, s.lng, s.bearing, now) }
     }
 
     fun onStopped() {
