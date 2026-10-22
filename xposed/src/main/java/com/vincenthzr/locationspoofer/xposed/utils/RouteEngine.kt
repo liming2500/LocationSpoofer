@@ -79,7 +79,8 @@ object RouteEngine {
         val offset = config.optDouble("route_distance_offset", 0.0).coerceAtLeast(0.0)
         val traveled = offset + realism.distance(speed, elapsedSec)
 
-        val pos = path.positionAt(traveled, config.optBoolean("stop_at_destination", false))
+        // 航向由前后位置的实测位移算出，始终指向真正在走的方向（折返、起点等待、终点停车都正确）
+        val pos = path.positionAtFollowingMotion(traveled, config.optBoolean("stop_at_destination", false))
         val currentSpeed = if (pos.arrived) 0f else realism.speed(speed, elapsedSec).toFloat()
         return SpoofedMotion(pos.lat, pos.lng, pos.bearing, currentSpeed)
     }
@@ -102,6 +103,7 @@ object RouteEngine {
         MotionRealism.session(
             startTimestamp,
             config.optInt("realism_level", MotionRealism.Level.OFF.id),
-            config.optInt("speed_fluctuation_pct", 0)
+            config.optInt("speed_fluctuation_pct", 0),
+            config.optInt("cadence_fluctuation_pct", 0)
         )
 }

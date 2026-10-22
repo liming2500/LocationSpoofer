@@ -28,6 +28,7 @@ import com.vincenthzr.locationspoofer.data.model.AppState
 import com.vincenthzr.locationspoofer.data.model.RouteRunMode
 import com.vincenthzr.locationspoofer.data.model.SimMode
 import com.vincenthzr.locationspoofer.ui.screen.AltitudeSettingsCard
+import com.vincenthzr.locationspoofer.ui.screen.MotionFluctuationCard
 import com.vincenthzr.locationspoofer.ui.theme.AccentBlue
 import java.util.Locale
 
@@ -50,6 +51,8 @@ fun RouteConfigDialog(
     onToggleJitter: () -> Unit = {},
     onAltitudeChange: (String) -> Unit = {},
     onAltitudeVariationChange: (Int) -> Unit = {},
+    onSpeedFluctuationChange: (Int) -> Unit = {},
+    onCadenceFluctuationChange: (Int) -> Unit = {},
     onSatelliteCountChange: (String) -> Unit = {}
 ) {
     Dialog(
@@ -506,6 +509,13 @@ fun RouteConfigDialog(
                         variationM = uiState.altitudeVariationM,
                         onAltitudeChange = onAltitudeChange,
                         onVariationChange = onAltitudeVariationChange
+                    )
+
+                    MotionFluctuationCard(
+                        speedPct = uiState.speedFluctuationPct,
+                        cadencePct = uiState.cadenceFluctuationPct,
+                        onSpeedChange = onSpeedFluctuationChange,
+                        onCadenceChange = onCadenceFluctuationChange
                     )
 
                     // 真实道路匹配开关

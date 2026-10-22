@@ -32,6 +32,12 @@ internal fun MainViewModel.setSpeedFluctuationPct(pct: Int) {
     _uiState.update { it.copy(speedFluctuationPct = value) }
 }
 
+internal fun MainViewModel.setCadenceFluctuationPct(pct: Int) {
+    val value = pct.coerceIn(0, MotionRealism.MAX_CADENCE_FLUCTUATION_PCT)
+    settingsRepository.cadenceFluctuationPct = value
+    _uiState.update { it.copy(cadenceFluctuationPct = value) }
+}
+
 internal fun MainViewModel.setUseGaitTemplate(enabled: Boolean) {
     settingsRepository.useGaitTemplate = enabled
     _uiState.update { it.copy(useGaitTemplate = enabled) }

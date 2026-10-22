@@ -343,7 +343,7 @@ fun FooterLinks(isDark: Boolean) {
             modifier = Modifier
                 .clip(RoundedCornerShape(22.dp))
                 .background(if (isDark) Color(0xFF24292E) else Color(0xFF24292E))
-                .noRippleClickable { uriHandler.openUri("https://github.com/HuangZhuoRui/LocationSpoofer") }
+                .noRippleClickable { uriHandler.openUri("https://github.com/liming2500/LocationSpoofer") }
                 .padding(horizontal = 16.dp, vertical = 9.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -357,33 +357,6 @@ fun FooterLinks(isDark: Boolean) {
                 Text(
                     text = stringResource(R.string.brand_github),
                     color = Color.White,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        Spacer(Modifier.width(16.dp))
-
-        // Telegram 胶囊
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(22.dp))
-                .background(if (isDark) Color(0xFF24A1DE).copy(alpha = 0.22f) else Color(0xFFE8F4FA))
-                .noRippleClickable { uriHandler.openUri("https://t.me/+CsxZGItXdW40ZWVl") }
-                .padding(horizontal = 16.dp, vertical = 9.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_telegram),
-                    contentDescription = stringResource(R.string.brand_telegram),
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.brand_telegram),
-                    color = Color(0xFF24A1DE),
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Medium
                 )

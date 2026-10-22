@@ -86,6 +86,10 @@
     <string name="speed_fluctuation_title">速度浮动范围</string>
     <string name="speed_fluctuation_value">±%1$d%%</string>
     <string name="speed_fluctuation_desc">路线模拟时速度在该范围内缓慢起伏，每公里的配速不再完全相同</string>
+    <string name="motion_fluctuation_title">速度与步频起伏</string>
+    <string name="motion_fluctuation_desc">速度影响路线配速，步频影响计步传感器；修改将在下次开始模拟时生效</string>
+    <string name="cadence_fluctuation_title">步频起伏范围</string>
+    <string name="cadence_fluctuation_desc">步频在该范围内缓慢起伏，像真人一样有快有慢，步幅随之变化；在随机强度之上叠加，且不影响路线位置</string>
     <string name="realism_next_session_hint">修改将在下次开始模拟时生效</string>
     <string name="gait_title">个人步态曲线</string>
     <string name="gait_desc">把手机放在平时携带的位置（如裤兜），正常走路 20 秒完成录制。模拟时会按当前步频回放你的步态，并加入每一步的自然差异。</string>

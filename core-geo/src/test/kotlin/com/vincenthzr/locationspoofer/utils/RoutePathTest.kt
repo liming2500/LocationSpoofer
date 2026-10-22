@@ -46,4 +46,47 @@ class RoutePathTest {
         assertEquals(b.lat, end.lat, 1e-9)
         assertEquals(b.lng, end.lng, 1e-9)
     }
+
+    @Test
+    fun `bearing follows the direction of actual motion`() {
+        val path = RoutePath(listOf(a, b))
+        // 出发前等待：航向指向即将要走的方向，而不是 0（正北）
+        assertBearing(90.0, path.positionAtFollowingMotion(0.0, stopAtDestination = false).bearing)
+        // 去程
+        assertBearing(90.0, path.positionAtFollowingMotion(400.0, stopAtDestination = false).bearing)
+        // 终点瞬间折返：即使位置就在折返点，航向也已经转向返程
+        assertBearing(270.0, path.positionAtFollowingMotion(1000.0, stopAtDestination = false).bearing)
+        assertBearing(270.0, path.positionAtFollowingMotion(1200.0, stopAtDestination = false).bearing)
+    }
+
+    @Test
+    fun `bearing keeps the last travel direction after stopping at the destination`() {
+        val path = RoutePath(listOf(a, b))
+        val end = path.positionAtFollowingMotion(5000.0, stopAtDestination = true)
+        assertTrue(end.arrived)
+        assertBearing(90.0, end.bearing)
+    }
+
+    @Test
+    fun `bearing is still correct when about to stop at the destination`() {
+        val path = RoutePath(listOf(a, b))
+        // 距终点不到 2 米：下一步采样会越过终点，但仍应按去程方向
+        val nearEnd = path.positionAtFollowingMotion(999.0, stopAtDestination = true)
+        assertBearing(90.0, nearEnd.bearing)
+    }
+
+    @Test
+    fun `bearing follows the turn on a polyline`() {
+        val north = GeoMath.destination(a, 0.0, 1000.0)
+        val east = GeoMath.destination(north, 90.0, 1000.0)
+        val path = RoutePath(listOf(a, north, east))
+        assertBearing(0.0, path.positionAtFollowingMotion(500.0, stopAtDestination = false).bearing)
+        assertBearing(90.0, path.positionAtFollowingMotion(1500.0, stopAtDestination = false).bearing)
+    }
+
+    /** 角度等价比较：0° 与 359.999° 视为同一方向 */
+    private fun assertBearing(expected: Double, actual: Float) {
+        val diff = Math.abs(((actual - expected) % 360.0 + 540.0) % 360.0 - 180.0)
+        assertEquals("expected $expected°, got $actual°", 0.0, diff, 0.5)
+    }
 }

@@ -73,6 +73,8 @@ data class AppState(
     val debugDumpSystemServices: Boolean = false,
     val realismLevel: Int = MotionRealism.DEFAULT_LEVEL_ID,
     val speedFluctuationPct: Int = MotionRealism.DEFAULT_SPEED_FLUCTUATION_PCT,
+    /** 步频起伏范围（±百分比） */
+    val cadenceFluctuationPct: Int = MotionRealism.DEFAULT_CADENCE_FLUCTUATION_PCT,
     /** 已录制步态模板的步频（步/分钟），null 表示尚未录制 */
     val gaitTemplateCadence: Int? = null,
     val gaitTemplateStrides: Int = 0,

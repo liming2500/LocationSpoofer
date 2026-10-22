@@ -190,6 +190,12 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
             settingsManager.speedFluctuationPct = value
         }
 
+    var cadenceFluctuationPct: Int
+        get() = settingsManager.cadenceFluctuationPct
+        set(value) {
+            settingsManager.cadenceFluctuationPct = value
+        }
+
     var gaitTemplate: String
         get() = settingsManager.gaitTemplate
         set(value) {

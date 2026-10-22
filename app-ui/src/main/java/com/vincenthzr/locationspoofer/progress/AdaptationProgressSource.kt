@@ -50,8 +50,8 @@ class AdaptationProgressSource(context: Context) {
     private companion object {
         const val FILE_NAME = "ADAPTATION_PROGRESS.md"
         val REMOTE_URLS = listOf(
-            "https://raw.githubusercontent.com/HuangZhuoRui/LocationSpoofer/main/$FILE_NAME",
-            "https://cdn.jsdelivr.net/gh/HuangZhuoRui/LocationSpoofer@main/$FILE_NAME"
+            "https://raw.githubusercontent.com/liming2500/LocationSpoofer/main/$FILE_NAME",
+            "https://cdn.jsdelivr.net/gh/liming2500/LocationSpoofer@main/$FILE_NAME"
         )
         val client: OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)

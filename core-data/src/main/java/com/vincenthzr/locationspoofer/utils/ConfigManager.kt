@@ -174,6 +174,7 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
         // 运动真实度：Xposed 端据此给速度、步频、海拔、加速度加起伏；随机强度与速度浮动在会话内取开始时的快照
         json.put("realism_level", SpoofingState.realismLevel.takeIf { it >= 0 } ?: settingsManager.realismLevel)
         json.put("speed_fluctuation_pct", SpoofingState.speedFluctuationPct.takeIf { it >= 0 } ?: settingsManager.speedFluctuationPct)
+        json.put("cadence_fluctuation_pct", SpoofingState.cadenceFluctuationPct.takeIf { it >= 0 } ?: settingsManager.cadenceFluctuationPct)
         json.put("gait_template", if (settingsManager.useGaitTemplate) settingsManager.gaitTemplate else "")
         json.put("altitude_variation_m", settingsManager.altitudeVariationM)
     }

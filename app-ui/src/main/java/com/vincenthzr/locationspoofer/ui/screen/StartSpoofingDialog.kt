@@ -34,6 +34,8 @@ fun StartSpoofingDialog(
     onToggleRestartApps: () -> Unit,
     onAltitudeChange: (String) -> Unit,
     onAltitudeVariationChange: (Int) -> Unit,
+    onSpeedFluctuationChange: (Int) -> Unit = {},
+    onCadenceFluctuationChange: (Int) -> Unit = {},
     onSatelliteCountChange: (String) -> Unit
 ) {
     LocalizedDialog(
@@ -206,6 +208,13 @@ fun StartSpoofingDialog(
                         variationM = uiState.altitudeVariationM,
                         onAltitudeChange = onAltitudeChange,
                         onVariationChange = onAltitudeVariationChange
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    MotionFluctuationCard(
+                        speedPct = uiState.speedFluctuationPct,
+                        cadencePct = uiState.cadenceFluctuationPct,
+                        onSpeedChange = onSpeedFluctuationChange,
+                        onCadenceChange = onCadenceFluctuationChange
                     )
                     Spacer(Modifier.height(8.dp))
                     androidx.compose.material3.OutlinedTextField(

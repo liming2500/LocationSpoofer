@@ -59,38 +59,84 @@ class RoutePath(val points: List<LatLng>) {
     val isValid: Boolean get() = points.size >= 2 && totalDistance > 0.0
 
     fun positionAt(distanceTraveled: Double, stopAtDestination: Boolean): Position {
-        require(isValid) { "route needs at least two distinct points" }
         val traveled = distanceTraveled.coerceAtLeast(0.0)
+        return position(traveled, stopAtDestination)
+    }
+
+    /**
+     * 与 [positionAt] 相同，但航向由前后两个位置的实测位移算出，始终指向真正在走的方向。
+     * 折返点、终点停车（到达后保持最后行进方向）、起点等待（按即将出发的方向）都能正确给出朝向。
+     */
+    fun positionAtFollowingMotion(distanceTraveled: Double, stopAtDestination: Boolean, sampleMeters: Double = 2.0): Position {
+        val traveled = distanceTraveled.coerceAtLeast(0.0)
+        val here = position(traveled, stopAtDestination)
+        // 终点停车：位置不变，航向保持最后一段的行进方向
+        if (here.arrived) return here
+
+        // 先看"下一步往哪走"：起点等待、折返点、闭环回到起点都能得到正确朝向。
+        // 采样点一律按不停车计算，否则临近终点（stop_at_destination）时采样会落在到达状态上、拿不到方向；
+        // 只有正停着（前后都没位移）时才回退到"刚从哪来"
+        val after = position(traveled + sampleMeters, stopAtDestination = false)
+        if (GeoMath.distance(here.asLatLng(), after.asLatLng()) > STOP_SAMPLE_M) {
+            return here.copy(bearing = normalizeBearing(GeoMath.bearing(here.asLatLng(), after.asLatLng())))
+        }
+        val before = position((traveled - sampleMeters).coerceAtLeast(0.0), stopAtDestination = false)
+        if (GeoMath.distance(before.asLatLng(), here.asLatLng()) > STOP_SAMPLE_M) {
+            return here.copy(bearing = normalizeBearing(GeoMath.bearing(before.asLatLng(), here.asLatLng())))
+        }
+        return here.copy(bearing = 0f)
+    }
+
+    /** 浮点误差会让正北产出 359.99999，统一归一到 [0, 360) */
+    private fun normalizeBearing(bearing: Float): Float {
+        val b = bearing % 360f
+        return if (b < 0f) b + 360f else if (b >= 359.999f) 0f else b
+    }
+
+    private fun position(traveled: Double, stopAtDestination: Boolean): Position {
+        require(isValid) { "route needs at least two distinct points" }
 
         if (stopAtDestination && traveled >= totalDistance) {
             val last = points.last()
             return Position(last.lat, last.lng, GeoMath.bearing(points[points.size - 2], last), arrived = true)
         }
 
-        val forward: Boolean
-        val along: Double
-        if (isClosedLoop) {
-            forward = true
-            along = traveled % totalDistance
-        } else {
-            val cycle = totalDistance * 2
-            val inCycle = traveled % cycle
-            forward = inCycle <= totalDistance
-            along = if (forward) inCycle else cycle - inCycle
+        // 非闭环路线来回往复：折返瞬间即使位置恰好落在端点，航向也已经指向返程方向
+        val cycle = totalDistance * 2
+        val inCycle = if (isClosedLoop) traveled % totalDistance else traveled % cycle
+        if (!isClosedLoop && inCycle > totalDistance) {
+            // 返程段按"从终点往回走"的镜像距离插值，位置和航向都取返程方向
+            return mirroredPosition(cycle - inCycle)
         }
 
+        return forwardPosition(inCycle, arrived = false)
+    }
+
+    /** 返程段：along 是从终点往回走的距离，位置按正向插值，航向取反指向起点 */
+    private fun mirroredPosition(along: Double): Position {
+        val forward = forwardPosition(along, arrived = false)
+        return forward.copy(bearing = (forward.bearing + 180f) % 360f)
+    }
+
+    private fun forwardPosition(along: Double, arrived: Boolean): Position {
         var seg = 0
         while (seg < points.size - 2 && cumulative[seg + 1] < along) seg++
         val from = points[seg]
         val to = points[seg + 1]
         val segLen = (cumulative[seg + 1] - cumulative[seg]).coerceAtLeast(0.0001)
         val ratio = ((along - cumulative[seg]) / segLen).coerceIn(0.0, 1.0)
-        val bearing = if (forward) GeoMath.bearing(from, to) else GeoMath.bearing(to, from)
         return Position(
             from.lat + (to.lat - from.lat) * ratio,
             from.lng + (to.lng - from.lng) * ratio,
-            bearing,
-            arrived = false
+            GeoMath.bearing(from, to),
+            arrived
         )
+    }
+
+    private fun Position.asLatLng() = LatLng(lat, lng)
+
+    private companion object {
+        /** 两个采样位置差小于该值（米）视为没动 */
+        const val STOP_SAMPLE_M = 0.05
     }
 }

@@ -37,8 +37,11 @@ val coreDataModule = module {
         MotionController(
             sink = ConfigMotionSink(get(), get()),
             realismParams = {
-                (SpoofingState.realismLevel.takeIf { it >= 0 } ?: settings.realismLevel) to
-                    (SpoofingState.speedFluctuationPct.takeIf { it >= 0 } ?: settings.speedFluctuationPct)
+                MotionController.RealismParams(
+                    levelId = SpoofingState.realismLevel.takeIf { it >= 0 } ?: settings.realismLevel,
+                    speedPct = SpoofingState.speedFluctuationPct.takeIf { it >= 0 } ?: settings.speedFluctuationPct,
+                    cadencePct = SpoofingState.cadenceFluctuationPct.takeIf { it >= 0 } ?: settings.cadenceFluctuationPct
+                )
             }
         )
     }
