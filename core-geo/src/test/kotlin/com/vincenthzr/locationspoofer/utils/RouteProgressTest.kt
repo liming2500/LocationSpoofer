@@ -83,4 +83,38 @@ class RouteProgressTest {
         // 中途单调递增
         assertTrue(p.coastDistance(v, 2.0) < p.coastDistance(v, 3.0))
     }
+
+    @Test
+    fun `query order does not affect the result`() {
+        // 同一组参数、不同查询顺序，任意时刻的距离必须完全相同
+        val forward = progress(ramp = 3.0, grade = 0.03, pct = 12)
+        val backward = progress(ramp = 3.0, grade = 0.03, pct = 12)
+        val times = listOf(0.5, 30.0, 777.0, 5.0, 3600.0, 12.0, 7199.0)
+        for (t in times) { forward.distanceAt(t) }
+        for (t in times.reversed()) { backward.distanceAt(t) }
+        for (t in times) {
+            assertEquals(forward.distanceAt(t), backward.distanceAt(t), 0.0)
+        }
+    }
+
+    @Test
+    fun `distance beyond the precomputed window stays consistent`() {
+        val a = progress(ramp = 2.0, grade = 0.02, pct = 8)
+        val b = progress(ramp = 2.0, grade = 0.02, pct = 8)
+        // 超出 7200 秒预计算窗口后按末段速度外推，两端仍一致且单调
+        val t = 9000.0
+        assertEquals(a.distanceAt(t), b.distanceAt(t), 0.0)
+        assertTrue(a.distanceAt(t) > a.distanceAt(7200.0))
+    }
+
+    @Test
+    fun `construction stays fast enough for per-second reuse`() {
+        val gradeAt: (Double) -> Double = { d -> Math.sin(d / 300.0) * 0.05 }
+        val s = MotionRealism.Session(start, MotionRealism.Level.MEDIUM, 10, 6, 4.0, 50)
+        val t0 = System.nanoTime()
+        repeat(10) { RouteProgress(s, 3.0, 4.0, gradeAt).distanceAt(600.0) }
+        val perBuildMs = (System.nanoTime() - t0) / 1e6 / 10
+        // 每次重建不应超过 50 毫秒，否则高频调用会拖慢 Hook
+        assertTrue("build took ${perBuildMs}ms", perBuildMs < 50.0)
+    }
 }

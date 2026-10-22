@@ -97,7 +97,9 @@ object RouteEngine {
     private fun progressOf(config: JSONObject, startTime: Long): RouteProgress {
         val path = routePath(config.optJSONArray("route_points")!!)
         val speed = config.optDouble("speed_m_s", 3.0).coerceAtLeast(0.1)
-        val key = "$startTime|${System.identityHashCode(path)}|$speed|" +
+        // 用路线**内容**做 key，而不是对象身份：配置每秒被重写，JSONArray 实例会变，
+        // 但路线没变，不该因此重建 7200 段的分段表（重建一次要算上万次三角函数）。
+        val key = "$startTime|${path.points.size}|${path.totalDistance}|$speed|" +
             "${config.optInt("realism_level", -1)}|${config.optInt("speed_fluctuation_pct", -1)}|" +
             "${config.optInt("cadence_fluctuation_pct", -1)}|${config.optDouble("speed_ramp_sec", 0.0)}|" +
             "${config.optInt("grade_sensitivity", 0)}|${config.optDouble("altitude_variation_m", -1.0)}"

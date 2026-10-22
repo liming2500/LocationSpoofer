@@ -336,7 +336,8 @@ class MotionController(
         val routePath = path ?: error("route not started")
         val preset = _state.value.preset
         val params = realismParams()
-        val key = "$routeStartTs|${System.identityHashCode(routePath)}|${preset.speedMs}|" +
+        // 与 RouteEngine 一致：用路线内容而非对象身份做 key，避免配置刷新导致无谓重建
+        val key = "$routeStartTs|${routePath.points.size}|${routePath.totalDistance}|${preset.speedMs}|" +
             "${params.levelId}|${params.speedPct}|${params.cadencePct}|${params.rampSec}|" +
             "${params.gradeSensitivity}|${params.altitudeVariationM}|${params.altitudeDriftM}"
         progress?.let { if (progressKey == key) return it }
