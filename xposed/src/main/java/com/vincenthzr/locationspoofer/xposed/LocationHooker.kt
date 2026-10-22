@@ -713,8 +713,7 @@ class LocationHooker : XposedModule() {
                                     // 标准 android.location.Location 按规范是 WGS-84，高德等 App 会自行转 GCJ-02；
                                     // 这里若直接给 GCJ-02 会被二次加密、偏移数百米（issue #62）
                                     val (targetLat, targetLng) = getAppTargetCoordinate(motion.lat, motion.lng, newConfig, "WGS-84")
-                                    val pushLat = if (isStationary) targetLat else getJitteredLocation(targetLat, targetLng).first
-                                    val pushLng = if (isStationary) targetLng else getJitteredLocation(targetLat, targetLng).second
+                                    val (pushLat, pushLng) = if (isStationary) targetLat to targetLng else getJitteredLocation(targetLat, targetLng)
                                     val pushSpeed = motion.speed
                                     val pushBearing = motion.bearing
                                     val pushAccuracy = if (isStationary) 2.5f else getJitteredAccuracy()
@@ -861,8 +860,7 @@ class LocationHooker : XposedModule() {
                                         // 2. AMapLocationListener
                                         if (aCount > 0 && cl != null) {
                                             val (aMapLat, aMapLng) = getAppTargetCoordinate(motion.lat, motion.lng, newConfig, "GCJ-02")
-                                            val aMapPushLat = if (isStationary) aMapLat else getJitteredLocation(aMapLat, aMapLng).first
-                                            val aMapPushLng = if (isStationary) aMapLng else getJitteredLocation(aMapLat, aMapLng).second
+                                            val (aMapPushLat, aMapPushLng) = if (isStationary) aMapLat to aMapLng else getJitteredLocation(aMapLat, aMapLng)
                                             val listenersToNotify = capturedAMapListeners.toList()
                                             for (listener in listenersToNotify) {
                                                 try {
@@ -955,8 +953,7 @@ class LocationHooker : XposedModule() {
                                         // 3. BDLocationListener / BDAbstractLocationListener
                                         if (bCount > 0 && cl != null) {
                                             val (baiduLat, baiduLng) = getAppTargetCoordinate(motion.lat, motion.lng, newConfig, "BD-09")
-                                            val baiduPushLat = if (isStationary) baiduLat else getJitteredLocation(baiduLat, baiduLng).first
-                                            val baiduPushLng = if (isStationary) baiduLng else getJitteredLocation(baiduLat, baiduLng).second
+                                            val (baiduPushLat, baiduPushLng) = if (isStationary) baiduLat to baiduLng else getJitteredLocation(baiduLat, baiduLng)
                                             val listenersToNotify = capturedBaiduListeners.toList()
                                             for (listener in listenersToNotify) {
                                                 try {
@@ -1004,8 +1001,7 @@ class LocationHooker : XposedModule() {
                                         if (tCount > 0 && cl != null) {
                                             try {
                                                 val (tencentLat, tencentLng) = getAppTargetCoordinate(motion.lat, motion.lng, newConfig, "GCJ-02")
-                                                val tencentPushLat = if (isStationary) tencentLat else getJitteredLocation(tencentLat, tencentLng).first
-                                                val tencentPushLng = if (isStationary) tencentLng else getJitteredLocation(tencentLat, tencentLng).second
+                                                val (tencentPushLat, tencentPushLng) = if (isStationary) tencentLat to tencentLng else getJitteredLocation(tencentLat, tencentLng)
                                                 val tencentLocInterface = Class.forName(
                                                     "com.tencent.map.geolocation.TencentLocation",
                                                     false,

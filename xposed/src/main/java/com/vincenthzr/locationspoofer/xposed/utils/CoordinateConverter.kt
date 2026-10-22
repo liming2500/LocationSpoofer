@@ -126,22 +126,27 @@ internal fun LocationHooker.getJitteredLocation(
     if (!enableJitter) return Pair(baseLat, baseLng)
 
     val now = System.currentTimeMillis()
-    val dt = if (hookLastCallTime > 0) {
-        ((now - hookLastCallTime) / 1000.0).coerceIn(0.01, 5.0)
-    } else 1.0
-    hookLastCallTime = now
+    // 同一个进程里可能有多个 SDK（原生 / 高德 / 百度 / 腾讯）在同一毫秒内连续取位置。
+    // 若每次都推进随机游走，dt 会被反复压到下限 0.01 秒，漂移量被高频刷新，
+    // 表现为坐标在两个很近的值之间来回抖动。同一毫秒内复用上次的漂移即可。
+    if (now != hookLastCallTime || hookLastCallTime == 0L) {
+        val dt = if (hookLastCallTime > 0) {
+            ((now - hookLastCallTime) / 1000.0).coerceIn(0.2, 5.0)
+        } else 1.0
+        hookLastCallTime = now
 
-    // sigma=0.000002度(约0.2米步长), alpha=0.05(均值回归)
-    val sigma = 0.000002
-    val alpha = 0.05
+        // sigma=0.000002度(约0.2米步长), alpha=0.05(均值回归)
+        val sigma = 0.000002
+        val alpha = 0.05
 
-    // 使用 Ornstein-Uhlenbeck 过程生成自然偏移，并硬性限制在 4 米以内 (约 0.00004 度)
-    hookDriftLat =
-        (hookDriftLat + sigma * sqrt(dt) * rng.nextGaussian() - alpha * hookDriftLat * dt)
-            .coerceIn(-0.00004, 0.00004)
-    hookDriftLng =
-        (hookDriftLng + sigma * sqrt(dt) * rng.nextGaussian() - alpha * hookDriftLng * dt)
-            .coerceIn(-0.00004, 0.00004)
+        // 使用 Ornstein-Uhlenbeck 过程生成自然偏移，并硬性限制在 4 米以内 (约 0.00004 度)
+        hookDriftLat =
+            (hookDriftLat + sigma * sqrt(dt) * rng.nextGaussian() - alpha * hookDriftLat * dt)
+                .coerceIn(-0.00004, 0.00004)
+        hookDriftLng =
+            (hookDriftLng + sigma * sqrt(dt) * rng.nextGaussian() - alpha * hookDriftLng * dt)
+                .coerceIn(-0.00004, 0.00004)
+    }
 
     return Pair(baseLat + hookDriftLat, baseLng + hookDriftLng)
 }
