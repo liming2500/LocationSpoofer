@@ -335,19 +335,36 @@ private fun MainViewModel.startSimulationWithPoints(pointsToRun: List<RoutePoint
         val records = environmentRecordsAt(startPoint.lat, startPoint.lng)
         val (wifi, cell, bluetooth) = locationToJson(records, startPoint.lat, startPoint.lng)
         _uiState.update { it.copy(collectedWifiJson = wifi, collectedCellJson = cell, collectedBluetoothJson = bluetooth) }
-        // 循环模式先以**定点**配置启动：给目标 App 的第一份配置必须是
-        // sim_mode=STILL、无路线点、速度为 0，它才会把定位判为正常。
-        // 用户点"开始跑步"后由 MotionController.beginRun() 再切回路线配置。
-        val waitFirst = isLoop && _uiState.value.routePlanStage == RoutePlanStage.WAITING
+        val preset = MotionController.SpeedPreset(_uiState.value.routeSimMode.name, joystickMaxSpeedMs().toDouble())
+
+        if (isLoop) {
+            // 循环模式：**完全复用定点模拟的启动路径**（startStaticSpoofingExactly），
+            // 与实机验证可用的"默认定点"逐字一致 —— STILL 配置、无路线点、速度 0、
+            // 重启目标 App。等用户在该 App 里点开始、GPS 显示正常后，
+            // 再回到本软件点"开始跑步"切到路线（beginRouteRun → MotionController.beginRun）。
+            startStaticSpoofingExactly(startPoint.lat, startPoint.lng, wifi, cell, bluetooth)
+            // 路线已在控制器中登记，但保持"不动"的定点形态
+            motionController.onRouteStarted(
+                pointsToRun, preset, _uiState.value.stopAtDestination, now,
+                startPaused = false,
+                awaitStart = true
+            )
+            _uiState.update {
+                it.copy(isSpoofingActive = true, routePlanStage = RoutePlanStage.WAITING)
+            }
+            return@launch
+        }
+
+        // 手动模式（摇杆）：保持原有行为
         locationRepository.startSpoofing(
             context,
             startPoint.lat,
             startPoint.lng,
-            if (waitFirst) "STILL" else if (isLoop) _uiState.value.routeSimMode.name else "STILL",
+            "STILL",
             0f,
             now,
-            if (waitFirst) emptyList() else pointsToRun,
-            if (waitFirst) false else isLoop,
+            pointsToRun,
+            false,
             _uiState.value.appCoordinateSystems,
             _uiState.value.collectedWifiJson,
             _uiState.value.collectedCellJson,
@@ -356,37 +373,22 @@ private fun MainViewModel.startSimulationWithPoints(pointsToRun: List<RoutePoint
             _uiState.value.mockCell,
             _uiState.value.mockBluetooth,
             _uiState.value.enableJitter,
-            speedMs = if (waitFirst) 0.0 else speed,
-            stopAtDestination = !waitFirst && _uiState.value.stopAtDestination,
+            speedMs = speed,
+            stopAtDestination = _uiState.value.stopAtDestination,
             enableStepSimulation = _uiState.value.enableStepSimulation,
             stepCadenceSpm = _uiState.value.stepCadenceSpm,
             isAutoCadence = _uiState.value.isAutoCadence
         )
-        val preset = MotionController.SpeedPreset(_uiState.value.routeSimMode.name, joystickMaxSpeedMs().toDouble())
-        // 循环模式先停在起点等待：目标 App 首次拿到定位时会校验 GPS 质量，
-        // 直接以路线速度启动容易被判为异常。先喂一段"静止且有效"的定位，
-        // 用户在该 App 里点开始后，再回来点"开始跑步"（beginRun）才真正移动。
         motionController.onRouteStarted(
             pointsToRun, preset, _uiState.value.stopAtDestination, now,
-            startPaused = !isLoop,
-            awaitStart = isLoop
+            startPaused = true,
+            awaitStart = false
         )
-        // 悬浮摇杆只在手动模式下出现；停止模拟后它会随 MotionController 结束会话自行关闭
-        if (!isLoop) locationRepository.setFloatingJoystickVisible(context, true)
-
-        // 与定点模拟保持一致：重启作用域内的目标 App，让它重新加载模块、
-        // 从第一份配置开始就是"当前模拟状态"。不重启的话，App 里残留着上一次
-        // 真实/旧模拟的定位状态，收到路线数据时会判定为异常（GPS 信号弱）。
+        locationRepository.setFloatingJoystickVisible(context, true)
         if (_uiState.value.restartAppsOnSpoof) {
             restartHookedAppsSilently()
         }
-
-        _uiState.update {
-            it.copy(
-                isSpoofingActive = true,
-                routePlanStage = if (isLoop) RoutePlanStage.WAITING else _uiState.value.routePlanStage
-            )
-        }
+        _uiState.update { it.copy(isSpoofingActive = true) }
     }
 }
 

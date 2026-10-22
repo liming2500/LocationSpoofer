@@ -53,10 +53,9 @@ internal fun MainViewModel.startSpoofing() {
         evaluateMockCapabilitiesSuspend(lat, lng)
 
         val updatedState = _uiState.value
-        val now = System.currentTimeMillis()
         locationRepository.startSpoofing(
             context, lat, lng,
-            "STILL", 0f, now,
+            "STILL", 0f, System.currentTimeMillis(),
             emptyList(), false,
             updatedState.appCoordinateSystems,
             updatedState.collectedWifiJson,
@@ -79,6 +78,42 @@ internal fun MainViewModel.startSpoofing() {
         _uiState.update {
             it.copy(isSpoofingActive = true, isSavingConfig = false)
         }
+    }
+}
+
+/**
+ * 以"默认定点"的方式启动模拟 —— 这是实机验证可用的路径，路线模式的就位等待直接复用它。
+ *
+ * 与 [startSpoofing] 的唯一区别是环境数据由调用方准备好后传入（路线模式要绑定起点的采集数据），
+ * 其余步骤完全一致：STILL 配置、无路线点、速度 0、重启目标 App。
+ */
+internal suspend fun MainViewModel.startStaticSpoofingExactly(
+    lat: Double,
+    lng: Double,
+    wifiJson: String,
+    cellJson: String,
+    bluetoothJson: String
+) {
+    val state = _uiState.value
+    locationRepository.startSpoofing(
+        context, lat, lng,
+        "STILL", 0f, System.currentTimeMillis(),
+        emptyList(), false,
+        state.appCoordinateSystems,
+        wifiJson,
+        cellJson,
+        bluetoothJson,
+        state.mockWifi && state.canMockWifi,
+        state.mockCell,
+        state.mockBluetooth && state.canMockBluetooth,
+        state.enableJitter
+    )
+    motionController.onStaticStarted(lat, lng)
+
+    kotlinx.coroutines.delay(200)
+
+    if (state.restartAppsOnSpoof) {
+        restartHookedAppsSilently()
     }
 }
 
