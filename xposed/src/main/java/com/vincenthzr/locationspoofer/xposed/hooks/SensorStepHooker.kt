@@ -23,6 +23,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.vincenthzr.locationspoofer.utils.GaitTemplate
+import com.vincenthzr.locationspoofer.utils.HeadingOrientation
 import com.vincenthzr.locationspoofer.xposed.LocationHooker
 import com.vincenthzr.locationspoofer.xposed.utils.RouteEngine
 import com.vincenthzr.locationspoofer.xposed.utils.XposedHelpers
@@ -50,6 +51,9 @@ object SensorStepHooker {
     @Volatile private var lastStepsFloat: Double = INITIAL_BOOT_STEPS
     @Volatile private var lastStepInitTime: Long = 0L
 
+    /** 最近一次运动航向，静止时沿用，避免方向传感器跳回手机物理朝向 */
+    @Volatile private var lastMotionHeading = 0.0
+
     private val noiseRng = java.util.Random()
     @Volatile private var cachedTemplateSource: String? = null
     @Volatile private var cachedTemplate: GaitTemplate? = null
@@ -61,6 +65,14 @@ object SensorStepHooker {
 
     // 跟踪 handle 到 sensor type 的映射
     private val handleToTypeMap = ConcurrentHashMap<Int, Int>()
+
+    /** 需要按运动航向改写的朝向类传感器 */
+    private val ORIENTATION_TYPES = setOf(
+        Sensor.TYPE_ROTATION_VECTOR,
+        Sensor.TYPE_GAME_ROTATION_VECTOR,
+        Sensor.TYPE_ORIENTATION,
+        Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR
+    )
 
     fun hookSensorStepSimulation(classLoader: ClassLoader) {
         val targetClasses = listOf(
@@ -122,7 +134,13 @@ object SensorStepHooker {
 
                         if (listener != null) {
                             val targetSensor = sensor ?: getOrCreateMockSensor(Sensor.TYPE_STEP_COUNTER, classLoader)
-                            if (targetSensor != null && (targetSensor.type == Sensor.TYPE_STEP_COUNTER || targetSensor.type == Sensor.TYPE_STEP_DETECTOR || targetSensor.type == Sensor.TYPE_ACCELEROMETER)) {
+                            val tracked = targetSensor != null && (
+                                targetSensor.type == Sensor.TYPE_STEP_COUNTER ||
+                                    targetSensor.type == Sensor.TYPE_STEP_DETECTOR ||
+                                    targetSensor.type == Sensor.TYPE_ACCELEROMETER ||
+                                    targetSensor.type in ORIENTATION_TYPES
+                                )
+                            if (tracked) {
                                 val entry = CapturedSensorListener(listener, targetSensor, handler)
                                 if (!capturedListeners.any { it.listener === listener && it.sensor?.type == targetSensor.type }) {
                                     capturedListeners.add(entry)
@@ -161,6 +179,12 @@ object SensorStepHooker {
 
         // 5. Hook SystemSensorManager$SensorEventQueue.dispatchSensorEvent 底层原生分发接口
         hookSensorEventQueue(classLoader)
+
+        // 6. Hook SensorManager 的旋转矩阵 / 姿态静态方法：
+        //    有些 App 不关心旋转向量的原始值，而是直接调用 getRotationMatrixFromVector + getOrientation
+        //    自己算朝向。事件里的四元数已经被改过，这两个静态方法会基于改写后的值计算，结果自然跟着变，
+        //    所以这里只需保证它们能拿到改写后的事件（不需要额外改写返回值）。
+        hookSensorStaticHelpers(classLoader)
     }
 
     private fun hookSensorEventQueue(classLoader: ClassLoader) {
@@ -171,7 +195,7 @@ object SensorStepHooker {
 
             XposedHelpers.hookAllMethods(eventQueueClass, "dispatchSensorEvent") { chain, _ ->
                 val config = (XposedHelpers.module as? LocationHooker)?.readConfig()
-                if (config != null && config.optBoolean("active", false) && config.optBoolean("enable_step_simulation", true)) {
+                if (config != null && config.optBoolean("active", false)) {
                     val handle = chain.args.firstOrNull() as? Int
                     val values = chain.args.getOrNull(1) as? FloatArray
 
@@ -179,18 +203,23 @@ object SensorStepHooker {
                         val sensorType = handleToTypeMap[handle]
                         val speed = config.optDouble("speed_m_s", 0.0)
 
-                        if (sensorType == Sensor.TYPE_STEP_COUNTER) {
-                            // 仅对明确判定的计步器传感器进行步数计算，严禁误判光感/距离传感器
-                            val curSteps = calculateCurrentSteps(config)
-                            values[0] = curSteps.toFloat()
-                        } else if (sensorType == Sensor.TYPE_STEP_DETECTOR) {
-                            if (speed > 0.1) {
-                                values[0] = 1.0f
-                            }
-                        } else if (sensorType == Sensor.TYPE_ACCELEROMETER && values.size >= 3) {
-                            // 加速度计传感器：仅在运动中(speed > 0.1)叠加生理跑步/步行震动特征，静态时绝不篡改
-                            if (speed > 0.1) {
-                                applySyntheticVibration(values, config, speed)
+                        // 朝向属于定位的一部分，不受"步数与加速度模拟"开关影响
+                        if (sensorType != null && sensorType in ORIENTATION_TYPES) {
+                            applyMotionHeading(values, config, speed)
+                        } else if (config.optBoolean("enable_step_simulation", true)) {
+                            if (sensorType == Sensor.TYPE_STEP_COUNTER) {
+                                // 仅对明确判定的计步器传感器进行步数计算，严禁误判光感/距离传感器
+                                val curSteps = calculateCurrentSteps(config)
+                                values[0] = curSteps.toFloat()
+                            } else if (sensorType == Sensor.TYPE_STEP_DETECTOR) {
+                                if (speed > 0.1) {
+                                    values[0] = 1.0f
+                                }
+                            } else if (sensorType == Sensor.TYPE_ACCELEROMETER && values.size >= 3) {
+                                // 加速度计传感器：仅在运动中(speed > 0.1)叠加生理跑步/步行震动特征，静态时绝不篡改
+                                if (speed > 0.1) {
+                                    applySyntheticVibration(values, config, speed)
+                                }
                             }
                         }
                     }
@@ -236,26 +265,83 @@ object SensorStepHooker {
                     val event = chain.args.firstOrNull() as? SensorEvent
                     if (event != null && event.sensor != null) {
                         val config = (XposedHelpers.module as? LocationHooker)?.readConfig()
-                        if (config != null && config.optBoolean("active", false) && config.optBoolean("enable_step_simulation", true)) {
+                        if (config != null && config.optBoolean("active", false)) {
                             val speed = config.optDouble("speed_m_s", 0.0)
-                            if (event.sensor.type == Sensor.TYPE_STEP_COUNTER && event.values.isNotEmpty()) {
-                                val curSteps = calculateCurrentSteps(config)
-                                event.values[0] = curSteps.toFloat()
+                            // 朝向属于定位的一部分，不受"步数与加速度模拟"开关影响；
+                            // 即使静止也改写，避免停在原地时又回到手机物理朝向
+                            if (event.sensor.type in ORIENTATION_TYPES) {
+                                applyMotionHeading(event.values, config, speed)
                                 event.timestamp = SystemClock.elapsedRealtimeNanos()
-                            } else if (event.sensor.type == Sensor.TYPE_STEP_DETECTOR && event.values.isNotEmpty()) {
-                                if (speed > 0.1) {
-                                    event.values[0] = 1.0f
+                            } else if (config.optBoolean("enable_step_simulation", true)) {
+                                if (event.sensor.type == Sensor.TYPE_STEP_COUNTER && event.values.isNotEmpty()) {
+                                    val curSteps = calculateCurrentSteps(config)
+                                    event.values[0] = curSteps.toFloat()
+                                    event.timestamp = SystemClock.elapsedRealtimeNanos()
+                                } else if (event.sensor.type == Sensor.TYPE_STEP_DETECTOR && event.values.isNotEmpty()) {
+                                    if (speed > 0.1) {
+                                        event.values[0] = 1.0f
+                                        event.timestamp = SystemClock.elapsedRealtimeNanos()
+                                    }
+                                } else if (event.sensor.type == Sensor.TYPE_ACCELEROMETER && event.values.size >= 3 && speed > 0.1) {
+                                    applySyntheticVibration(event.values, config, speed)
                                     event.timestamp = SystemClock.elapsedRealtimeNanos()
                                 }
-                            } else if (event.sensor.type == Sensor.TYPE_ACCELEROMETER && event.values.size >= 3 && speed > 0.1) {
-                                applySyntheticVibration(event.values, config, speed)
-                                event.timestamp = SystemClock.elapsedRealtimeNanos()
                             }
                         }
                     }
                     return@hookAllMethods chain.proceed(chain.args.toTypedArray())
                 }
             } catch (_: Throwable) {}
+        }
+    }
+
+    /**
+     * 兜底：部分 App / 定位 SDK 直接用加速度计 + 磁力计，或在拿到旋转向量后自行调用
+     * [android.hardware.SensorManager.getOrientation] 计算朝向，不经过上面两个 Hook 点。
+     * 这里直接 Hook `getOrientation(R, values)`，把结算出的方位角改成运动航向，
+     * 俯仰与横滚保持不变。旋转矩阵本身无法直接反推目标四元数，只改输出即可。
+     */
+    private fun hookSensorStaticHelpers(classLoader: ClassLoader) {
+        try {
+            val managerClass = XposedHelpers.findClassIfExists("android.hardware.SensorManager", classLoader)
+                ?: return
+            XposedHelpers.hookAllMethods(managerClass, "getOrientation") { chain, _ ->
+                val result = chain.proceed(chain.args.toTypedArray())
+                val config = (XposedHelpers.module as? LocationHooker)?.readConfig()
+                val out = chain.args.lastOrNull() as? FloatArray
+                if (config != null && config.optBoolean("active", false) && out != null && out.size >= 1) {
+                    val motion = RouteEngine.calculateCurrentPosition(config)
+                    if (motion.speed > 0.05f || lastMotionHeading != 0.0) {
+                        if (motion.speed > 0.05f) lastMotionHeading = motion.bearing.toDouble()
+                        out[0] = HeadingOrientation.normalizeDegrees(lastMotionHeading).toFloat()
+                    }
+                }
+                return@hookAllMethods result
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * 把方向类传感器的读数改成"朝向 = 运动航向"。
+     *
+     * - ROTATION_VECTOR / GAME_ROTATION_VECTOR / GEOMAGNETIC_ROTATION_VECTOR：[x, y, z, w]
+     * - ORIENTATION：[azimuth, pitch, roll]
+     *
+     * 只替换水平朝向，保留设备真实的俯仰/横滚。静止时沿用上次的航向，避免停下后跳回手机物理朝向。
+     */
+    private fun applyMotionHeading(values: FloatArray, config: JSONObject, speed: Double) {
+        val motion = RouteEngine.calculateCurrentPosition(config)
+        if (motion.speed > 0.05f || speed > 0.05) {
+            lastMotionHeading = motion.bearing.toDouble()
+        }
+        val heading = lastMotionHeading
+
+        if (values.size >= 3 && values.size < 4) {
+            // TYPE_ORIENTATION：直接改写方位角
+            values[0] = HeadingOrientation.normalizeDegrees(heading).toFloat()
+        } else if (values.size >= 4) {
+            val q = HeadingOrientation.withAzimuth(values, heading)
+            values[0] = q[0]; values[1] = q[1]; values[2] = q[2]; values[3] = q[3]
         }
     }
 
