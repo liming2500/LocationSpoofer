@@ -145,6 +145,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getInt("speed_fluctuation_pct", MotionRealism.DEFAULT_SPEED_FLUCTUATION_PCT)
         set(value) = prefs.edit().putInt("speed_fluctuation_pct", value).apply()
 
+    /** 步频起伏范围（±百分比），与速度起伏、海拔变化范围同一套设置 */
+    var cadenceFluctuationPct: Int
+        get() = prefs.getInt("cadence_fluctuation_pct", MotionRealism.DEFAULT_CADENCE_FLUCTUATION_PCT)
+        set(value) = prefs.edit().putInt("cadence_fluctuation_pct", value).apply()
+
     /** 录制的个人步态模板（GaitTemplate.encode() 的结果），空串表示未录制 */
     var gaitTemplate: String
         get() = prefs.getString("gait_template", "") ?: ""

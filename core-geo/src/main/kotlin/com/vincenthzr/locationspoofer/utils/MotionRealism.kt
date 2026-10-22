@@ -14,13 +14,18 @@ import kotlin.math.sin
  *
  * 速度、步频这些"慢变量"都是以模拟开始时间为种子的确定性函数——system_server、每个被 Hook 的
  * App 进程、以及 App 自己的路线进度都在各自独立计算位置和步数，必须对同一时刻算出同样的结果，
- * 否则不同进程之间的距离、步数会对不上。随机强度为 [Level.OFF] 且速度浮动为 0 时退化为匀速匀步频。
+ * 否则不同进程之间的距离、步数会对不上。随机强度为 [Level.OFF]、速度浮动和步频浮动都为 0 时
+ * 退化为匀速匀步频。
+ *
+ * 速度浮动与步频浮动是两项独立设置（同海拔变化范围一样在界面上用滑块调）：
+ * 速度浮动改变配速，步频浮动改变计步传感器的步频，二者之差落在步幅上。步频只影响步数，
+ * 不参与位置计算，所以调大它不会让路线位置跳变。
  */
 object MotionRealism {
 
     enum class Level(
         val id: Int,
-        /** 步频独立于速度的相对起伏幅度 */
+        /** 随机强度在用户设置的步频起伏之上额外附加的相对起伏 */
         val cadenceVariation: Double,
         /** 海拔随时间漂移的幅度（米），由 [AltitudeModel] 使用 */
         val altitudeAmplitudeM: Double,
@@ -42,6 +47,10 @@ object MotionRealism {
     const val DEFAULT_LEVEL_ID = 2
     const val DEFAULT_SPEED_FLUCTUATION_PCT = 10
     const val MAX_SPEED_FLUCTUATION_PCT = 30
+
+    /** 步频相对基准值的起伏范围（±百分比），与速度起伏一样在会话内取快照 */
+    const val DEFAULT_CADENCE_FLUCTUATION_PCT = 6
+    const val MAX_CADENCE_FLUCTUATION_PCT = 30
 
     /** 速度变化中由步频承担的比例，其余由步幅承担（步幅 = 速度 / 步频） */
     private const val CADENCE_SHARE_OF_SPEED = 0.4
@@ -88,9 +97,16 @@ object MotionRealism {
         }
     }
 
-    class Session(val startTimestamp: Long, val level: Level, speedFluctuationPct: Int) {
+    class Session(
+        val startTimestamp: Long,
+        val level: Level,
+        speedFluctuationPct: Int,
+        cadenceFluctuationPct: Int = 0
+    ) {
         val speedFluctuationPct = speedFluctuationPct.coerceIn(0, MAX_SPEED_FLUCTUATION_PCT)
+        val cadenceFluctuationPct = cadenceFluctuationPct.coerceIn(0, MAX_CADENCE_FLUCTUATION_PCT)
         private val fluctuation = this.speedFluctuationPct / 100.0
+        private val cadenceFluctuation = this.cadenceFluctuationPct / 100.0
         private val speedNoise = SmoothNoise(startTimestamp xor SPEED_SALT, 20.0, 600.0)
         private val cadenceNoise = SmoothNoise(startTimestamp xor CADENCE_SALT, 3.0, 60.0)
 
@@ -101,15 +117,18 @@ object MotionRealism {
         fun distance(baseSpeed: Double, elapsedSec: Double): Double =
             baseSpeed * (elapsedSec + fluctuation * speedNoise.integral(elapsedSec))
 
+        /** 步频由用户设置的步频起伏与随机强度的附加起伏叠加而成 */
+        private val cadenceGain: Double get() = cadenceFluctuation + level.cadenceVariation
+
         fun cadence(baseCadenceSpm: Double, elapsedSec: Double): Double = baseCadenceSpm * (
             1 + CADENCE_SHARE_OF_SPEED * fluctuation * speedNoise.value(elapsedSec) +
-                level.cadenceVariation * cadenceNoise.value(elapsedSec)
+                cadenceGain * cadenceNoise.value(elapsedSec)
             )
 
         /** 从开始到 elapsedSec 的累计步数（连续值，整数部分是步数，小数部分是当前这一步的相位） */
         fun steps(baseCadenceSpm: Double, elapsedSec: Double): Double = baseCadenceSpm / 60.0 * (
             elapsedSec + CADENCE_SHARE_OF_SPEED * fluctuation * speedNoise.integral(elapsedSec) +
-                level.cadenceVariation * cadenceNoise.integral(elapsedSec)
+                cadenceGain * cadenceNoise.integral(elapsedSec)
             )
 
         /**
@@ -141,12 +160,20 @@ object MotionRealism {
     private var cached: Session? = null
 
     /** 同一次模拟会话内复用同一个 Session，避免在高频 Hook 里反复初始化噪声参数 */
-    fun session(startTimestamp: Long, levelId: Int, speedFluctuationPct: Int): Session {
+    fun session(
+        startTimestamp: Long,
+        levelId: Int,
+        speedFluctuationPct: Int,
+        cadenceFluctuationPct: Int = 0
+    ): Session {
         val level = Level.fromId(levelId)
-        val pct = speedFluctuationPct.coerceIn(0, MAX_SPEED_FLUCTUATION_PCT)
+        val speedPct = speedFluctuationPct.coerceIn(0, MAX_SPEED_FLUCTUATION_PCT)
+        val cadencePct = cadenceFluctuationPct.coerceIn(0, MAX_CADENCE_FLUCTUATION_PCT)
         val c = cached
-        if (c != null && c.startTimestamp == startTimestamp && c.level == level && c.speedFluctuationPct == pct) return c
-        return Session(startTimestamp, level, pct).also { cached = it }
+        if (c != null && c.startTimestamp == startTimestamp && c.level == level &&
+            c.speedFluctuationPct == speedPct && c.cadenceFluctuationPct == cadencePct
+        ) return c
+        return Session(startTimestamp, level, speedPct, cadencePct).also { cached = it }
     }
 
     // ---------------------------------------------------------------- 内置步态波形

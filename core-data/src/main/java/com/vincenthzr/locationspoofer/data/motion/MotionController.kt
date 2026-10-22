@@ -30,12 +30,15 @@ import kotlin.math.abs
  */
 class MotionController(
     private val sink: MotionSink,
-    /** (随机强度, 速度浮动百分比)；会话内取开始模拟时的快照，见 SpoofingState */
-    private val realismParams: () -> Pair<Int, Int>,
+    /** 随机强度、速度浮动、步频浮动；会话内取开始模拟时的快照，见 SpoofingState */
+    private val realismParams: () -> RealismParams,
     private val clock: () -> Long = System::currentTimeMillis,
     /** 测试时关闭内部节拍，由测试手动调用 [tick] 推进 */
     private val autoTick: Boolean = true
 ) {
+
+    /** 运动真实度参数快照；步频浮动只影响计步传感器，不影响路线位置 */
+    data class RealismParams(val levelId: Int, val speedPct: Int, val cadencePct: Int)
 
     /** 控制器的副作用出口：写运动配置、保存录制的路线 */
     interface MotionSink {
@@ -168,11 +171,14 @@ class MotionController(
         } else {
             pausePoint = null
         }
+        // 还没开始走时，航向先指向路线出发方向（起点等待 / 手动模式）
+        val initialBearing = routePath.positionAtFollowingMotion(0.0, stopAtDestination).bearing
         _state.update {
             it.copy(
                 mode = if (startPaused) Mode.MANUAL else Mode.ROUTE,
                 lat = start.lat,
                 lng = start.lng,
+                bearing = initialBearing,
                 speedMs = 0.0,
                 hasRoute = true,
                 paused = startPaused,
@@ -224,7 +230,7 @@ class MotionController(
         if (s.mode != Mode.ROUTE) return
         val now = clock()
         val traveled = traveledAt(now)
-        val pos = routePath.positionAt(traveled, stopAtDestination)
+        val pos = routePath.positionAtFollowingMotion(traveled, stopAtDestination)
         pauseDistance = traveled
         pausePoint = LatLng(pos.lat, pos.lng)
         joyIntensity = 0f
@@ -301,8 +307,8 @@ class MotionController(
     }
 
     private fun realism(start: Long): MotionRealism.Session {
-        val (level, pct) = realismParams()
-        return MotionRealism.session(start, level, pct)
+        val params = realismParams()
+        return MotionRealism.session(start, params.levelId, params.speedPct, params.cadencePct)
     }
 
     /** 与 Xposed 端 RouteEngine 同一公式：偏移 + 从本段开始时刻起按（带浮动的）速度行进的距离 */
@@ -330,7 +336,7 @@ class MotionController(
             s.mode == Mode.ROUTE -> {
                 val routePath = path ?: return
                 val elapsed = (now - routeStartTs).coerceAtLeast(0L) / 1000.0
-                val pos = routePath.positionAt(traveledAt(now), stopAtDestination)
+                val pos = routePath.positionAtFollowingMotion(traveledAt(now), stopAtDestination)
                 val speed = if (pos.arrived) 0.0 else realism(routeStartTs).speed(s.preset.speedMs, elapsed)
                 _state.update { it.copy(lat = pos.lat, lng = pos.lng, bearing = pos.bearing, speedMs = speed) }
             }
@@ -373,7 +379,17 @@ class MotionController(
         routeOffset = pauseDistance
         routeStartTs = now
         pausePoint = null
-        _state.update { it.copy(mode = Mode.ROUTE, paused = false, returning = false, lat = target.lat, lng = target.lng) }
+        val pos = path?.positionAtFollowingMotion(routeOffset, stopAtDestination)
+        _state.update {
+            it.copy(
+                mode = Mode.ROUTE,
+                paused = false,
+                returning = false,
+                lat = target.lat,
+                lng = target.lng,
+                bearing = pos?.bearing ?: it.bearing
+            )
+        }
         requestRouteWrite(now)
     }
 

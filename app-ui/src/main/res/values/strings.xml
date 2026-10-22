@@ -81,6 +81,10 @@
     <string name="speed_fluctuation_title">Speed Fluctuation</string>
     <string name="speed_fluctuation_value">±%1$d%%</string>
     <string name="speed_fluctuation_desc">During route simulation the speed slowly drifts within this range, so every kilometer has a slightly different pace</string>
+    <string name="motion_fluctuation_title">Speed &amp; Cadence Fluctuation</string>
+    <string name="motion_fluctuation_desc">Speed changes the route pace; cadence changes the step-count sensor. Both take effect the next time you start spoofing</string>
+    <string name="cadence_fluctuation_title">Cadence Fluctuation</string>
+    <string name="cadence_fluctuation_desc">Step frequency drifts within this range like real running: faster and slower stretches, with stride length changing to match. Only adds up to the randomness level, and never moves the route position</string>
     <string name="realism_next_session_hint">Changes take effect the next time you start spoofing</string>
     <string name="gait_title">Personal Gait</string>
     <string name="gait_desc">Put the phone where you usually carry it (e.g. a pocket) and walk normally for 20 seconds. Your gait is replayed at the simulated cadence with natural step-to-step variation.</string>

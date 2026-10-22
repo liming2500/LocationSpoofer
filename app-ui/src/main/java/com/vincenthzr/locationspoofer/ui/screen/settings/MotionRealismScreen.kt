@@ -42,6 +42,7 @@ import com.vincenthzr.locationspoofer.viewmodel.MainViewModel
 import com.vincenthzr.locationspoofer.viewmodel.cancelGaitRecording
 import com.vincenthzr.locationspoofer.viewmodel.deleteGaitTemplate
 import com.vincenthzr.locationspoofer.viewmodel.dismissGaitRecordingResult
+import com.vincenthzr.locationspoofer.viewmodel.setCadenceFluctuationPct
 import com.vincenthzr.locationspoofer.viewmodel.setRealismLevel
 import com.vincenthzr.locationspoofer.viewmodel.setSpeedFluctuationPct
 import com.vincenthzr.locationspoofer.viewmodel.setUseGaitTemplate
@@ -130,6 +131,7 @@ fun MotionRealismScreen(
             ) {
                 RealismLevelCard(uiState, isDark) { viewModel.setRealismLevel(it) }
                 SpeedFluctuationCard(uiState) { viewModel.setSpeedFluctuationPct(it) }
+                CadenceFluctuationCard(uiState) { viewModel.setCadenceFluctuationPct(it) }
                 GaitCard(viewModel, uiState, isDark)
                 HintRow(stringResource(R.string.realism_next_session_hint), isDark)
                 Spacer(Modifier.height(16.dp))
@@ -238,6 +240,42 @@ private fun SpeedFluctuationCard(uiState: AppState, onChange: (Int) -> Unit) {
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = AccentOrange,
+                modifier = Modifier.widthIn(min = 48.dp)
+            )
+        }
+    }
+}
+
+/** 步频起伏：与速度浮动同样的滑块，只影响计步传感器的步频，不改动路线位置 */
+@Composable
+private fun CadenceFluctuationCard(uiState: AppState, onChange: (Int) -> Unit) {
+    MiuixCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp, insideMargin = PaddingValues(16.dp)) {
+        CardHeader(
+            Icons.AutoMirrored.Rounded.DirectionsWalk,
+            AccentGreen,
+            stringResource(R.string.cadence_fluctuation_title),
+            stringResource(R.string.cadence_fluctuation_desc)
+        )
+        Spacer(Modifier.height(8.dp))
+        var local by remember(uiState.cadenceFluctuationPct) {
+            mutableFloatStateOf(uiState.cadenceFluctuationPct.toFloat())
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = local,
+                onValueChange = { local = it },
+                onValueChangeFinished = { onChange(local.roundToInt()) },
+                valueRange = 0f..MotionRealism.MAX_CADENCE_FLUCTUATION_PCT.toFloat(),
+                steps = MotionRealism.MAX_CADENCE_FLUCTUATION_PCT / 5 - 1,
+                colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen),
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = stringResource(R.string.speed_fluctuation_value, local.roundToInt()),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentGreen,
                 modifier = Modifier.widthIn(min = 48.dp)
             )
         }

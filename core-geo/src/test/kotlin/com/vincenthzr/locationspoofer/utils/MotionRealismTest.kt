@@ -92,11 +92,55 @@ class MotionRealismTest {
     }
 
     @Test
+    fun `cadence fluctuation widens the cadence swing without touching distance`() {
+        val quiet = MotionRealism.Session(start, MotionRealism.Level.OFF, 0, 0)
+        val lively = MotionRealism.Session(start, MotionRealism.Level.OFF, 0, 15)
+        var quietSwing = 0.0
+        var livelySwing = 0.0
+        var quietMin = Double.MAX_VALUE
+        var quietMax = 0.0
+        var livelyMin = Double.MAX_VALUE
+        var livelyMax = 0.0
+        for (t in 0..1800) {
+            val q = quiet.cadence(170.0, t.toDouble())
+            val l = lively.cadence(170.0, t.toDouble())
+            quietMin = minOf(quietMin, q); quietMax = maxOf(quietMax, q)
+            livelyMin = minOf(livelyMin, l); livelyMax = maxOf(livelyMax, l)
+            // 步频起伏不影响位置：同一时刻的累计距离完全相同
+            assertEquals(quiet.distance(3.0, t.toDouble()), lively.distance(3.0, t.toDouble()), 0.0)
+        }
+        quietSwing = quietMax - quietMin
+        livelySwing = livelyMax - livelyMin
+        assertTrue("quiet=$quietSwing lively=$livelySwing", livelySwing > quietSwing * 3)
+        // 15% 的设置下步频不会超出 ±15% 的范围
+        assertTrue(livelyMin >= 170 * 0.85 - 1e-9 && livelyMax <= 170 * 1.15 + 1e-9)
+    }
+
+    @Test
+    fun `cadence fluctuation adds to the randomness level instead of replacing it`() {
+        val a = MotionRealism.Session(start, MotionRealism.Level.OFF, 0, 10)
+        val b = MotionRealism.Session(start, MotionRealism.Level.HIGH, 0, 10)
+        var minA = Double.MAX_VALUE
+        var maxA = 0.0
+        var minB = Double.MAX_VALUE
+        var maxB = 0.0
+        for (t in 0..1800) {
+            val ca = a.cadence(170.0, t.toDouble())
+            val cb = b.cadence(170.0, t.toDouble())
+            minA = minOf(minA, ca); maxA = maxOf(maxA, ca)
+            minB = minOf(minB, cb); maxB = maxOf(maxB, cb)
+        }
+        assertTrue(maxB - minB > maxA - minA)
+    }
+
+    @Test
     fun `session cache returns the same instance for the same parameters`() {
-        val a = MotionRealism.session(start, 2, 10)
-        val b = MotionRealism.session(start, 2, 10)
-        val c = MotionRealism.session(start, 2, 20)
+        val a = MotionRealism.session(start, 2, 10, 5)
+        val b = MotionRealism.session(start, 2, 10, 5)
+        val c = MotionRealism.session(start, 2, 20, 5)
+        val d = MotionRealism.session(start, 2, 10, 6)
         assertTrue(a === b)
         assertTrue(a !== c)
+        assertTrue(a !== d)
     }
 }

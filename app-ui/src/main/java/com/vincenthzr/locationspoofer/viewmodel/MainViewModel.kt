@@ -81,6 +81,7 @@ class MainViewModel(
             debugDumpSystemServices = settingsRepository.debugDumpSystemServices,
             realismLevel = settingsRepository.realismLevel,
             speedFluctuationPct = settingsRepository.speedFluctuationPct,
+            cadenceFluctuationPct = settingsRepository.cadenceFluctuationPct,
             gaitTemplateCadence = GaitTemplate.decode(settingsRepository.gaitTemplate)?.cadenceSpm,
             gaitTemplateStrides = GaitTemplate.decode(settingsRepository.gaitTemplate)?.strideCount ?: 0,
             useGaitTemplate = settingsRepository.useGaitTemplate,

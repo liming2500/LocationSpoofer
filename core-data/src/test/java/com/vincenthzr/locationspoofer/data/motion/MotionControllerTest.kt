@@ -46,7 +46,12 @@ class MotionControllerTest {
     private var now = 1_000_000L
     private val sink = FakeSink()
     private val walking = MotionController.SpeedPreset("WALKING", 2.0)
-    private val controller = MotionController(sink, realismParams = { 0 to 0 }, clock = { now }, autoTick = false)
+    private val controller = MotionController(
+        sink,
+        realismParams = { MotionController.RealismParams(0, 0, 0) },
+        clock = { now },
+        autoTick = false
+    )
 
     private val start = LatLng(30.0, 120.0)
     private val end = GeoMath.destination(start, 0.0, 1000.0) // 正北 1000 米

@@ -80,6 +80,8 @@ import com.vincenthzr.locationspoofer.viewmodel.selectCollectedRoute
 import com.vincenthzr.locationspoofer.viewmodel.selectCollectedLocation
 import com.vincenthzr.locationspoofer.viewmodel.setAltitude
 import com.vincenthzr.locationspoofer.viewmodel.setAltitudeVariation
+import com.vincenthzr.locationspoofer.viewmodel.setCadenceFluctuationPct
+import com.vincenthzr.locationspoofer.viewmodel.setSpeedFluctuationPct
 import com.vincenthzr.locationspoofer.viewmodel.setMapEngine
 import com.vincenthzr.locationspoofer.viewmodel.setMapType
 import com.vincenthzr.locationspoofer.viewmodel.setSatelliteCount
@@ -575,6 +577,8 @@ fun LocationTab(
             onToggleRestartApps = viewModel::toggleRestartAppsOnSpoof,
             onAltitudeChange = viewModel::setAltitude,
             onAltitudeVariationChange = viewModel::setAltitudeVariation,
+            onSpeedFluctuationChange = viewModel::setSpeedFluctuationPct,
+            onCadenceFluctuationChange = viewModel::setCadenceFluctuationPct,
             onSatelliteCountChange = viewModel::setSatelliteCount
         )
     }
