@@ -64,6 +64,42 @@ class RoutePath(val points: List<LatLng>) {
     }
 
     /**
+     * 单圈行进距离：闭环为路线全长，开放路线为一次往返（去 + 回）。
+     * 圈数限制按这个单位计算，与 [position] 的取模逻辑一致。
+     */
+    val lapDistance: Double get() = if (isClosedLoop) totalDistance else totalDistance * 2
+
+    /**
+     * 按圈数限制取位置：走满 [loops] 圈后停在那一圈结束处，不再继续。
+     *
+     * @param loops 圈数，0 或负数表示不限
+     */
+    fun positionAtWithLaps(distanceTraveled: Double, loops: Int, stopAtDestination: Boolean): Position {
+        val traveled = distanceTraveled.coerceAtLeast(0.0)
+        if (loops <= 0) return position(traveled, stopAtDestination)
+        val limit = lapDistance * loops
+        if (traveled < limit) return position(traveled, stopAtDestination)
+        // 跑满圈数：停在终点处（闭环回到起点方向，开放路线回到起点）
+        val end = position(limit, stopAtDestination = false)
+        return end.copy(arrived = true)
+    }
+
+    /** 与 [positionAtWithLaps] 相同，但航向由实测位移算出 */
+    fun positionAtFollowingMotionWithLaps(
+        distanceTraveled: Double,
+        loops: Int,
+        stopAtDestination: Boolean,
+        sampleMeters: Double = 2.0
+    ): Position {
+        if (loops <= 0) return positionAtFollowingMotion(distanceTraveled, stopAtDestination, sampleMeters)
+        val limit = lapDistance * loops
+        if (distanceTraveled.coerceAtLeast(0.0) < limit) {
+            return positionAtFollowingMotion(distanceTraveled, stopAtDestination, sampleMeters)
+        }
+        return positionAtWithLaps(distanceTraveled, loops, stopAtDestination)
+    }
+
+    /**
      * 与 [positionAt] 相同，但航向由前后两个位置的实测位移算出，始终指向真正在走的方向。
      * 折返点、终点停车（到达后保持最后行进方向）、起点等待（按即将出发的方向）都能正确给出朝向。
      */

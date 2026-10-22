@@ -62,6 +62,7 @@ import com.vincenthzr.locationspoofer.viewmodel.setAltitudeVariation
 import com.vincenthzr.locationspoofer.viewmodel.setCadenceFluctuationPct
 import com.vincenthzr.locationspoofer.viewmodel.setSpeedFluctuationPct
 import com.vincenthzr.locationspoofer.viewmodel.setGradeSensitivity
+import com.vincenthzr.locationspoofer.viewmodel.setRouteLoops
 import com.vincenthzr.locationspoofer.viewmodel.setMotionFluctuationEnabled
 import com.vincenthzr.locationspoofer.viewmodel.setSpeedRampSec
 import com.vincenthzr.locationspoofer.viewmodel.ManageDataViewModel
@@ -637,6 +638,7 @@ fun RouteTab(
             onMotionFluctuationEnabledChange = viewModel::setMotionFluctuationEnabled,
             onSpeedRampChange = viewModel::setSpeedRampSec,
             onGradeSensitivityChange = viewModel::setGradeSensitivity,
+            onLoopsChange = viewModel::setRouteLoops,
             onSatelliteCountChange = viewModel::setSatelliteCount
         )
     }

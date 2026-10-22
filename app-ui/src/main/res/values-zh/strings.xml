@@ -91,6 +91,16 @@
     <string name="motion_fluctuation_hint">对路线模拟生效，修改将在下次开始模拟时生效</string>
     <string name="route_waiting_hint">定位已固定在起点。先打开跑步软件，等它显示 GPS 信号正常并点击开始，再回到这里</string>
     <string name="route_begin_run">开始跑步</string>
+    <string name="route_completed_title">路线已完成</string>
+    <string name="route_completed_message">已完成 %1$d 圈，总距离 %.2f 公里</string>
+    <string name="route_loops_title">循环圈数</string>
+    <string name="route_loops_unlimited">不限</string>
+    <string name="route_loops_value">%1$d 圈</string>
+    <string name="route_estimate_format">≈ %1$s · %2$s</string>
+    <string name="completed_notify_title">跑完提醒</string>
+    <string name="completed_notify_row">通知栏</string>
+    <string name="completed_sound_row">声音</string>
+    <string name="completed_vibrate_row">震动</string>
     <string name="speed_ramp_title">起步/停车加减速</string>
     <string name="speed_ramp_value">%1$d 秒</string>
     <string name="grade_sensitivity_title">地形对配速的影响</string>

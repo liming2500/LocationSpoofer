@@ -89,4 +89,26 @@ class RoutePathTest {
         val diff = Math.abs(((actual - expected) % 360.0 + 540.0) % 360.0 - 180.0)
         assertEquals("expected $expected°, got $actual°", 0.0, diff, 0.5)
     }
+
+    @Test
+    fun `laps limit stops the runner at the end of the last lap`() {
+        val path = RoutePath(listOf(a, b))
+        assertEquals(2000.0, path.lapDistance, 1.0) // 开放路线：一次往返
+        // 未跑满时与普通位置一致
+        val midLap = path.positionAtWithLaps(500.0, loops = 2, stopAtDestination = false)
+        assertFalse(midLap.arrived)
+        // 跑满 2 圈后标记到达
+        val done = path.positionAtWithLaps(4200.0, loops = 2, stopAtDestination = false)
+        assertTrue(done.arrived)
+        // loops = 0 表示不限
+        assertFalse(path.positionAtWithLaps(99999.0, loops = 0, stopAtDestination = false).arrived)
+    }
+
+    @Test
+    fun `closed loop lap distance equals perimeter`() {
+        val c = GeoMath.destination(b, 0.0, 1000.0)
+        val path = RoutePath(listOf(a, b, c, a))
+        assertTrue(path.isClosedLoop)
+        assertEquals(path.totalDistance, path.lapDistance, 1.0)
+    }
 }

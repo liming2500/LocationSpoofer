@@ -26,7 +26,8 @@ class MotionControllerTest {
 
         override suspend fun writeRoute(
             lat: Double, lng: Double, bearing: Float, preset: MotionController.SpeedPreset,
-            points: List<RoutePoint>, startTimestamp: Long, distanceOffset: Double, stopAtDestination: Boolean
+            points: List<RoutePoint>, startTimestamp: Long, distanceOffset: Double,
+            stopAtDestination: Boolean, loops: Int
         ) {
             routes += Route(distanceOffset, startTimestamp, preset)
         }

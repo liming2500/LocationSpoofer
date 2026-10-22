@@ -56,6 +56,7 @@ fun RouteConfigDialog(
     onMotionFluctuationEnabledChange: (Boolean) -> Unit = {},
     onSpeedRampChange: (Int) -> Unit = {},
     onGradeSensitivityChange: (Int) -> Unit = {},
+    onLoopsChange: (Int) -> Unit = {},
     onSatelliteCountChange: (String) -> Unit = {}
 ) {
     Dialog(
@@ -469,6 +470,14 @@ fun RouteConfigDialog(
                             }
                         }
                     }
+
+                    // 循环圈数与预计时间 / 总距离
+                    RouteLoopsCard(
+                        loops = uiState.routeLoops,
+                        onChange = onLoopsChange,
+                        routePoints = uiState.routePoints,
+                        speedMs = uiState.routeSimMode.speedMs
+                    )
 
                     // 速度与步频起伏（放在步频与计步模拟下方），带总开关
                     MotionFluctuationCard(

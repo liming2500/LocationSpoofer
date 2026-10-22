@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.*
@@ -43,6 +44,9 @@ import com.vincenthzr.locationspoofer.viewmodel.cancelGaitRecording
 import com.vincenthzr.locationspoofer.viewmodel.deleteGaitTemplate
 import com.vincenthzr.locationspoofer.viewmodel.dismissGaitRecordingResult
 import com.vincenthzr.locationspoofer.viewmodel.setCadenceFluctuationPct
+import com.vincenthzr.locationspoofer.viewmodel.setCompletedNotifyEnabled
+import com.vincenthzr.locationspoofer.viewmodel.setCompletedSoundEnabled
+import com.vincenthzr.locationspoofer.viewmodel.setCompletedVibrateEnabled
 import com.vincenthzr.locationspoofer.viewmodel.setGradeSensitivity
 import com.vincenthzr.locationspoofer.viewmodel.setMotionFluctuationEnabled
 import com.vincenthzr.locationspoofer.viewmodel.setSpeedRampSec
@@ -141,6 +145,12 @@ fun MotionRealismScreen(
                     onRamp = { viewModel.setSpeedRampSec(it) },
                     onGrade = { viewModel.setGradeSensitivity(it) }
                 )
+                CompletionAlertCard(
+                    uiState,
+                    onNotify = { viewModel.setCompletedNotifyEnabled(it) },
+                    onSound = { viewModel.setCompletedSoundEnabled(it) },
+                    onVibrate = { viewModel.setCompletedVibrateEnabled(it) }
+                )
                 GaitCard(viewModel, uiState, isDark)
                 HintRow(stringResource(R.string.realism_next_session_hint), isDark)
                 Spacer(Modifier.height(16.dp))
@@ -219,6 +229,62 @@ private fun RealismLevelCard(uiState: AppState, isDark: Boolean, onSelect: (Int)
                 }
             }
         }
+    }
+}
+
+/** 路线跑完提醒：通知栏 / 声音 / 震动 三项独立开关 */
+@Composable
+private fun CompletionAlertCard(
+    uiState: AppState,
+    onNotify: (Boolean) -> Unit,
+    onSound: (Boolean) -> Unit,
+    onVibrate: (Boolean) -> Unit
+) {
+    MiuixCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp, insideMargin = PaddingValues(16.dp)) {
+        CardHeader(
+            Icons.Rounded.NotificationsActive,
+            AccentOrange,
+            stringResource(R.string.completed_notify_title),
+            stringResource(R.string.route_completed_message, 1, 0.0)
+        )
+        Spacer(Modifier.height(10.dp))
+        AlertToggleRow(
+            stringResource(R.string.completed_notify_row),
+            uiState.completedNotifyEnabled,
+            onNotify
+        )
+        AlertToggleRow(
+            stringResource(R.string.completed_sound_row),
+            uiState.completedSoundEnabled,
+            onSound
+        )
+        AlertToggleRow(
+            stringResource(R.string.completed_vibrate_row),
+            uiState.completedVibrateEnabled,
+            onVibrate
+        )
+    }
+}
+
+@Composable
+private fun AlertToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
+        )
     }
 }
 

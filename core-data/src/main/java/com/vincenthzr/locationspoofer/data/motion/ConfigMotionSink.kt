@@ -54,7 +54,8 @@ class ConfigMotionSink(
         points: List<RoutePoint>,
         startTimestamp: Long,
         distanceOffset: Double,
-        stopAtDestination: Boolean
+        stopAtDestination: Boolean,
+        loops: Int
     ) {
         val routeArray = JSONArray().apply { points.forEach { put(JSONObject().put("lat", it.lat).put("lng", it.lng)) } }
         locationRepository.patchConfig { json ->
@@ -67,6 +68,7 @@ class ConfigMotionSink(
             json.put("start_timestamp", startTimestamp)
             json.put("route_distance_offset", distanceOffset)
             json.put("stop_at_destination", stopAtDestination)
+            json.put("route_loops", loops)
         }
     }
 

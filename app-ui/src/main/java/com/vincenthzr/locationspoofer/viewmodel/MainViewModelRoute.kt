@@ -1,5 +1,6 @@
 package com.vincenthzr.locationspoofer.viewmodel
 
+import com.vincenthzr.locationspoofer.data.completion.CompletionNotifier
 import com.vincenthzr.locationspoofer.data.motion.MotionController
 import java.util.Locale
 import androidx.lifecycle.viewModelScope
@@ -347,7 +348,8 @@ private fun MainViewModel.startSimulationWithPoints(pointsToRun: List<RoutePoint
             motionController.onRouteStarted(
                 pointsToRun, preset, _uiState.value.stopAtDestination, now,
                 startPaused = false,
-                awaitStart = true
+                awaitStart = true,
+                loops = _uiState.value.routeLoops
             )
             _uiState.update {
                 it.copy(isSpoofingActive = true, routePlanStage = RoutePlanStage.WAITING)
@@ -609,9 +611,43 @@ internal fun MainViewModel.observeMotionController() {
             if (simMode != null && simMode != _uiState.value.routeSimMode) {
                 _uiState.update { it.copy(routeSimMode = simMode) }
             }
+            // 跑满设定圈数：只提醒一次
+            if (st.completed && !routeCompletionNotified) {
+                routeCompletionNotified = true
+                onRouteCompleted(st.targetLoops)
+            }
+            if (!st.completed) routeCompletionNotified = false
         }
     }
 }
+
+/** 路线跑完后：发提醒、切界面状态 */
+private fun MainViewModel.onRouteCompleted(loops: Int) {
+    val distance = _uiState.value.routePoints.let { pts ->
+        if (pts.size < 2) 0.0 else {
+            val path = com.vincenthzr.locationspoofer.utils.RoutePath(
+                pts.map { com.vincenthzr.locationspoofer.utils.CoordinateUtils.LatLng(it.lat, it.lng) }
+            )
+            path.lapDistance * loops
+        }
+    }
+    CompletionNotifier.notifyCompleted(
+        context = context,
+        title = context.getString(com.vincenthzr.locationspoofer.ui.R.string.route_completed_title),
+        message = context.getString(
+            com.vincenthzr.locationspoofer.ui.R.string.route_completed_message,
+            loops,
+            distance / 1000.0
+        ),
+        options = CompletionNotifier.Options(
+            notify = _uiState.value.completedNotifyEnabled,
+            sound = _uiState.value.completedSoundEnabled,
+            vibrate = _uiState.value.completedVibrateEnabled
+        )
+    )
+    _uiState.update { it.copy(routePlanStage = RoutePlanStage.RUNNING) }
+}
+
 
 /** 更新当前模拟位置到 UI 和 SpoofingState */
 private fun MainViewModel.updatePosition(lat: Double, lng: Double, bearing: Float) {
@@ -676,4 +712,25 @@ private fun MainViewModel.bearingBetween(from: RoutePoint, to: RoutePoint): Doub
     val y = kotlin.math.cos(lat1) * kotlin.math.sin(lat2) -
             kotlin.math.sin(lat1) * kotlin.math.cos(lat2) * kotlin.math.cos(dLng)
     return (Math.toDegrees(kotlin.math.atan2(x, y)) + 360) % 360
+}
+
+internal fun MainViewModel.setRouteLoops(loops: Int) {
+    val value = loops.coerceIn(0, 50)
+    settingsRepository.routeLoops = value
+    _uiState.update { it.copy(routeLoops = value) }
+}
+
+internal fun MainViewModel.setCompletedNotifyEnabled(enabled: Boolean) {
+    settingsRepository.completedNotifyEnabled = enabled
+    _uiState.update { it.copy(completedNotifyEnabled = enabled) }
+}
+
+internal fun MainViewModel.setCompletedSoundEnabled(enabled: Boolean) {
+    settingsRepository.completedSoundEnabled = enabled
+    _uiState.update { it.copy(completedSoundEnabled = enabled) }
+}
+
+internal fun MainViewModel.setCompletedVibrateEnabled(enabled: Boolean) {
+    settingsRepository.completedVibrateEnabled = enabled
+    _uiState.update { it.copy(completedVibrateEnabled = enabled) }
 }

@@ -86,6 +86,16 @@
     <string name="motion_fluctuation_hint">Applies to route simulation. Changes take effect the next time you start spoofing</string>
     <string name="route_waiting_hint">Location is held at the start point. Open your running app, wait until it shows a stable GPS signal and start the run there, then come back here</string>
     <string name="route_begin_run">Start Running</string>
+    <string name="route_completed_title">Route complete</string>
+    <string name="route_completed_message">Finished %1$d laps, total %.2f km</string>
+    <string name="route_loops_title">Laps</string>
+    <string name="route_loops_unlimited">Unlimited</string>
+    <string name="route_loops_value">%1$d laps</string>
+    <string name="route_estimate_format">≈ %1$s · %2$s</string>
+    <string name="completed_notify_title">Completion alerts</string>
+    <string name="completed_notify_row">Notification</string>
+    <string name="completed_sound_row">Sound</string>
+    <string name="completed_vibrate_row">Vibration</string>
     <string name="speed_ramp_title">Accelerate / decelerate</string>
     <string name="speed_ramp_value">%1$d s</string>
     <string name="grade_sensitivity_title">Terrain effect on pace</string>

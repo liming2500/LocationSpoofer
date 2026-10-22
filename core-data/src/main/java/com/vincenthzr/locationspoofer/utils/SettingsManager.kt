@@ -165,6 +165,25 @@ class SettingsManager(context: Context) {
         get() = prefs.getInt("grade_sensitivity", MotionRealism.DEFAULT_GRADE_SENSITIVITY)
         set(value) = prefs.edit().putInt("grade_sensitivity", value).apply()
 
+    /** 循环圈数，0 表示不限 */
+    var routeLoops: Int
+        get() = prefs.getInt("route_loops", 0)
+        set(value) = prefs.edit().putInt("route_loops", value.coerceIn(0, 999)).apply()
+
+    // ---- 路线跑完提醒：通知栏 / 声音 / 震动 各自可关
+
+    var completedNotifyEnabled: Boolean
+        get() = prefs.getBoolean("completed_notify", true)
+        set(value) = prefs.edit().putBoolean("completed_notify", value).apply()
+
+    var completedSoundEnabled: Boolean
+        get() = prefs.getBoolean("completed_sound", true)
+        set(value) = prefs.edit().putBoolean("completed_sound", value).apply()
+
+    var completedVibrateEnabled: Boolean
+        get() = prefs.getBoolean("completed_vibrate", true)
+        set(value) = prefs.edit().putBoolean("completed_vibrate", value).apply()
+
     /** 录制的个人步态模板（GaitTemplate.encode() 的结果），空串表示未录制 */
     var gaitTemplate: String
         get() = prefs.getString("gait_template", "") ?: ""

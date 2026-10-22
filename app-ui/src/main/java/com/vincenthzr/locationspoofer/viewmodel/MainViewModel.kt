@@ -51,6 +51,8 @@ class MainViewModel(
     internal var gaitRecordingJob: Job? = null
     internal var mockCapabilitiesJob: Job? = null
     internal var environmentUpdateJob: Job? = null
+    /** 本次路线是否已经发过"跑完"提醒，避免每秒重复触发 */
+    internal var routeCompletionNotified = false
 
     val collectionRoutes = environmentDao.observeCollectionRoutes().distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -85,6 +87,10 @@ class MainViewModel(
             motionFluctuationEnabled = settingsRepository.motionFluctuationEnabled,
             speedRampSec = settingsRepository.speedRampSec,
             gradeSensitivity = settingsRepository.gradeSensitivity,
+            routeLoops = settingsRepository.routeLoops,
+            completedNotifyEnabled = settingsRepository.completedNotifyEnabled,
+            completedSoundEnabled = settingsRepository.completedSoundEnabled,
+            completedVibrateEnabled = settingsRepository.completedVibrateEnabled,
             gaitTemplateCadence = GaitTemplate.decode(settingsRepository.gaitTemplate)?.cadenceSpm,
             gaitTemplateStrides = GaitTemplate.decode(settingsRepository.gaitTemplate)?.strideCount ?: 0,
             useGaitTemplate = settingsRepository.useGaitTemplate,

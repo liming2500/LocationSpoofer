@@ -84,8 +84,13 @@ object RouteEngine {
 
         val traveled = offset + progressOf(config, startTime).distanceAt(elapsedSec)
 
-        // 航向由前后位置的实测位移算出，始终指向真正在走的方向（折返、起点等待、终点停车都正确）
-        val pos = path.positionAtFollowingMotion(traveled, config.optBoolean("stop_at_destination", false))
+        // 航向由前后位置的实测位移算出，始终指向真正在走的方向（折返、起点等待、终点停车都正确）；
+        // loops > 0 时走满设定圈数就停住
+        val pos = path.positionAtFollowingMotionWithLaps(
+            traveled,
+            config.optInt("route_loops", 0),
+            config.optBoolean("stop_at_destination", false)
+        )
         val currentSpeed = if (pos.arrived) 0f else realism.speed(speed, elapsedSec).toFloat()
         return SpoofedMotion(pos.lat, pos.lng, pos.bearing, currentSpeed)
     }

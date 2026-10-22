@@ -214,6 +214,30 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
             settingsManager.gradeSensitivity = value
         }
 
+    var routeLoops: Int
+        get() = settingsManager.routeLoops
+        set(value) {
+            settingsManager.routeLoops = value
+        }
+
+    var completedNotifyEnabled: Boolean
+        get() = settingsManager.completedNotifyEnabled
+        set(value) {
+            settingsManager.completedNotifyEnabled = value
+        }
+
+    var completedSoundEnabled: Boolean
+        get() = settingsManager.completedSoundEnabled
+        set(value) {
+            settingsManager.completedSoundEnabled = value
+        }
+
+    var completedVibrateEnabled: Boolean
+        get() = settingsManager.completedVibrateEnabled
+        set(value) {
+            settingsManager.completedVibrateEnabled = value
+        }
+
     var gaitTemplate: String
         get() = settingsManager.gaitTemplate
         set(value) {

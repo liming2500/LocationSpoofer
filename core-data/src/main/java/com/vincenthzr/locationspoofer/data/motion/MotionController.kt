@@ -70,7 +70,8 @@ class MotionController(
             points: List<RoutePoint>,
             startTimestamp: Long,
             distanceOffset: Double,
-            stopAtDestination: Boolean
+            stopAtDestination: Boolean,
+            loops: Int = 0
         )
         suspend fun saveRoute(name: String, points: List<RoutePoint>)
     }
@@ -113,7 +114,11 @@ class MotionController(
         val recordedPointCount: Int = 0,
         val recordedDistanceM: Double = 0.0,
         /** 录制已结束、等待命名保存的路线 */
-        val hasPendingRecording: Boolean = false
+        val hasPendingRecording: Boolean = false,
+        /** 已跑满设定的循环圈数，路线结束（位置停住，等待用户确认） */
+        val completed: Boolean = false,
+        /** 本次设定目标跑完即可退出的总圈数，0 表示不限 */
+        val targetLoops: Int = 0
     ) {
         val active: Boolean get() = mode != Mode.IDLE
         /** 路线自动播放或走回暂停点期间，摇杆不响应 */
@@ -130,6 +135,8 @@ class MotionController(
     // ---- 路线会话
     private var path: RoutePath? = null
     private var stopAtDestination = false
+    /** 循环圈数限制，0 表示不限 */
+    private var routeLoops = 0
     private var routeStartTs = 0L
     private var routeOffset = 0.0
     private var pausePoint: LatLng? = null
@@ -194,12 +201,15 @@ class MotionController(
          * 目标 App 在第一次拿到定位时会校验 GPS 质量，路线模式的速度会让它判为异常；
          * 先以定点形态喂一会儿稳定数据，再开始移动即可绕过。
          */
-        awaitStart: Boolean = false
+        awaitStart: Boolean = false,
+        /** 循环圈数，0 表示不限 */
+        loops: Int = 0
     ) {
         val routePath = RoutePath(points.map { LatLng(it.lat, it.lng) })
         if (!routePath.isValid) return
         path = routePath
         this.stopAtDestination = stopAtDestination
+        this.routeLoops = loops.coerceAtLeast(0)
         routeStartTs = startTimestamp
         routeOffset = 0.0
         joyIntensity = 0f
@@ -227,7 +237,9 @@ class MotionController(
                 awaitingStart = awaitStart && !startPaused,
                 paused = startPaused,
                 returning = false,
-                preset = preset
+                preset = preset,
+                completed = false,
+                targetLoops = routeLoops
             )
         }
         if (awaitStart && !startPaused) {
@@ -326,7 +338,7 @@ class MotionController(
         if (s.mode != Mode.ROUTE) return
         val now = clock()
         val traveled = traveledAt(now)
-        val pos = routePath.positionAtFollowingMotion(traveled, stopAtDestination)
+        val pos = routePath.positionAtFollowingMotionWithLaps(traveled, routeLoops, stopAtDestination)
         pauseDistance = traveled
         pausePoint = LatLng(pos.lat, pos.lng)
         joyIntensity = 0f
@@ -469,9 +481,19 @@ class MotionController(
             s.mode == Mode.ROUTE -> {
                 val routePath = path ?: return
                 val elapsed = (now - routeStartTs).coerceAtLeast(0L) / 1000.0
-                val pos = routePath.positionAtFollowingMotion(traveledAt(now), stopAtDestination)
+                val pos = routePath.positionAtFollowingMotionWithLaps(traveledAt(now), routeLoops, stopAtDestination)
                 val speed = if (pos.arrived) 0.0 else realism(routeStartTs).speed(s.preset.speedMs, elapsed)
-                _state.update { it.copy(lat = pos.lat, lng = pos.lng, bearing = pos.bearing, speedMs = speed) }
+                val finished = routeLoops > 0 && pos.arrived && !s.completed
+                _state.update {
+                    it.copy(
+                        lat = pos.lat,
+                        lng = pos.lng,
+                        bearing = pos.bearing,
+                        speedMs = speed,
+                        completed = it.completed || finished,
+                        targetLoops = routeLoops
+                    )
+                }
             }
 
             s.returning -> {
@@ -552,7 +574,7 @@ class MotionController(
         SpoofingState.simMode = s.preset.name
         val points = routePath.points.map { RoutePoint(it.lat, it.lng) }
         val stop = stopAtDestination
-        enqueueWrite { sink.writeRoute(s.lat, s.lng, s.bearing, s.preset, points, start, offset, stop) }
+        enqueueWrite { sink.writeRoute(s.lat, s.lng, s.bearing, s.preset, points, start, offset, stop, routeLoops) }
     }
 
     private fun enqueueWrite(block: suspend () -> Unit) {

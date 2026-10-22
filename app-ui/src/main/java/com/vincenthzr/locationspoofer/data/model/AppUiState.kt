@@ -122,6 +122,12 @@ data class AppState(
     val routeSimMode: SimMode = SimMode.WALKING,
     /** 自定义速度 (m/s)，仅当 routeSimMode == CUSTOM 时使用 */
     val customSpeedMs: Double = 3.0,
+    /** 循环圈数，0 表示不限 */
+    val routeLoops: Int = 0,
+    /** 跑完提醒：通知栏 / 声音 / 震动 */
+    val completedNotifyEnabled: Boolean = true,
+    val completedSoundEnabled: Boolean = true,
+    val completedVibrateEnabled: Boolean = true,
     /** 是否开启步频模拟 */
     val enableStepSimulation: Boolean = true,
     /** 步频设定 (SPM, 步/分钟) */
