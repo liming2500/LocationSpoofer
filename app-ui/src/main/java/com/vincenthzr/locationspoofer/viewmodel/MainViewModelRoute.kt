@@ -715,7 +715,8 @@ private fun MainViewModel.bearingBetween(from: RoutePoint, to: RoutePoint): Doub
 }
 
 internal fun MainViewModel.setRouteLoops(loops: Int) {
-    val value = loops.coerceIn(0, 50)
+    // 0 表示不限；上限与输入框、SettingsManager 保持一致
+    val value = loops.coerceIn(0, 999)
     settingsRepository.routeLoops = value
     _uiState.update { it.copy(routeLoops = value) }
 }

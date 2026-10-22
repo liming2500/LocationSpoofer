@@ -91,6 +91,7 @@
     <string name="route_loops_title">Laps</string>
     <string name="route_loops_unlimited">Unlimited</string>
     <string name="route_loops_value">%1$d laps</string>
+    <string name="route_loops_hint">Enter 0 or leave blank for no limit, up to %1$d</string>
     <string name="route_estimate_format">≈ %1$s · %2$s</string>
     <string name="route_per_lap">%1$s per lap</string>
     <string name="completed_notify_title">Completion alerts</string>

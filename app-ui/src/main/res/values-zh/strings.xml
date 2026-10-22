@@ -96,6 +96,7 @@
     <string name="route_loops_title">循环圈数</string>
     <string name="route_loops_unlimited">不限</string>
     <string name="route_loops_value">%1$d 圈</string>
+    <string name="route_loops_hint">填 0 或留空表示不限，最多 %1$d 圈</string>
     <string name="route_estimate_format">≈ %1$s · %2$s</string>
     <string name="route_per_lap">每圈 %1$s</string>
     <string name="completed_notify_title">跑完提醒</string>
