@@ -196,6 +196,24 @@ class SettingsRepository(private val settingsManager: SettingsManager) {
             settingsManager.cadenceFluctuationPct = value
         }
 
+    var motionFluctuationEnabled: Boolean
+        get() = settingsManager.motionFluctuationEnabled
+        set(value) {
+            settingsManager.motionFluctuationEnabled = value
+        }
+
+    var speedRampSec: Int
+        get() = settingsManager.speedRampSec
+        set(value) {
+            settingsManager.speedRampSec = value
+        }
+
+    var gradeSensitivity: Int
+        get() = settingsManager.gradeSensitivity
+        set(value) {
+            settingsManager.gradeSensitivity = value
+        }
+
     var gaitTemplate: String
         get() = settingsManager.gaitTemplate
         set(value) {

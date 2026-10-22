@@ -175,6 +175,9 @@ class ConfigManager(private val context: Context, private val rootManager: RootM
         json.put("realism_level", SpoofingState.realismLevel.takeIf { it >= 0 } ?: settingsManager.realismLevel)
         json.put("speed_fluctuation_pct", SpoofingState.speedFluctuationPct.takeIf { it >= 0 } ?: settingsManager.speedFluctuationPct)
         json.put("cadence_fluctuation_pct", SpoofingState.cadenceFluctuationPct.takeIf { it >= 0 } ?: settingsManager.cadenceFluctuationPct)
+        json.put("motion_fluctuation_enabled", SpoofingState.motionFluctuationEnabled)
+        json.put("speed_ramp_sec", SpoofingState.speedRampSec.takeIf { it >= 0 } ?: settingsManager.speedRampSec.toDouble())
+        json.put("grade_sensitivity", SpoofingState.gradeSensitivity.takeIf { it >= 0 } ?: settingsManager.gradeSensitivity)
         json.put("gait_template", if (settingsManager.useGaitTemplate) settingsManager.gaitTemplate else "")
         json.put("altitude_variation_m", settingsManager.altitudeVariationM)
     }

@@ -36,6 +36,9 @@ fun StartSpoofingDialog(
     onAltitudeVariationChange: (Int) -> Unit,
     onSpeedFluctuationChange: (Int) -> Unit = {},
     onCadenceFluctuationChange: (Int) -> Unit = {},
+    onMotionFluctuationEnabledChange: (Boolean) -> Unit = {},
+    onSpeedRampChange: (Int) -> Unit = {},
+    onGradeSensitivityChange: (Int) -> Unit = {},
     onSatelliteCountChange: (String) -> Unit
 ) {
     LocalizedDialog(
@@ -211,10 +214,16 @@ fun StartSpoofingDialog(
                     )
                     Spacer(Modifier.height(8.dp))
                     MotionFluctuationCard(
+                        enabled = uiState.motionFluctuationEnabled,
                         speedPct = uiState.speedFluctuationPct,
                         cadencePct = uiState.cadenceFluctuationPct,
+                        rampSec = uiState.speedRampSec,
+                        gradeSensitivity = uiState.gradeSensitivity,
+                        onEnabledChange = onMotionFluctuationEnabledChange,
                         onSpeedChange = onSpeedFluctuationChange,
-                        onCadenceChange = onCadenceFluctuationChange
+                        onCadenceChange = onCadenceFluctuationChange,
+                        onRampChange = onSpeedRampChange,
+                        onGradeChange = onGradeSensitivityChange
                     )
                     Spacer(Modifier.height(8.dp))
                     androidx.compose.material3.OutlinedTextField(

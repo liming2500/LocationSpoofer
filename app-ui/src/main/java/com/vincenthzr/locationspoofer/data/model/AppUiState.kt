@@ -75,6 +75,12 @@ data class AppState(
     val speedFluctuationPct: Int = MotionRealism.DEFAULT_SPEED_FLUCTUATION_PCT,
     /** 步频起伏范围（±百分比） */
     val cadenceFluctuationPct: Int = MotionRealism.DEFAULT_CADENCE_FLUCTUATION_PCT,
+    /** 速度与步频起伏总开关 */
+    val motionFluctuationEnabled: Boolean = true,
+    /** 起步 / 停车斜坡时长（秒） */
+    val speedRampSec: Int = MotionRealism.DEFAULT_RAMP_SEC.toInt(),
+    /** 坡度对配速的影响强度 0~100 */
+    val gradeSensitivity: Int = MotionRealism.DEFAULT_GRADE_SENSITIVITY,
     /** 已录制步态模板的步频（步/分钟），null 表示尚未录制 */
     val gaitTemplateCadence: Int? = null,
     val gaitTemplateStrides: Int = 0,

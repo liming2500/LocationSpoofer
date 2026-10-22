@@ -2,10 +2,12 @@ package com.vincenthzr.locationspoofer.data.motion
 
 import com.vincenthzr.locationspoofer.data.model.RoutePoint
 import com.vincenthzr.locationspoofer.data.state.SpoofingState
+import com.vincenthzr.locationspoofer.utils.AltitudeModel
 import com.vincenthzr.locationspoofer.utils.CoordinateUtils.LatLng
 import com.vincenthzr.locationspoofer.utils.GeoMath
 import com.vincenthzr.locationspoofer.utils.MotionRealism
 import com.vincenthzr.locationspoofer.utils.RoutePath
+import com.vincenthzr.locationspoofer.utils.RouteProgress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,7 +40,19 @@ class MotionController(
 ) {
 
     /** 运动真实度参数快照；步频浮动只影响计步传感器，不影响路线位置 */
-    data class RealismParams(val levelId: Int, val speedPct: Int, val cadencePct: Int)
+    data class RealismParams(
+        val levelId: Int,
+        val speedPct: Int,
+        val cadencePct: Int,
+        /** 起步/停车斜坡时长（秒） */
+        val rampSec: Double = 0.0,
+        /** 坡度敏感度 0~100 */
+        val gradeSensitivity: Int = 0,
+        /** 海拔变化范围（米），坡度由它推出的地形梯度计算 */
+        val altitudeVariationM: Int = 0,
+        /** 海拔漂移幅度（米），与地形幅度区分开，用于还原地形分量 */
+        val altitudeDriftM: Double = 0.0
+    )
 
     /** 控制器的副作用出口：写运动配置、保存录制的路线 */
     interface MotionSink {
@@ -308,13 +322,44 @@ class MotionController(
 
     private fun realism(start: Long): MotionRealism.Session {
         val params = realismParams()
-        return MotionRealism.session(start, params.levelId, params.speedPct, params.cadencePct)
+        return MotionRealism.session(
+            start, params.levelId, params.speedPct, params.cadencePct,
+            params.rampSec, params.gradeSensitivity
+        )
     }
 
-    /** 与 Xposed 端 RouteEngine 同一公式：偏移 + 从本段开始时刻起按（带浮动的）速度行进的距离 */
+    /** 路线进度积分器，按（本段起点、路线、预设、真实度参数）缓存 */
+    private var progressKey: String? = null
+    private var progress: RouteProgress? = null
+
+    private fun progressOf(): RouteProgress {
+        val routePath = path ?: error("route not started")
+        val preset = _state.value.preset
+        val params = realismParams()
+        val key = "$routeStartTs|${System.identityHashCode(routePath)}|${preset.speedMs}|" +
+            "${params.levelId}|${params.speedPct}|${params.cadencePct}|${params.rampSec}|" +
+            "${params.gradeSensitivity}|${params.altitudeVariationM}|${params.altitudeDriftM}"
+        progress?.let { if (progressKey == key) return it }
+
+        val gradeAt: ((Double) -> Double)? =
+            if (params.gradeSensitivity > 0 && params.altitudeVariationM > 0) { d ->
+                val p = routePath.positionAt(d, stopAtDestination = false)
+                AltitudeModel.gradeAlong(
+                    params.altitudeVariationM.toDouble(), params.altitudeDriftM,
+                    p.lat, p.lng, p.bearing.toDouble()
+                )
+            } else null
+
+        return RouteProgress(realism(routeStartTs), preset.speedMs, params.rampSec, gradeAt).also {
+            progress = it
+            progressKey = key
+        }
+    }
+
+    /** 与 Xposed 端 RouteEngine 同一公式：偏移 + 从本段开始时刻起按速度模型行进的距离 */
     private fun traveledAt(now: Long): Double {
         val elapsed = (now - routeStartTs).coerceAtLeast(0L) / 1000.0
-        return routeOffset + realism(routeStartTs).distance(_state.value.preset.speedMs, elapsed)
+        return routeOffset + progressOf().distanceAt(elapsed)
     }
 
     private fun ensureTicking() {

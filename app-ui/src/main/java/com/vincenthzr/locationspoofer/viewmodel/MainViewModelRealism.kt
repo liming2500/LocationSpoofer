@@ -38,6 +38,23 @@ internal fun MainViewModel.setCadenceFluctuationPct(pct: Int) {
     _uiState.update { it.copy(cadenceFluctuationPct = value) }
 }
 
+internal fun MainViewModel.setMotionFluctuationEnabled(enabled: Boolean) {
+    settingsRepository.motionFluctuationEnabled = enabled
+    _uiState.update { it.copy(motionFluctuationEnabled = enabled) }
+}
+
+internal fun MainViewModel.setSpeedRampSec(seconds: Int) {
+    val value = seconds.coerceIn(0, 10)
+    settingsRepository.speedRampSec = value
+    _uiState.update { it.copy(speedRampSec = value) }
+}
+
+internal fun MainViewModel.setGradeSensitivity(value: Int) {
+    val v = value.coerceIn(0, MotionRealism.MAX_GRADE_SENSITIVITY)
+    settingsRepository.gradeSensitivity = v
+    _uiState.update { it.copy(gradeSensitivity = v) }
+}
+
 internal fun MainViewModel.setUseGaitTemplate(enabled: Boolean) {
     settingsRepository.useGaitTemplate = enabled
     _uiState.update { it.copy(useGaitTemplate = enabled) }

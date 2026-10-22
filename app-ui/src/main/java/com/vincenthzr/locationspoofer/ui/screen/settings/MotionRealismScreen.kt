@@ -43,6 +43,9 @@ import com.vincenthzr.locationspoofer.viewmodel.cancelGaitRecording
 import com.vincenthzr.locationspoofer.viewmodel.deleteGaitTemplate
 import com.vincenthzr.locationspoofer.viewmodel.dismissGaitRecordingResult
 import com.vincenthzr.locationspoofer.viewmodel.setCadenceFluctuationPct
+import com.vincenthzr.locationspoofer.viewmodel.setGradeSensitivity
+import com.vincenthzr.locationspoofer.viewmodel.setMotionFluctuationEnabled
+import com.vincenthzr.locationspoofer.viewmodel.setSpeedRampSec
 import com.vincenthzr.locationspoofer.viewmodel.setRealismLevel
 import com.vincenthzr.locationspoofer.viewmodel.setSpeedFluctuationPct
 import com.vincenthzr.locationspoofer.viewmodel.setUseGaitTemplate
@@ -130,8 +133,14 @@ fun MotionRealismScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 RealismLevelCard(uiState, isDark) { viewModel.setRealismLevel(it) }
+                FluctuationToggleCard(uiState) { viewModel.setMotionFluctuationEnabled(it) }
                 SpeedFluctuationCard(uiState) { viewModel.setSpeedFluctuationPct(it) }
                 CadenceFluctuationCard(uiState) { viewModel.setCadenceFluctuationPct(it) }
+                SpeedProfileCard(
+                    uiState,
+                    onRamp = { viewModel.setSpeedRampSec(it) },
+                    onGrade = { viewModel.setGradeSensitivity(it) }
+                )
                 GaitCard(viewModel, uiState, isDark)
                 HintRow(stringResource(R.string.realism_next_session_hint), isDark)
                 Spacer(Modifier.height(16.dp))
@@ -209,6 +218,97 @@ private fun RealismLevelCard(uiState: AppState, isDark: Boolean, onSelect: (Int)
                     )
                 }
             }
+        }
+    }
+}
+
+/** 速度与步频起伏总开关：关闭后配速与步频保持完全恒定 */
+@Composable
+private fun FluctuationToggleCard(uiState: AppState, onToggle: (Boolean) -> Unit) {
+    MiuixCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp, insideMargin = PaddingValues(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.motion_fluctuation_title),
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    stringResource(R.string.motion_fluctuation_desc),
+                    fontSize = 11.5.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                )
+            }
+            Switch(
+                checked = uiState.motionFluctuationEnabled,
+                onCheckedChange = onToggle,
+                colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
+            )
+        }
+    }
+}
+
+/** 起步/停车加减速与坡度敏感度 */
+@Composable
+private fun SpeedProfileCard(
+    uiState: AppState,
+    onRamp: (Int) -> Unit,
+    onGrade: (Int) -> Unit
+) {
+    MiuixCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp, insideMargin = PaddingValues(16.dp)) {
+        CardHeader(
+            Icons.Rounded.Speed,
+            AccentBlue,
+            stringResource(R.string.speed_ramp_title),
+            stringResource(R.string.motion_fluctuation_hint)
+        )
+        Spacer(Modifier.height(8.dp))
+        var ramp by remember(uiState.speedRampSec) { mutableFloatStateOf(uiState.speedRampSec.toFloat()) }
+        var grade by remember(uiState.gradeSensitivity) { mutableFloatStateOf(uiState.gradeSensitivity.toFloat()) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = ramp,
+                onValueChange = { ramp = it },
+                onValueChangeFinished = { onRamp(ramp.roundToInt()) },
+                valueRange = 0f..10f,
+                steps = 9,
+                colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue),
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                stringResource(R.string.speed_ramp_value, ramp.roundToInt()),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentBlue,
+                modifier = Modifier.widthIn(min = 56.dp)
+            )
+        }
+        Text(
+            stringResource(R.string.grade_sensitivity_title),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = grade,
+                onValueChange = { grade = it },
+                onValueChangeFinished = { onGrade(grade.roundToInt()) },
+                valueRange = 0f..MotionRealism.MAX_GRADE_SENSITIVITY.toFloat(),
+                steps = 19,
+                colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen),
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                if (grade.roundToInt() == 0) stringResource(R.string.altitude_variation_off)
+                else "${grade.roundToInt()}%",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentGreen,
+                modifier = Modifier.widthIn(min = 56.dp)
+            )
         }
     }
 }

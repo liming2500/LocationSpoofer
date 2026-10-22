@@ -82,7 +82,11 @@
     <string name="speed_fluctuation_value">±%1$d%%</string>
     <string name="speed_fluctuation_desc">During route simulation the speed slowly drifts within this range, so every kilometer has a slightly different pace</string>
     <string name="motion_fluctuation_title">Speed &amp; Cadence Fluctuation</string>
-    <string name="motion_fluctuation_desc">Speed changes the route pace; cadence changes the step-count sensor. Both take effect the next time you start spoofing</string>
+    <string name="motion_fluctuation_desc">Turn off to keep a perfectly steady pace and step rate</string>
+    <string name="motion_fluctuation_hint">Applies to route simulation. Changes take effect the next time you start spoofing</string>
+    <string name="speed_ramp_title">Accelerate / decelerate</string>
+    <string name="speed_ramp_value">%1$d s</string>
+    <string name="grade_sensitivity_title">Terrain effect on pace</string>
     <string name="cadence_fluctuation_title">Cadence Fluctuation</string>
     <string name="cadence_fluctuation_desc">Step frequency drifts within this range like real running: faster and slower stretches, with stride length changing to match. Only adds up to the randomness level, and never moves the route position</string>
     <string name="realism_next_session_hint">Changes take effect the next time you start spoofing</string>

@@ -150,6 +150,21 @@ class SettingsManager(context: Context) {
         get() = prefs.getInt("cadence_fluctuation_pct", MotionRealism.DEFAULT_CADENCE_FLUCTUATION_PCT)
         set(value) = prefs.edit().putInt("cadence_fluctuation_pct", value).apply()
 
+    /** 速度与步频起伏总开关：关闭后两者都不生效，配速与步频保持基准值 */
+    var motionFluctuationEnabled: Boolean
+        get() = prefs.getBoolean("motion_fluctuation_enabled", true)
+        set(value) = prefs.edit().putBoolean("motion_fluctuation_enabled", value).apply()
+
+    /** 起步 / 停车斜坡时长（秒），0 表示瞬间到达目标速度 */
+    var speedRampSec: Int
+        get() = prefs.getInt("speed_ramp_sec", MotionRealism.DEFAULT_RAMP_SEC.toInt())
+        set(value) = prefs.edit().putInt("speed_ramp_sec", value).apply()
+
+    /** 坡度对配速的影响强度 0~100，0 表示不随坡度变化 */
+    var gradeSensitivity: Int
+        get() = prefs.getInt("grade_sensitivity", MotionRealism.DEFAULT_GRADE_SENSITIVITY)
+        set(value) = prefs.edit().putInt("grade_sensitivity", value).apply()
+
     /** 录制的个人步态模板（GaitTemplate.encode() 的结果），空串表示未录制 */
     var gaitTemplate: String
         get() = prefs.getString("gait_template", "") ?: ""

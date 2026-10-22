@@ -103,6 +103,9 @@ class LocationRepository(
         SpoofingState.realismLevel = settingsManager.realismLevel
         SpoofingState.speedFluctuationPct = settingsManager.speedFluctuationPct
         SpoofingState.cadenceFluctuationPct = settingsManager.cadenceFluctuationPct
+        SpoofingState.motionFluctuationEnabled = settingsManager.motionFluctuationEnabled
+        SpoofingState.speedRampSec = settingsManager.speedRampSec.toDouble()
+        SpoofingState.gradeSensitivity = settingsManager.gradeSensitivity
         SpoofingState.routeDistanceOffset = 0.0
         SpoofingState.simMode = simMode
         SpoofingState.simBearing = simBearing

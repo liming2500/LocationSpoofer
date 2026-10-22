@@ -27,6 +27,9 @@ object SpoofingState {
     var realismLevel = -1
     var speedFluctuationPct = -1
     var cadenceFluctuationPct = -1
+    var motionFluctuationEnabled = true
+    var speedRampSec = -1.0
+    var gradeSensitivity = -1
 
     /** 路线暂停后继续时，从暂停处的累计距离（米）接着走；新会话开始时清零 */
     var routeDistanceOffset = 0.0

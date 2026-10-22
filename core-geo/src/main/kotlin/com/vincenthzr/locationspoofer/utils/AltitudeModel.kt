@@ -59,6 +59,18 @@ object AltitudeModel {
             for (i in 0 until COMPONENTS) v += weights[i] * sin(kx[i] * xM + ky[i] * yM + phases[i])
             return v
         }
+
+        /** 地形在 (xM, yM) 处的坡度分量 [∂h/∂x, ∂h/∂y]（无量纲，米/米） */
+        fun gradient(xM: Double, yM: Double): DoubleArray {
+            var gx = 0.0
+            var gy = 0.0
+            for (i in 0 until COMPONENTS) {
+                val c = weights[i] * cos(kx[i] * xM + ky[i] * yM + phases[i])
+                gx += c * kx[i]
+                gy += c * ky[i]
+            }
+            return doubleArrayOf(gx, gy)
+        }
     }
 
     private val drift = MotionRealism.SmoothNoise(DRIFT_SEED, 30.0, 400.0)
@@ -84,5 +96,34 @@ object AltitudeModel {
         val x = lng * METERS_PER_DEG_LNG * cos(lat * PI / 180)
         val y = lat * METERS_PER_DEG_LAT
         return baseM + terrainAmp * terrain(terrainAmp).value(x, y) + driftAmp * drift.value(epochMs / 1000.0)
+    }
+
+    /**
+     * 当前位置沿 [bearingDeg] 方向的行进坡度（米/米，正值为上坡）。
+     *
+     * 只取地形分量：随时间的 GPS 高程漂移与地形无关，不该影响配速，否则站着不动速度也会变。
+     * 坡度上限由 [terrain] 的波长保证（不超过 [MAX_GRADE]），这里再按 MAX_GRADE 夹一次以防数值误差。
+     *
+     * @return 坡度，例如 0.03 表示 3%（每前进 100 米爬升 3 米）
+     */
+    fun gradeAlong(
+        variationM: Double,
+        driftM: Double,
+        lat: Double,
+        lng: Double,
+        bearingDeg: Double
+    ): Double {
+        val range = variationM.coerceIn(0.0, MAX_VARIATION_M.toDouble())
+        if (range <= 0.0) return 0.0
+        val driftAmp = min(driftM.coerceAtLeast(0.0), range / 2)
+        val terrainAmp = range - driftAmp
+        if (terrainAmp <= 0.0) return 0.0
+        val x = lng * METERS_PER_DEG_LNG * cos(lat * PI / 180)
+        val y = lat * METERS_PER_DEG_LAT
+        val g = terrain(terrainAmp).gradient(x, y)
+        val rad = bearingDeg * PI / 180.0
+        // bearing 以正北为 0、顺时针；y 轴指向正北，x 轴指向正东
+        val grade = terrainAmp * (g[0] * sin(rad) + g[1] * cos(rad))
+        return grade.coerceIn(-MAX_GRADE, MAX_GRADE)
     }
 }

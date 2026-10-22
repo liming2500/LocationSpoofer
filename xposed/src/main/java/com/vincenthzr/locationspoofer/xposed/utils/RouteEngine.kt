@@ -5,6 +5,7 @@ import com.vincenthzr.locationspoofer.utils.CoordinateUtils.LatLng
 import com.vincenthzr.locationspoofer.utils.GeoMath
 import com.vincenthzr.locationspoofer.utils.MotionRealism
 import com.vincenthzr.locationspoofer.utils.RoutePath
+import com.vincenthzr.locationspoofer.utils.RouteProgress
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -77,12 +78,45 @@ object RouteEngine {
         val realism = realismSession(config, startTime)
         // 暂停后继续时，路线从暂停处的累计距离接着走（start_timestamp 重置为继续的时刻）
         val offset = config.optDouble("route_distance_offset", 0.0).coerceAtLeast(0.0)
-        val traveled = offset + realism.distance(speed, elapsedSec)
+
+        val traveled = offset + progressOf(config, startTime).distanceAt(elapsedSec)
 
         // 航向由前后位置的实测位移算出，始终指向真正在走的方向（折返、起点等待、终点停车都正确）
         val pos = path.positionAtFollowingMotion(traveled, config.optBoolean("stop_at_destination", false))
         val currentSpeed = if (pos.arrived) 0f else realism.speed(speed, elapsedSec).toFloat()
         return SpoofedMotion(pos.lat, pos.lng, pos.bearing, currentSpeed)
+    }
+
+    /**
+     * 当前位置对应的路线进度积分器（含配速起伏、起步斜坡、坡度）。
+     * 以 (start_timestamp, 路线实例, 速度, 真实度参数) 为键缓存，避免每秒重建分段表。
+     */
+    private var cachedProgressKey: String? = null
+    private var cachedProgress: RouteProgress? = null
+
+    private fun progressOf(config: JSONObject, startTime: Long): RouteProgress {
+        val path = routePath(config.optJSONArray("route_points")!!)
+        val speed = config.optDouble("speed_m_s", 3.0).coerceAtLeast(0.1)
+        val key = "$startTime|${System.identityHashCode(path)}|$speed|" +
+            "${config.optInt("realism_level", -1)}|${config.optInt("speed_fluctuation_pct", -1)}|" +
+            "${config.optInt("cadence_fluctuation_pct", -1)}|${config.optDouble("speed_ramp_sec", 0.0)}|" +
+            "${config.optInt("grade_sensitivity", 0)}|${config.optDouble("altitude_variation_m", -1.0)}"
+        cachedProgress?.let { if (cachedProgressKey == key) return it }
+
+        val session = realismSession(config, startTime)
+        val ramp = config.optDouble("speed_ramp_sec", 0.0)
+        val gradeSensitivity = config.optInt("grade_sensitivity", 0)
+        val variation = config.optDouble("altitude_variation_m", 0.0)
+        val drift = MotionRealism.Level.fromId(config.optInt("realism_level", 0)).altitudeAmplitudeM
+        val gradeAt: ((Double) -> Double)? = if (gradeSensitivity > 0 && variation > 0.0) { d ->
+            val p = path.positionAt(d, stopAtDestination = false)
+            AltitudeModel.gradeAlong(variation, drift, p.lat, p.lng, p.bearing.toDouble())
+        } else null
+
+        return RouteProgress(session, speed, ramp, gradeAt).also {
+            cachedProgress = it
+            cachedProgressKey = key
+        }
     }
 
     /**
@@ -104,6 +138,8 @@ object RouteEngine {
             startTimestamp,
             config.optInt("realism_level", MotionRealism.Level.OFF.id),
             config.optInt("speed_fluctuation_pct", 0),
-            config.optInt("cadence_fluctuation_pct", 0)
+            config.optInt("cadence_fluctuation_pct", 0),
+            config.optDouble("speed_ramp_sec", 0.0),
+            config.optInt("grade_sensitivity", 0)
         )
 }

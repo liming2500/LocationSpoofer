@@ -52,6 +52,16 @@ object MotionRealism {
     const val DEFAULT_CADENCE_FLUCTUATION_PCT = 6
     const val MAX_CADENCE_FLUCTUATION_PCT = 30
 
+    /** 起步/停车的加减速斜坡时长（秒） */
+    const val DEFAULT_RAMP_SEC = 4.0
+
+    /** 坡度对配速的敏感度：0 = 不受坡度影响，1 = 标准（见 [LEVEL_GRADE_SENSITIVITY]） */
+    const val DEFAULT_GRADE_SENSITIVITY = 50
+    const val MAX_GRADE_SENSITIVITY = 100
+
+    /** 坡度每 1% 对应的相对配速变化（该数值乘以敏感度系数使用） */
+    private const val GRADE_SENSITIVITY = 0.022
+
     /** 速度变化中由步频承担的比例，其余由步幅承担（步幅 = 速度 / 步频） */
     private const val CADENCE_SHARE_OF_SPEED = 0.4
     private const val RUN_SPEED_THRESHOLD = 2.2
@@ -60,6 +70,15 @@ object MotionRealism {
     private const val SPEED_SALT = 0x5EED5EEDL
     private const val CADENCE_SALT = 0x0CADE0CEL
     private const val STEP_SALT = 0x57E9057EL
+    private const val BREATH_SALT = 0xB4EA7B4EADL
+
+    /** 短周期配速波在总浮动额度中占的比例（其余为长周期慢漂） */
+    private const val BREATH_SHARE_OF_FLUCTUATION = 0.35
+    private const val MIN_PACE_FACTOR = 0.25
+    private const val MAX_PACE_FACTOR = 2.5
+
+    /** 平滑起步曲线：两端导数为 0，避免速度突变 */
+    private fun smoothStep(x: Double): Double = x * x * (3 - 2 * x)
 
     /**
      * 若干个周期、相位随机的正弦叠加成的平滑噪声，取值范围 [-1, 1]。
@@ -101,21 +120,81 @@ object MotionRealism {
         val startTimestamp: Long,
         val level: Level,
         speedFluctuationPct: Int,
-        cadenceFluctuationPct: Int = 0
+        cadenceFluctuationPct: Int = 0,
+        /** 起步/停车斜坡时长（秒），0 表示瞬间到达目标速度（旧行为） */
+        rampSec: Double = 0.0,
+        /** 坡度敏感度，0~100，0 表示配速不受坡度影响 */
+        gradeSensitivity: Int = 0
     ) {
         val speedFluctuationPct = speedFluctuationPct.coerceIn(0, MAX_SPEED_FLUCTUATION_PCT)
         val cadenceFluctuationPct = cadenceFluctuationPct.coerceIn(0, MAX_CADENCE_FLUCTUATION_PCT)
+        val rampSec = rampSec.coerceIn(0.0, 20.0)
+        val gradeSensitivity = gradeSensitivity.coerceIn(0, MAX_GRADE_SENSITIVITY)
         private val fluctuation = this.speedFluctuationPct / 100.0
         private val cadenceFluctuation = this.cadenceFluctuationPct / 100.0
         private val speedNoise = SmoothNoise(startTimestamp xor SPEED_SALT, 20.0, 600.0)
+        // 短周期配速波：30~180 秒，模拟呼吸与发力节奏（方案 C）
+        private val breathNoise = SmoothNoise(startTimestamp xor BREATH_SALT, 30.0, 180.0, components = 3)
         private val cadenceNoise = SmoothNoise(startTimestamp xor CADENCE_SALT, 3.0, 60.0)
 
-        fun speed(baseSpeed: Double, elapsedSec: Double): Double =
-            baseSpeed * (1 + fluctuation * speedNoise.value(elapsedSec))
+        /** 坡度每 1% 对应的配速变化系数（已乘敏感度） */
+        private val gradeGain: Double get() = GRADE_SENSITIVITY * (gradeSensitivity / 100.0)
 
-        /** 从开始到 elapsedSec 的累计行进距离（米） */
-        fun distance(baseSpeed: Double, elapsedSec: Double): Double =
-            baseSpeed * (elapsedSec + fluctuation * speedNoise.integral(elapsedSec))
+        /**
+         * 相对配速系数（不含起步斜坡）。
+         *
+         * @param grade 当前位置沿行进方向的坡度（米/米），null 表示不考虑坡度
+         */
+        /**
+         * 短周期波占总浮动的比例：用户设置的是"配速起伏总幅度"，
+         * 长周期慢漂与短周期呼吸波分配这个额度，而不是各自独立叠加（否则总幅度会超出设置值）。
+         */
+        private val breathShare: Double get() = BREATH_SHARE_OF_FLUCTUATION
+
+        fun paceFactor(elapsedSec: Double, grade: Double? = null): Double {
+            // 浮动为 0 时两项都为 0，退化为恒定配速
+            val longGain = fluctuation * (1 - breathShare)
+            val breathGain = fluctuation * breathShare
+            val slope = if (grade == null) 0.0 else -gradeGain * grade * 100.0
+            val v = 1 +
+                longGain * speedNoise.value(elapsedSec) +
+                breathGain * breathNoise.value(elapsedSec) +
+                slope
+            return v.coerceIn(MIN_PACE_FACTOR, MAX_PACE_FACTOR)
+        }
+
+        /**
+         * 起步 / 停车斜坡系数。
+         *
+         * @param elapsedSec 本次起步后经过的时间
+         * @param moving      当前是否处于运动状态（到达终点后为 false，逐渐减速到 0）
+         */
+        fun rampFactor(elapsedSec: Double, moving: Boolean): Double {
+            if (rampSec <= 0.0) return if (moving) 1.0 else 0.0
+            if (moving) return smoothStep((elapsedSec / rampSec).coerceIn(0.0, 1.0))
+            // 停车：从最后一次运动时刻开始减速
+            return 0.0
+        }
+
+        fun speed(baseSpeed: Double, elapsedSec: Double): Double =
+            baseSpeed * paceFactor(elapsedSec)
+
+        /**
+         * 从开始到 elapsedSec 的累计行进距离（米），与其他方法保持同一速度模型（含短周期波），
+         * 不含起步斜坡与坡度——那两项由 [RouteProgress] 负责。
+         *
+         * 短周期波与其乘积项按一阶近似积分：∫(1+a·n1)(1+b·n2)dt ≈ t + a∫n1 + b∫n2
+         * （两个噪声相互独立，交叉项期望为 0，误差远小于 GPS 抖动）。
+         */
+        fun distance(baseSpeed: Double, elapsedSec: Double): Double {
+            val longGain = fluctuation * (1 - breathShare)
+            val breathGain = fluctuation * breathShare
+            return baseSpeed * (
+                elapsedSec +
+                    longGain * speedNoise.integral(elapsedSec) +
+                    breathGain * breathNoise.integral(elapsedSec)
+                )
+        }
 
         /** 步频由用户设置的步频起伏与随机强度的附加起伏叠加而成 */
         private val cadenceGain: Double get() = cadenceFluctuation + level.cadenceVariation
@@ -164,16 +243,21 @@ object MotionRealism {
         startTimestamp: Long,
         levelId: Int,
         speedFluctuationPct: Int,
-        cadenceFluctuationPct: Int = 0
+        cadenceFluctuationPct: Int = 0,
+        rampSec: Double = 0.0,
+        gradeSensitivity: Int = 0
     ): Session {
         val level = Level.fromId(levelId)
         val speedPct = speedFluctuationPct.coerceIn(0, MAX_SPEED_FLUCTUATION_PCT)
         val cadencePct = cadenceFluctuationPct.coerceIn(0, MAX_CADENCE_FLUCTUATION_PCT)
+        val ramp = rampSec.coerceIn(0.0, 20.0)
+        val grade = gradeSensitivity.coerceIn(0, MAX_GRADE_SENSITIVITY)
         val c = cached
         if (c != null && c.startTimestamp == startTimestamp && c.level == level &&
-            c.speedFluctuationPct == speedPct && c.cadenceFluctuationPct == cadencePct
+            c.speedFluctuationPct == speedPct && c.cadenceFluctuationPct == cadencePct &&
+            c.rampSec == ramp && c.gradeSensitivity == grade
         ) return c
-        return Session(startTimestamp, level, speedPct, cadencePct).also { cached = it }
+        return Session(startTimestamp, level, speedPct, cadencePct, ramp, grade).also { cached = it }
     }
 
     // ---------------------------------------------------------------- 内置步态波形

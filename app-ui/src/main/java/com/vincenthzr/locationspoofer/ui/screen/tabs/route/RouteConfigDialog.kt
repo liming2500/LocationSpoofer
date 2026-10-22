@@ -53,6 +53,9 @@ fun RouteConfigDialog(
     onAltitudeVariationChange: (Int) -> Unit = {},
     onSpeedFluctuationChange: (Int) -> Unit = {},
     onCadenceFluctuationChange: (Int) -> Unit = {},
+    onMotionFluctuationEnabledChange: (Boolean) -> Unit = {},
+    onSpeedRampChange: (Int) -> Unit = {},
+    onGradeSensitivityChange: (Int) -> Unit = {},
     onSatelliteCountChange: (String) -> Unit = {}
 ) {
     Dialog(
@@ -467,6 +470,20 @@ fun RouteConfigDialog(
                         }
                     }
 
+                    // 速度与步频起伏（放在步频与计步模拟下方），带总开关
+                    MotionFluctuationCard(
+                        enabled = uiState.motionFluctuationEnabled,
+                        speedPct = uiState.speedFluctuationPct,
+                        cadencePct = uiState.cadenceFluctuationPct,
+                        rampSec = uiState.speedRampSec,
+                        gradeSensitivity = uiState.gradeSensitivity,
+                        onEnabledChange = onMotionFluctuationEnabledChange,
+                        onSpeedChange = onSpeedFluctuationChange,
+                        onCadenceChange = onCadenceFluctuationChange,
+                        onRampChange = onSpeedRampChange,
+                        onGradeChange = onGradeSensitivityChange
+                    )
+
                     // 到达终点后停下开关
                     Surface(
                         shape = RoundedCornerShape(16.dp),
@@ -509,13 +526,6 @@ fun RouteConfigDialog(
                         variationM = uiState.altitudeVariationM,
                         onAltitudeChange = onAltitudeChange,
                         onVariationChange = onAltitudeVariationChange
-                    )
-
-                    MotionFluctuationCard(
-                        speedPct = uiState.speedFluctuationPct,
-                        cadencePct = uiState.cadenceFluctuationPct,
-                        onSpeedChange = onSpeedFluctuationChange,
-                        onCadenceChange = onCadenceFluctuationChange
                     )
 
                     // 真实道路匹配开关
