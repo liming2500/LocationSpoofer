@@ -25,6 +25,7 @@ import com.vincenthzr.locationspoofer.data.model.RoutePoint
 import com.vincenthzr.locationspoofer.data.model.RouteRunMode
 import com.vincenthzr.locationspoofer.ui.theme.AccentBlue
 import com.vincenthzr.locationspoofer.ui.theme.AccentGreen
+import com.vincenthzr.locationspoofer.ui.theme.AccentOrange
 
 @Composable
 fun RouteBottomPanel(
@@ -38,6 +39,7 @@ fun RouteBottomPanel(
     onSaveRoute: () -> Unit,
     onStartPlanning: () -> Unit,
     onStopRoute: () -> Unit,
+    onBeginRun: () -> Unit = {},
     searchBar: (@Composable (Modifier) -> Unit)? = null
 ) {
     Box(
@@ -195,6 +197,71 @@ fun RouteBottomPanel(
                                         fontSize = 14.sp,
                                         maxLines = 1
                                     )
+                                }
+                            }
+                        }
+
+                        // 已就位等待：定位以定点形态喂给目标 App，等它把 GPS 状态判为稳定后，
+                        // 用户在该 App 里点开始，再回来点这里才真正沿路线移动
+                        RoutePlanStage.WAITING -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(AccentOrange)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.route_waiting_hint),
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = onStopRoute,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(50.dp),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.cancel),
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                    Button(
+                                        onClick = onBeginRun,
+                                        modifier = Modifier
+                                            .weight(1.6f)
+                                            .height(50.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen)
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.PlayArrow,
+                                            null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            stringResource(R.string.route_begin_run),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp
+                                        )
+                                    }
                                 }
                             }
                         }

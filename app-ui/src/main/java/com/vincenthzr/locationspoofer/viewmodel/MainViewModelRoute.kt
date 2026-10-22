@@ -315,7 +315,8 @@ private fun MainViewModel.startSimulationWithPoints(pointsToRun: List<RoutePoint
         it.copy(
             latitudeInput = String.format("%.6f", startPoint.lat),
             longitudeInput = String.format("%.6f", startPoint.lng),
-            routePlanStage = RoutePlanStage.RUNNING,
+            // 循环模式先进入 WAITING（下面按 isLoop 覆盖），手动模式直接运行
+            routePlanStage = if (_uiState.value.routeRunMode == RouteRunMode.LOOP) RoutePlanStage.WAITING else RoutePlanStage.RUNNING,
             routePoints = pointsToRun
         )
     }
@@ -358,14 +359,30 @@ private fun MainViewModel.startSimulationWithPoints(pointsToRun: List<RoutePoint
             isAutoCadence = _uiState.value.isAutoCadence
         )
         val preset = MotionController.SpeedPreset(_uiState.value.routeSimMode.name, joystickMaxSpeedMs().toDouble())
-        // 手动模式同样加载路线，只是以暂停状态开始、由悬浮摇杆控制，点"开始"后沿路线前进
-        motionController.onRouteStarted(pointsToRun, preset, _uiState.value.stopAtDestination, now, startPaused = !isLoop)
+        // 循环模式先停在起点等待：目标 App 首次拿到定位时会校验 GPS 质量，
+        // 直接以路线速度启动容易被判为异常。先喂一段"静止且有效"的定位，
+        // 用户在该 App 里点开始后，再回来点"开始跑步"（beginRun）才真正移动。
+        motionController.onRouteStarted(
+            pointsToRun, preset, _uiState.value.stopAtDestination, now,
+            startPaused = !isLoop,
+            awaitStart = isLoop
+        )
         // 悬浮摇杆只在手动模式下出现；停止模拟后它会随 MotionController 结束会话自行关闭
         if (!isLoop) locationRepository.setFloatingJoystickVisible(context, true)
         _uiState.update {
-            it.copy(isSpoofingActive = true)
+            it.copy(
+                isSpoofingActive = true,
+                routePlanStage = if (isLoop) RoutePlanStage.WAITING else _uiState.value.routePlanStage
+            )
         }
     }
+}
+
+/** 用户点"开始跑步"：从等待态切到路线行进 */
+internal fun MainViewModel.beginRouteRun() {
+    if (_uiState.value.routePlanStage != RoutePlanStage.WAITING) return
+    motionController.beginRun()
+    _uiState.update { it.copy(routePlanStage = RoutePlanStage.RUNNING) }
 }
 
 /** 停止路线模拟，重置所有状态 */

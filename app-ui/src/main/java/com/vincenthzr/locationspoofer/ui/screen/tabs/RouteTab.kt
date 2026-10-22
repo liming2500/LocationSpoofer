@@ -84,6 +84,7 @@ import com.vincenthzr.locationspoofer.viewmodel.setStepCadenceSpm
 import com.vincenthzr.locationspoofer.viewmodel.setStopAtDestination
 import com.vincenthzr.locationspoofer.viewmodel.setUseRealRoute
 import com.vincenthzr.locationspoofer.viewmodel.startRoutePlanning
+import com.vincenthzr.locationspoofer.viewmodel.beginRouteRun
 import com.vincenthzr.locationspoofer.viewmodel.stopRoutePlanning
 import com.vincenthzr.locationspoofer.viewmodel.toggleEnableJitter
 import com.vincenthzr.locationspoofer.viewmodel.toggleMockBluetooth
@@ -493,6 +494,7 @@ fun RouteTab(
                     onStopRoute = {
                         viewModel.stopRoutePlanning()
                     },
+                    onBeginRun = { viewModel.beginRouteRun() },
                     searchBar = if (stage == RoutePlanStage.IDLE || stage == RoutePlanStage.SELECTING) {
                         { barModifier ->
                             if (!searchActive) {

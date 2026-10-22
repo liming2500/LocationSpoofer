@@ -75,6 +75,12 @@ class MotionController(
         IDLE,
         /** 定点模拟，位置固定 */
         STATIC,
+        /**
+         * 路线待命：已加载路线并停在起点，但**不移动**。
+         * 先把定位以"定点"形态喂给目标 App，让它把 GPS 状态判为稳定；
+         * 用户点"开始跑步"后才切到 [ROUTE] 沿路线行进。
+         */
+        WAITING,
         /** 路线自动播放中 */
         ROUTE,
         /** 摇杆手动控制（定点模拟中推动摇杆、手动路线模式、或路线暂停后） */
@@ -91,6 +97,8 @@ class MotionController(
         val bearing: Float = 0f,
         val speedMs: Double = 0.0,
         val hasRoute: Boolean = false,
+        /** 路线已加载但停在起点等待用户点"开始跑步"（见 [Mode.WAITING]） */
+        val awaitingStart: Boolean = false,
         /** 路线已暂停，摇杆接管 */
         val paused: Boolean = false,
         /** 正在自动走回暂停点，到达后继续原路线 */
@@ -104,7 +112,8 @@ class MotionController(
     ) {
         val active: Boolean get() = mode != Mode.IDLE
         /** 路线自动播放或走回暂停点期间，摇杆不响应 */
-        val joystickEnabled: Boolean get() = active && mode != Mode.ROUTE && !returning
+        val joystickEnabled: Boolean
+            get() = active && mode != Mode.ROUTE && mode != Mode.WAITING && !returning
     }
 
     private val _state = MutableStateFlow(State())
@@ -156,7 +165,12 @@ class MotionController(
     fun onStaticStarted(lat: Double, lng: Double) {
         clearRoute()
         joyIntensity = 0f
-        _state.update { it.copy(mode = Mode.STATIC, lat = lat, lng = lng, speedMs = 0.0, hasRoute = false, paused = false, returning = false) }
+        _state.update {
+            it.copy(
+                mode = Mode.STATIC, lat = lat, lng = lng, speedMs = 0.0,
+                hasRoute = false, awaitingStart = false, paused = false, returning = false
+            )
+        }
         ensureTicking()
     }
 
@@ -169,7 +183,13 @@ class MotionController(
         preset: SpeedPreset,
         stopAtDestination: Boolean,
         startTimestamp: Long,
-        startPaused: Boolean = false
+        startPaused: Boolean = false,
+        /**
+         * true：先停在起点等用户点"开始跑步"（[Mode.WAITING]）。
+         * 目标 App 在第一次拿到定位时会校验 GPS 质量，路线模式的速度会让它判为异常；
+         * 先以定点形态喂一会儿稳定数据，再开始移动即可绕过。
+         */
+        awaitStart: Boolean = false
     ) {
         val routePath = RoutePath(points.map { LatLng(it.lat, it.lng) })
         if (!routePath.isValid) return
@@ -189,18 +209,65 @@ class MotionController(
         val initialBearing = routePath.positionAtFollowingMotion(0.0, stopAtDestination).bearing
         _state.update {
             it.copy(
-                mode = if (startPaused) Mode.MANUAL else Mode.ROUTE,
+                mode = when {
+                    awaitStart && !startPaused -> Mode.WAITING
+                    startPaused -> Mode.MANUAL
+                    else -> Mode.ROUTE
+                },
                 lat = start.lat,
                 lng = start.lng,
                 bearing = initialBearing,
                 speedMs = 0.0,
                 hasRoute = true,
+                awaitingStart = awaitStart && !startPaused,
                 paused = startPaused,
                 returning = false,
                 preset = preset
             )
         }
+        if (awaitStart && !startPaused) {
+            // 立即写一次定点配置，让目标 App 从第一帧就看到"静止、有效"的定位
+            requestWaitingWrite(startTimestamp)
+        }
         ensureTicking()
+    }
+
+    /**
+     * 从 [Mode.WAITING] 进入路线行进。
+     *
+     * 以"现在"为新的起点重新计时，让 App 看到的位置从起点开始连续移动，不会因为
+     * 等待期间累计的时间而突然跳到路线中段。等待期间写入的是定点配置
+     * （is_route_mode=false），这里一并切回路线配置。
+     */
+    fun beginRun() {
+        val s = _state.value
+        if (s.mode != Mode.WAITING) return
+        val routePath = path ?: return
+        val now = clock()
+        routeStartTs = now
+        routeOffset = 0.0
+        _state.update {
+            it.copy(mode = Mode.ROUTE, awaitingStart = false, speedMs = 0.0)
+        }
+        progressKey = null
+        progress = null
+        val pos = routePath.positionAtFollowingMotion(0.0, stopAtDestination)
+        SpoofingState.latitude = pos.lat
+        SpoofingState.longitude = pos.lng
+        SpoofingState.startTimestamp = now
+        requestRouteWrite(now)
+    }
+
+    /** 等待开始时，只写定点配置，让目标 App 把当前坐标当成"静止但有效"的定位 */
+    private fun requestWaitingWrite(now: Long) {
+        val s = _state.value
+        SpoofingState.latitude = s.lat
+        SpoofingState.longitude = s.lng
+        SpoofingState.simMode = "STILL"
+        SpoofingState.startTimestamp = now
+        SpoofingState.isRouteMode = false
+        SpoofingState.routeDistanceOffset = 0.0
+        enqueueWrite { sink.writeManual(s.lat, s.lng, s.bearing, 0.0, now) }
     }
 
     fun onStopped() {
@@ -208,7 +275,12 @@ class MotionController(
         joyIntensity = 0f
         pendingWrite = null
         if (_state.value.recording) finishRecording()
-        _state.update { it.copy(mode = Mode.IDLE, speedMs = 0.0, hasRoute = false, paused = false, returning = false) }
+        _state.update {
+            it.copy(
+                mode = Mode.IDLE, speedMs = 0.0, hasRoute = false,
+                awaitingStart = false, paused = false, returning = false
+            )
+        }
         tickJob?.cancel()
         tickJob = null
     }
@@ -379,6 +451,11 @@ class MotionController(
         lastTickTs = now
         val s = _state.value
         when {
+            // 等待开始：位置完全不动，只周期性刷新时间戳，让定位看起来"有效且稳定"
+            s.mode == Mode.WAITING -> {
+                if (now - lastWriteTs >= WRITE_INTERVAL_MS) requestWaitingWrite(now)
+            }
+
             s.mode == Mode.ROUTE -> {
                 val routePath = path ?: return
                 val elapsed = (now - routeStartTs).coerceAtLeast(0L) / 1000.0

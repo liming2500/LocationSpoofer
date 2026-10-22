@@ -89,6 +89,8 @@
     <string name="motion_fluctuation_title">速度与步频起伏</string>
     <string name="motion_fluctuation_desc">关闭后配速与步频保持完全恒定</string>
     <string name="motion_fluctuation_hint">对路线模拟生效，修改将在下次开始模拟时生效</string>
+    <string name="route_waiting_hint">定位已固定在起点。先打开跑步软件，等它显示 GPS 信号正常并点击开始，再回到这里</string>
+    <string name="route_begin_run">开始跑步</string>
     <string name="speed_ramp_title">起步/停车加减速</string>
     <string name="speed_ramp_value">%1$d 秒</string>
     <string name="grade_sensitivity_title">地形对配速的影响</string>

@@ -72,6 +72,33 @@ class MotionControllerTest {
     }
 
     @Test
+    fun `awaiting start holds still at the first point until beginRun`() {
+        controller.onRouteStarted(
+            listOf(RoutePoint(start.lat, start.lng), RoutePoint(end.lat, end.lng)),
+            walking, stopAtDestination = false, startTimestamp = now,
+            awaitStart = true
+        )
+        assertEquals(MotionController.Mode.WAITING, controller.state.value.mode)
+        assertTrue(controller.state.value.awaitingStart)
+        assertEquals(start.lat, controller.state.value.lat, 1e-9)
+        assertEquals(start.lng, controller.state.value.lng, 1e-9)
+        assertEquals(0.0, controller.state.value.speedMs, 0.0)
+
+        // 等待期间位置不动
+        repeat(5) { advance(1000) }
+        assertEquals(start.lat, controller.state.value.lat, 1e-9)
+        assertEquals(start.lng, controller.state.value.lng, 1e-9)
+
+        controller.beginRun()
+        assertEquals(MotionController.Mode.ROUTE, controller.state.value.mode)
+        assertFalse(controller.state.value.awaitingStart)
+
+        // 开始后按速度前进，且从起点算起（等待时间不计入里程）
+        advance(10_000)
+        assertEquals(20.0, GeoMath.distance(start, here()), 1.0)
+    }
+
+    @Test
     fun `route playback advances along the path`() {
         startRoute()
         advance(10_000)
