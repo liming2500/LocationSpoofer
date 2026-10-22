@@ -80,6 +80,11 @@ object GnssFastMockEngine {
     @Volatile
     private var cachedGpsSatCount: Int = 0
 
+    // 失败日志只打一次，避免在高频回调里刷屏
+    private val builderFailureLogged = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val fieldFailureLogged = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val fallbackFailureLogged = java.util.concurrent.atomic.AtomicBoolean(false)
+
     // 反射句柄缓存
     private class ClassReflectionHolder(val classLoader: ClassLoader) {
         var isInitialized = false
@@ -273,7 +278,10 @@ object GnssFastMockEngine {
                     cachedGnssCount = count
                     return newStatus
                 } catch (e: Throwable) {
-                    XposedBridge.log("[GnssFastMockEngine] Builder build failed: $e")
+                    // 只在首次失败时打日志，避免每秒刷屏
+                    if (builderFailureLogged.compareAndSet(false, true)) {
+                        XposedBridge.log("[GnssFastMockEngine] Builder build failed: ${e.javaClass.simpleName}: ${e.message}")
+                    }
                 }
             }
 
@@ -332,8 +340,16 @@ object GnssFastMockEngine {
                     cachedGnssCount = count
                     return fallbackOriginalObj
                 } catch (e: Throwable) {
-                    XposedBridge.log("[GnssFastMockEngine] Fallback field injection failed: $e")
+                    if (fieldFailureLogged.compareAndSet(false, true)) {
+                        XposedBridge.log("[GnssFastMockEngine] Fallback field injection failed: ${e.javaClass.simpleName}: ${e.message}")
+                    }
                 }
+            } else if (fallbackFailureLogged.compareAndSet(false, true)) {
+                // 两条路都走不通：把原因打出来，方便在模拟器上定位（Builder 反射失败 + 无原始对象）
+                XposedBridge.log(
+                    "[GnssFastMockEngine] no spoof path available: builder=${holder.builderConstructor != null}, " +
+                        "fields=${holder.countField != null}, original=${fallbackOriginalObj != null}"
+                )
             }
         }
 

@@ -85,20 +85,26 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
                                 clazz,
                                 "onSatelliteStatusChanged"
                             ) { innerChain, innerMethod ->
-                                val statusObj = innerChain.args[0]
-                                val config = readConfig()
-                                if (config != null && config.optBoolean("active", false)) {
-                                    val count = config.optInt("satellite_count", 20)
-                                    val enableJitter = config.optBoolean("enable_jitter", true)
-                                    val spoofedStatus = GnssFastMockEngine.getOrCreateSpoofedGnssStatus(
-                                        classLoader = clazz.classLoader ?: classLoader,
-                                        targetCount = count,
-                                        enableJitter = enableJitter,
-                                        fallbackOriginalObj = statusObj
-                                    )
-                                    if (spoofedStatus != null) {
-                                        innerChain.args[0] = spoofedStatus
+                                // 伪造失败必须放行真实回调：异常一旦逃出 Hook，框架会直接跳过 proceed，
+                                // App 就完全收不到卫星状态，反而比不伪造更容易被判成"GPS 信号弱"。
+                                try {
+                                    val statusObj = innerChain.args[0]
+                                    val config = readConfig()
+                                    if (config != null && config.optBoolean("active", false)) {
+                                        val count = config.optInt("satellite_count", 20)
+                                        val enableJitter = config.optBoolean("enable_jitter", true)
+                                        val spoofedStatus = GnssFastMockEngine.getOrCreateSpoofedGnssStatus(
+                                            classLoader = clazz.classLoader ?: classLoader,
+                                            targetCount = count,
+                                            enableJitter = enableJitter,
+                                            fallbackOriginalObj = statusObj
+                                        )
+                                        if (spoofedStatus != null) {
+                                            innerChain.args[0] = spoofedStatus
+                                        }
                                     }
+                                } catch (_: Throwable) {
+                                    // 保持原始 args 继续下发
                                 }
                                 return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
                             }
@@ -125,8 +131,13 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
             for (methodName in methodNames) {
                 try {
                     XposedHelpers.hookAllMethods(clazz, methodName) { innerChain, _ ->
-                        val config = readConfig()
-                        if (config != null && config.optBoolean("active", false)) {
+                        // 只有"明确处于模拟状态"才吞掉真实数据；读配置失败时放行，避免把回调彻底打断
+                        val active = try {
+                            readConfig()?.optBoolean("active", false) == true
+                        } catch (_: Throwable) {
+                            false
+                        }
+                        if (active) {
                             return@hookAllMethods null
                         }
                         return@hookAllMethods innerChain.proceed(innerChain.args.toTypedArray())
@@ -209,7 +220,11 @@ internal fun LocationHooker.hookGnssStatus(classLoader: ClassLoader) {
                 val config = readConfig()
                 if (config != null && config.optBoolean("active", false)) {
                     val count = config.optInt("satellite_count", 20)
-                    return@hookMethod GnssFastMockEngine.getOrCreateSpoofedGpsSatellites(classLoader, count)
+                    // 伪造失败时退回真实列表，不能让异常冒出去把调用直接打断
+                    try {
+                        return@hookMethod GnssFastMockEngine.getOrCreateSpoofedGpsSatellites(classLoader, count)
+                    } catch (_: Throwable) {
+                    }
                 }
                 return@hookMethod chain.proceed(chain.args.toTypedArray())
             }
