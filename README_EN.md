@@ -126,34 +126,6 @@ This project obtains root via **KernelSU / APatch / Magisk** and uses **LSPosed 
 
 ---
 
-## Changelog
-
-### 3.0.4
-
-**Added**
-- Route lap limit: enter a number (0–999, 0 or blank = unlimited); stops at the end of the last lap
-- Estimated time and distance shown live, updating with lap count and speed
-- Completion alert: notification / sound / vibration, each toggleable under Settings → Motion Realism
-- Standby at start: hold at the first point until the target app shows a stable GPS fix, then press "Start Running"
-
-**Improved**
-- Orientation sensor coverage: rotation vector, orientation sensor and `getOrientation` all intercepted; heading follows motion while real pitch and roll are preserved
-- Motion realism: accel / decel ramp, terrain-linked pace, short breathing wave
-- Cadence fluctuation is now independent from the randomness level
-- Route position fix: one-shot precomputed integration removes position jumps between processes
-- Fixed "weak GPS signal" in route mode caused by double random-walk advancement
-- Fixed spoofed satellite status throwing and swallowing the callback, which left apps without satellite data
-
-**Fixed**
-- Crash on the Motion Realism screen caused by an invalid format string
-- Missing modulo guard for zero-length routes
-
-**Build**
-- Supports non-ASCII project paths (`android.overridePathCheck`)
-- Removed prebuilt APKs from history; repository size 122 MB → about 3 MB
-
----
-
 ## Architecture
 
 MVVM + Clean Architecture across six Gradle modules:
@@ -259,6 +231,34 @@ This software is provided for study, research and lawful personal testing (for e
 **Do not use it for fake attendance, falsified assessments or activity records, exam cheating, commercial fraud, or any behaviour that violates applicable laws or service agreements.** You are solely responsible for any consequences, including account bans, data loss or legal disputes.
 
 Root access and system-level hooks may affect system stability and app compatibility. Use a dedicated test device and back up important data.
+
+---
+
+## Changelog
+
+### 3.0.4
+
+**Added**
+- Route lap limit: enter a number (0–999, 0 or blank = unlimited); stops at the end of the last lap
+- Estimated time and distance shown live, updating with lap count and speed
+- Completion alert: notification / sound / vibration, each toggleable under Settings → Motion Realism
+- Standby at start: hold at the first point until the target app shows a stable GPS fix, then press "Start Running"
+
+**Improved**
+- Orientation sensor coverage: rotation vector, orientation sensor and `getOrientation` all intercepted; heading follows motion while real pitch and roll are preserved
+- Motion realism: accel / decel ramp, terrain-linked pace, short breathing wave
+- Cadence fluctuation is now independent from the randomness level
+- Route position fix: one-shot precomputed integration removes position jumps between processes
+- Fixed "weak GPS signal" in route mode caused by double random-walk advancement
+- Fixed spoofed satellite status throwing and swallowing the callback, which left apps without satellite data
+
+**Fixed**
+- Crash on the Motion Realism screen caused by an invalid format string
+- Missing modulo guard for zero-length routes
+
+**Build**
+- Supports non-ASCII project paths (`android.overridePathCheck`)
+- Removed prebuilt APKs from history; repository size 122 MB → about 3 MB
 
 ---
 
