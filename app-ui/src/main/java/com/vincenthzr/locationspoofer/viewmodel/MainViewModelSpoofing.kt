@@ -87,7 +87,7 @@ internal fun MainViewModel.startSpoofing() {
  * 由"开始模拟"弹窗里的开关驱动，用户已经通过默认打开的开关预先同意，这里不再二次确认。
  */
 
-private suspend fun MainViewModel.restartHookedAppsSilently() {
+internal suspend fun MainViewModel.restartHookedAppsSilently() {
     if (!BuildConfig.GLOBAL_SCHEME) {
         // 非全局方案：重启 LSPosed 作用域里勾选的全部 App（包括承担融合定位的 GMS）
         val apps = lsposedManager.getHookedApps(context)
