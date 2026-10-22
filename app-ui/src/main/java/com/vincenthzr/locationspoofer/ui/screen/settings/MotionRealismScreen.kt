@@ -245,7 +245,7 @@ private fun CompletionAlertCard(
             Icons.Rounded.NotificationsActive,
             AccentOrange,
             stringResource(R.string.completed_notify_title),
-            stringResource(R.string.route_completed_message, 1, 0.0)
+            stringResource(R.string.completed_notify_desc)
         )
         Spacer(Modifier.height(10.dp))
         AlertToggleRow(

@@ -106,7 +106,11 @@ fun RouteLoopsCard(
                 )
             } else if (lapDistance > 0.0) {
                 Text(
-                    stringResource(R.string.route_estimate_format, "—", formatDistance(lapDistance) + " / 圈"),
+                    stringResource(
+                        R.string.route_estimate_format,
+                        "—",
+                        stringResource(R.string.route_per_lap, formatDistance(lapDistance))
+                    ),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )

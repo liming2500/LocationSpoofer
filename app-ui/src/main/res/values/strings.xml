@@ -87,12 +87,14 @@
     <string name="route_waiting_hint">Location is held at the start point. Open your running app, wait until it shows a stable GPS signal and start the run there, then come back here</string>
     <string name="route_begin_run">Start Running</string>
     <string name="route_completed_title">Route complete</string>
-    <string name="route_completed_message">Finished %1$d laps, total %.2f km</string>
+    <string name="route_completed_message">Finished %1$d laps, total %2$.2f km</string>
     <string name="route_loops_title">Laps</string>
     <string name="route_loops_unlimited">Unlimited</string>
     <string name="route_loops_value">%1$d laps</string>
     <string name="route_estimate_format">≈ %1$s · %2$s</string>
+    <string name="route_per_lap">%1$s per lap</string>
     <string name="completed_notify_title">Completion alerts</string>
+    <string name="completed_notify_desc">Alert when the route reaches its lap target</string>
     <string name="completed_notify_row">Notification</string>
     <string name="completed_sound_row">Sound</string>
     <string name="completed_vibrate_row">Vibration</string>
