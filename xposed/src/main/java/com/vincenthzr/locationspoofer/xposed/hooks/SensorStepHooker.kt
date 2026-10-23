@@ -24,6 +24,7 @@ import android.os.Looper
 import android.os.SystemClock
 import com.vincenthzr.locationspoofer.utils.GaitTemplate
 import com.vincenthzr.locationspoofer.utils.HeadingOrientation
+import com.vincenthzr.locationspoofer.utils.StepClock
 import com.vincenthzr.locationspoofer.xposed.LocationHooker
 import com.vincenthzr.locationspoofer.xposed.utils.RouteEngine
 import com.vincenthzr.locationspoofer.xposed.utils.XposedHelpers
@@ -45,11 +46,13 @@ object SensorStepHooker {
     private val hookedListenerClasses = ConcurrentHashMap<Class<*>, Boolean>()
 
     // 真实计步器自开机以来单调递增：换会话 / 摇杆每次写配置导致 start_timestamp 变化时，
-    // 把已累计的步数接续为新的起点，而不是回到初始值
+    // 把已累计的步数接续为新的起点，而不是回到初始值。
+    // 换锚 / 单调护栏的细节都在 StepClock 里（core-geo，有单测覆盖）。
     private const val INITIAL_BOOT_STEPS = 2350.0
-    @Volatile private var stepBase: Double = INITIAL_BOOT_STEPS
-    @Volatile private var lastStepsFloat: Double = INITIAL_BOOT_STEPS
-    @Volatile private var lastStepInitTime: Long = 0L
+    private val stepClock = StepClock(INITIAL_BOOT_STEPS)
+
+    /** 虚拟步数检测器单次补发事件的上限，避免主线程被一次性灌入过多事件 */
+    private const val MAX_DETECTOR_BURST = 5
 
     /** 最近一次运动航向，静止时沿用，避免方向传感器跳回手机物理朝向 */
     @Volatile private var lastMotionHeading = 0.0
@@ -231,7 +234,7 @@ object SensorStepHooker {
 
     internal fun saveReloadState(): Array<Any?> = arrayOf(
         capturedListeners.map { arrayOf<Any?>(it.listener, it.sensor, it.handler) }.toTypedArray(),
-        stepBase, lastStepsFloat, lastStepInitTime,
+        stepClock.base, stepClock.steps, stepClock.anchorTs,
         mockStepCounterSensor, mockStepDetectorSensor, mockAccelerometerSensor,
         handleToTypeMap.map { arrayOf(it.key, it.value) }.toTypedArray()
     )
@@ -244,9 +247,7 @@ object SensorStepHooker {
             capturedListeners.add(CapturedSensorListener(it[0]!!, it[1] as? Sensor, it[2] as? Handler))
             hookConcreteListenerClass(it[0]!!.javaClass, it[0]!!.javaClass.classLoader ?: ClassLoader.getSystemClassLoader())
         }
-        stepBase = state[1] as Double
-        lastStepsFloat = state[2] as Double
-        lastStepInitTime = state[3] as Long
+        stepClock.restore(state[1] as Double, state[2] as Double, state[3] as Long)
         mockStepCounterSensor = state[4] as? Sensor
         mockStepDetectorSensor = state[5] as? Sensor
         mockAccelerometerSensor = state[6] as? Sensor
@@ -371,28 +372,34 @@ object SensorStepHooker {
     fun calculateCurrentSteps(config: JSONObject, now: Long = System.currentTimeMillis()): Long =
         calculateCurrentStepsFloat(config, now).toLong()
 
-    /** 连续的累计步数：整数部分是步数，小数部分是当前这一步的相位，供加速度波形对齐 */
+    /**
+     * 连续的累计步数：整数部分是步数，小数部分是当前这一步的相位，供加速度波形对齐。
+     *
+     * 累计值必须**单调不减**。配置每秒被重写，`start_timestamp` 可能来回切换（路线配置用固定的
+     * routeStartTs、就位等待和摇杆用"现在"），如果每次都照配置里的时间戳重新计时，
+     * 切回较早的时间戳时会把这段时间重复算一遍，步数越涨越快，App 算出的步频就翻倍。
+     * 换锚规则与单调护栏集中在 [StepClock] 里，由 core-geo 的单测覆盖。
+     */
     private fun calculateCurrentStepsFloat(config: JSONObject, now: Long): Double {
-        val startTime = config.optLong("start_timestamp", now)
-        if (lastStepInitTime != startTime) {
-            lastStepInitTime = startTime
-            stepBase = lastStepsFloat
+        val speed = config.optDouble("speed_m_s", 0.0)
+        // 静止时不计步，同时把锚点推进到当前时刻：否则就位等待几分钟后一开跑，
+        // 等待的那段会被一次性折算成几百步补进来
+        if (speed <= 0.05) {
+            stepClock.pause(now)
+            return stepClock.steps
         }
 
-        val speed = config.optDouble("speed_m_s", 0.0)
-        if (speed <= 0.05) return lastStepsFloat
-
-        val elapsedSec = ((now - startTime).coerceAtLeast(0L)) / 1000.0
         val isAutoCadence = config.optBoolean("is_auto_cadence", true)
         val baseCadence = if (isAutoCadence) {
             calculateAutoCadence(speed)
         } else {
             config.optInt("step_cadence_spm", 165).coerceIn(60, 240)
-        }
+        }.toDouble()
 
-        val steps = stepBase + RouteEngine.realismSession(config, startTime).steps(baseCadence.toDouble(), elapsedSec)
-        lastStepsFloat = steps
-        return steps
+        val startTime = config.optLong("start_timestamp", now)
+        return stepClock.advance(startTime, now, baseCadence) { anchor ->
+            RouteEngine.realismSession(config, anchor)
+        }
     }
 
     /**
@@ -410,7 +417,12 @@ object SensorStepHooker {
     }
 
     /**
-     * 由 ConfigPoller 每秒主动向监听器推送计步事件（仅在运动路线模拟中生效）
+     * 由 ConfigPoller 每秒主动向监听器推送计步事件（仅在运动路线模拟中生效）。
+     *
+     * 只对**虚拟传感器**补推。真实传感器的事件流已经在 dispatchSensorEvent / onSensorChanged
+     * 里被改写过了，这里再补推一份会与真实事件流交错：补推事件在 handler 里排队，落地时
+     * 携带的步态相位可能比已经送达的真实事件更旧，计步算法看到"相位倒退"会当成又出现一个峰，
+     * 步数就被翻倍（实机表现为 3 m/s 显示 300+ 步频）。
      */
     fun dispatchStepEvents(config: JSONObject, classLoader: ClassLoader) {
         if (!config.optBoolean("active", false)) return
@@ -422,18 +434,28 @@ object SensorStepHooker {
         if (speed <= 0.05) return
 
         val now = System.currentTimeMillis()
-        val totalSteps = calculateCurrentSteps(config, now)
-
         val listeners = capturedListeners.toList()
         if (listeners.isEmpty()) return
+
+        // 步数增量每次分发只取一次：若有多个监听器挂同一个虚拟检测器，
+        // 每个监听器各取一次会把同一批步数重复算进来，这里共用同一份
+        val detectorDue = pendingDetectorSteps(config, now).coerceAtMost(MAX_DETECTOR_BURST)
 
         for (entry in listeners) {
             val listener = entry.listener
             val sensor = entry.sensor ?: continue
             val targetHandler = entry.handler ?: Handler(Looper.getMainLooper())
 
+            // 真实传感器已有原生事件流，改写即可，不能再补推
+            val isMockSensor = sensor === mockStepCounterSensor ||
+                sensor === mockStepDetectorSensor ||
+                sensor === mockAccelerometerSensor
+            if (!isMockSensor) continue
+
             when (sensor.type) {
                 Sensor.TYPE_STEP_COUNTER -> {
+                    // 累计值本身是绝对量，重复送达不会多计
+                    val totalSteps = calculateCurrentSteps(config, now)
                     val event = createSensorEvent(sensor, floatArrayOf(totalSteps.toFloat()))
                     if (event != null) {
                         targetHandler.post {
@@ -448,7 +470,8 @@ object SensorStepHooker {
                     }
                 }
                 Sensor.TYPE_STEP_DETECTOR -> {
-                    if (speed > 0.1) {
+                    // 每步一个事件：按真实步频补上这段时间应该发生的步数，而不是固定每秒一个
+                    repeat(detectorDue) {
                         val event = createSensorEvent(sensor, floatArrayOf(1.0f))
                         if (event != null) {
                             targetHandler.post {
@@ -464,25 +487,44 @@ object SensorStepHooker {
                     }
                 }
                 Sensor.TYPE_ACCELEROMETER -> {
-                    if (speed > 0.1) {
-                        val rawValues = floatArrayOf(0f, 0f, 9.8f)
-                        applySyntheticVibration(rawValues, config, speed)
-                        val event = createSensorEvent(sensor, rawValues)
-                        if (event != null) {
-                            targetHandler.post {
-                                try {
-                                    if (listener is SensorEventListener) {
-                                        listener.onSensorChanged(event)
-                                    } else {
-                                        XposedHelpers.callMethod(listener, "onSensorChanged", event)
-                                    }
-                                } catch (_: Throwable) {}
-                            }
+                    // 虚拟加速度计没有原生事件流，需要按当前步态相位补一帧
+                    val rawValues = floatArrayOf(0f, 0f, 9.8f)
+                    applySyntheticVibration(rawValues, config, speed)
+                    val event = createSensorEvent(sensor, rawValues)
+                    if (event != null) {
+                        targetHandler.post {
+                            try {
+                                if (listener is SensorEventListener) {
+                                    listener.onSensorChanged(event)
+                                } else {
+                                    XposedHelpers.callMethod(listener, "onSensorChanged", event)
+                                }
+                            } catch (_: Throwable) {}
                         }
                     }
                 }
             }
         }
+    }
+
+    // 虚拟步数检测器：上次补发到的步数，用来补齐这段时间应发生的步数
+    @Volatile private var lastDetectorSteps: Double = 0.0
+    @Volatile private var lastDetectorTime: Long = 0L
+
+    /** 自上次补发以来累计步数新增的整数部分，用于逐个补发步数检测器事件 */
+    private fun pendingDetectorSteps(config: JSONObject, now: Long): Int {
+        val current = calculateCurrentStepsFloat(config, now)
+        if (lastDetectorTime == 0L || current < lastDetectorSteps) {
+            lastDetectorSteps = current
+            lastDetectorTime = now
+            return 0
+        }
+        val due = (current - lastDetectorSteps).toInt()
+        if (due > 0) {
+            lastDetectorSteps += due
+            lastDetectorTime = now
+        }
+        return due
     }
 
     private fun getSensorHandle(sensor: Sensor): Int? {

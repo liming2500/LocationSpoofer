@@ -236,6 +236,17 @@ Root access and system-level hooks may affect system stability and app compatibi
 
 ## Changelog
 
+### 3.0.6
+
+**Fixed**
+- Cadence still near double the target, including with a fixed (preset) cadence:
+  - Step accumulation now lives in a dedicated `StepClock` (core-geo, unit-tested): when the config's `start_timestamp` flips back and forth, elapsed time is no longer counted twice; the running total is monotonic, so no call order can make it jump
+  - The step clock is frozen while standing still (standby before a run), so minutes of waiting are no longer converted into hundreds of steps the moment the run starts
+  - The virtual step detector settles its increment once per dispatch instead of once per listener
+  - Lateral and vertical impact now share the same phase and width: the magnitude signal has exactly one peak per step at low sample rates, so peak counting no longer drifts between high and low
+  - Impact width widened to about 1/10 of a step, so 10–16 Hz sampling no longer misses the main peak
+- Step settings were not forwarded when simulation started: the default-static and route-standby paths both fell back to the built-in defaults (auto cadence, 165 spm) and silently dropped the user's fixed cadence. Starting, re-picking a map point and environment refreshes now all keep the current session's cadence settings
+
 ### 3.0.5
 
 **Fixed**

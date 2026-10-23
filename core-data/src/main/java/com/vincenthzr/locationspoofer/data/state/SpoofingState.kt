@@ -22,6 +22,12 @@ object SpoofingState {
     var isRouteMode = false
     var enableJitter = true
 
+    // 计步模拟设置也做快照：中途重写整份配置（例如地图上重新选点）时要用当前会话的值，
+    // 而不是 ConfigManager 的默认值（自动步频 165 spm），否则用户选的固定步频会被静默丢弃
+    var enableStepSimulation = true
+    var stepCadenceSpm = 165
+    var isAutoCadence = true
+
     // 开始模拟时对真实度参数做快照：速度浮动决定"累计距离随时间的函数"，模拟途中改设置会让路线位置突然跳一段，
     // 所以本次会话内固定不变，修改在下次开始模拟时生效。-1 表示没有快照（如进程重启后），直接读当前设置。
     var realismLevel = -1

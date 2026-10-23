@@ -115,6 +115,9 @@ class LocationRepository(
         SpoofingState.routeJson = routePointsToJson(routePoints)
         SpoofingState.isRouteMode = isRouteMode
         SpoofingState.enableJitter = enableJitter
+        SpoofingState.enableStepSimulation = enableStepSimulation
+        SpoofingState.stepCadenceSpm = stepCadenceSpm
+        SpoofingState.isAutoCadence = isAutoCadence
 
         // 与 stopSpoofing() 里的 revokeMockLocation() 对称：上一次停止模拟时会把
         // android:mock_location 重置为 default（用于避免被系统安全中心一直记录为"模拟中"），
@@ -236,9 +239,11 @@ class LocationRepository(
         enableJitter: Boolean = true,
         speedMs: Double = 0.0,
         stopAtDestination: Boolean = false,
-        enableStepSimulation: Boolean = true,
-        stepCadenceSpm: Int = 165,
-        isAutoCadence: Boolean = true
+        // 默认取当前会话的快照而不是写死默认值：地图上重新选点之类的局部更新会整份重写配置，
+        // 用常量默认值会把用户选的固定步频悄悄改回"自动步频 165 spm"
+        enableStepSimulation: Boolean = SpoofingState.enableStepSimulation,
+        stepCadenceSpm: Int = SpoofingState.stepCadenceSpm,
+        isAutoCadence: Boolean = SpoofingState.isAutoCadence
     ) {
         SpoofingState.latitude = lat
         SpoofingState.longitude = lng
@@ -295,7 +300,11 @@ class LocationRepository(
             cellJson = SpoofingState.cellJson,
             bluetoothJson = SpoofingState.bluetoothJson,
             altitude = settingsManager.altitude.toDoubleOrNull() ?: 0.0,
-            satelliteCount = settingsManager.satelliteCount.toIntOrNull() ?: 20
+            satelliteCount = settingsManager.satelliteCount.toIntOrNull() ?: 20,
+            // 整份重写时沿用当前会话的计步设置，别被 saveConfig 的默认值覆盖成"自动步频"
+            enableStepSimulation = SpoofingState.enableStepSimulation,
+            stepCadenceSpm = SpoofingState.stepCadenceSpm,
+            isAutoCadence = SpoofingState.isAutoCadence
         )
     }
 

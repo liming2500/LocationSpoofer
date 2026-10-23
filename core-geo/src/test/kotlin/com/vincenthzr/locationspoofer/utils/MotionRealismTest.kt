@@ -172,6 +172,55 @@ class MotionRealismTest {
         }
     }
 
+    /**
+     * 低采样率下也必须是"一步一个峰"。
+     *
+     * 目标 App 拿到的加速度计事件可能只有 10~20 Hz（SENSOR_DELAY_NORMAL / 游戏模式下的省电策略），
+     * 尖峰太窄会被漏采，侧向与竖直峰错相位会让模长出现"有的步两个峰、有的步一个峰"，
+     * 两种情况都会让波峰计数的结果偏离真实步频。
+     */
+    @Test
+    fun `gait still counts one peak per step at low sample rates`() {
+        val s = MotionRealism.Session(start, MotionRealism.Level.OFF, 0)
+        val rnd = Random(0)
+        for (speed in listOf(1.4, 3.0, 5.0)) {
+            for (hz in listOf(10.0, 13.0, 16.0, 25.0)) {
+                val seconds = 60.0
+                val cadence = 170.0
+                val z = ArrayList<Double>()
+                val mag = ArrayList<Double>()
+                var k = 0
+                while (k / hz < seconds) {
+                    val stepsFloat = k / hz * cadence / 60.0
+                    val a = s.accelerometer(stepsFloat, speed, null, rnd)
+                    z += a[2].toDouble()
+                    mag += kotlin.math.sqrt((a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).toDouble())
+                    k++
+                }
+                assertEquals("speed $speed hz $hz z", cadence, countPeaks(z, hz), cadence * 0.06)
+                assertEquals("speed $speed hz $hz magnitude", cadence, countPeaks(mag, hz), cadence * 0.06)
+            }
+        }
+    }
+
+    /** 去均值后数局部极大值（阈值 20%、不应期 0.2 秒），与常见的计步算法一致 */
+    private fun countPeaks(values: List<Double>, hz: Double): Double {
+        val mean = values.average()
+        val centered = values.map { it - mean }
+        val range = centered.max() - centered.min()
+        var count = 0
+        var lastIndex = -1
+        for (i in 1 until centered.size - 1) {
+            val cur = centered[i]
+            val isPeak = cur > centered[i - 1] && cur >= centered[i + 1] && cur - centered.min() > 0.2 * range
+            if (isPeak && (lastIndex < 0 || (i - lastIndex) / hz > 0.2)) {
+                count++
+                lastIndex = i
+            }
+        }
+        return count / (values.size / hz) * 60.0
+    }
+
     /** 加速度振幅不能随速度无限膨胀：10 m/s 时旧的线性公式给到 21 m/s²，属于不可能出现的读数 */
     @Test
     fun `accelerometer amplitude stays physiological at high speed`() {

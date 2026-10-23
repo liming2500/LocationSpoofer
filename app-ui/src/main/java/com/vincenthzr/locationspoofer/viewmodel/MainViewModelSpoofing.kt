@@ -64,7 +64,12 @@ internal fun MainViewModel.startSpoofing() {
             updatedState.mockWifi && updatedState.canMockWifi,
             updatedState.mockCell,
             updatedState.mockBluetooth && updatedState.canMockBluetooth,
-            updatedState.enableJitter
+            updatedState.enableJitter,
+            // 步数模拟参数必须透传：不传的话 Repository 会用默认值（开启自动步频、165 spm），
+            // 用户在界面里选的固定步频会被静默丢掉
+            enableStepSimulation = updatedState.enableStepSimulation,
+            stepCadenceSpm = updatedState.stepCadenceSpm,
+            isAutoCadence = updatedState.isAutoCadence
         )
         motionController.onStaticStarted(lat, lng)
 
@@ -106,7 +111,11 @@ internal suspend fun MainViewModel.startStaticSpoofingExactly(
         state.mockWifi && state.canMockWifi,
         state.mockCell,
         state.mockBluetooth && state.canMockBluetooth,
-        state.enableJitter
+        state.enableJitter,
+        // 就位等待也走这条路径，必须带上用户选的步频设置，否则开始跑步后会退回 165 spm 自动步频
+        enableStepSimulation = state.enableStepSimulation,
+        stepCadenceSpm = state.stepCadenceSpm,
+        isAutoCadence = state.isAutoCadence
     )
     motionController.onStaticStarted(lat, lng)
 

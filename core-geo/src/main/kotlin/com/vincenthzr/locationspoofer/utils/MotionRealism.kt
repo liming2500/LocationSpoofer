@@ -70,6 +70,10 @@ object MotionRealism {
     /** 计算加速度振幅时速度的上限：避免超高速度档位算出不符合生理的冲击力 */
     private const val MAX_AMPLITUDE_SPEED = 6.0
 
+    /** 前后 / 左右分量相对竖直冲击的力度比例 */
+    private const val FORWARD_GAIN = 0.35
+    private const val LATERAL_GAIN = 0.55
+
     private const val SPEED_SALT = 0x5EED5EEDL
     private const val CADENCE_SALT = 0x0CADE0CEL
     private const val STEP_SALT = 0x57E9057EL
@@ -299,24 +303,36 @@ object MotionRealism {
     // 来数步，一步里若有两个高度接近的峰（旧的波形就是这样：0.00 处 1.00、0.16 处 0.73），
     // 会被数成两步，App 显示的平均步频就翻倍到 300+。所以第二峰只保留为不显峰的平台，
     // 其余动态量都放在谷（摆动期低谷）上，让单个周期的波峰数恒为 1。
+    // 冲击宽度同样不能太窄：低采样率下太尖的峰会漏采（见下面 RUN_VERTICAL 的说明）
     private val WALK_VERTICAL = zeroMeanTable { p ->
-        1.00 * impulse(p, 0.02, 0.030, 0.070) - 0.45 * bump(p, 0.55, 0.17)
+        1.00 * impulse(p, 0.02, 0.080, 0.110) - 0.30 * bump(p, 0.55, 0.19)
     }
     private val WALK_FORWARD = zeroMeanTable { p ->
         0.45 * impulse(p, 0.42, 0.070, 0.090) - 0.35 * bump(p, 0.88, 0.13)
     }
 
     // 跑步：尖锐的落地冲击 + 腾空期接近失重
+    //
+    // 冲击不能太窄：采样率低（约 10~20 Hz 的计步监听）时，过窄的尖峰会被抽稀成一两个样点，
+    // 波峰检测与过零点检测都会漏计，反而把步频算低。宽度控制在 1/10 步左右，
+    // 既能保住"尖锐落地"的形态，又能让 10 Hz 采样也稳定采到主峰。
     private val RUN_VERTICAL = zeroMeanTable { p ->
-        1.00 * impulse(p, 0.02, 0.022, 0.055) - 0.55 * bump(p, 0.55, 0.17)
+        1.00 * impulse(p, 0.02, 0.085, 0.105) - 0.30 * bump(p, 0.55, 0.19)
     }
     private val RUN_FORWARD = zeroMeanTable { p ->
-        0.50 * impulse(p, 0.28, 0.060, 0.080) - 0.40 * bump(p, 0.80, 0.14)
+        0.50 * impulse(p, 0.30, 0.080, 0.100) - 0.40 * bump(p, 0.80, 0.15)
     }
 
-    /** 左右摆动：每一步一次侧向冲击，符号按奇偶步交替，同样保证一步只有一个峰 */
+    /**
+     * 左右摆动：每一步一次侧向冲击，符号按奇偶步交替，同样保证一步只有一个峰。
+     *
+     * 侧向冲击必须和竖直冲击**同相位**。以前它放在相位 0.05、竖直峰在 0.02，
+     * 两轴峰值错开约 0.03 步：在 12~16 Hz 采样下每步会先采到 x 的峰、几步后又采到 z 的峰，
+     * 模长信号因此出现"有的步两个峰、有的步一个峰"，波峰计数算出的步频在 130~310 之间乱跳。
+     * 现在两个轴的冲击都以相位 0.02 为中心、宽度一致，模长每步只有单峰。
+     */
     private val LATERAL = zeroMeanTable { p ->
-        impulse(p, 0.05, 0.035, 0.060)
+        impulse(p, 0.02, 0.080, 0.100)
     }
 
     private fun lookup(table: DoubleArray, phase: Double): Double {
@@ -339,15 +355,16 @@ object MotionRealism {
         else 2.0 + 1.0 * speed.coerceAtMost(MAX_AMPLITUDE_SPEED)
         val vertical = lookup(if (running) RUN_VERTICAL else WALK_VERTICAL, stepPhase)
         val forward = lookup(if (running) RUN_FORWARD else WALK_FORWARD, stepPhase)
-        // 左右方向：侧向冲击方向按左右脚交替，一步一次；摆动项以一个跨步（两步）为周期
+        // 左右方向：侧向冲击方向按左右脚交替，一步一次。
+        // 这里**只保留这一个冲击项**：之前还叠加了一个 sin(π·步数) 的摆动项，
+        // 它与侧向冲击相位错开，等于给 x 轴又加了一个峰，单轴取峰的计步算法会因此多计。
         val side = if (stepIndex % 2 == 0L) 1.0 else -1.0
-        val lateral = 0.55 * amplitude * side * lookup(LATERAL, stepPhase) +
-            0.05 * amplitude * sin(PI * stepsFloat)
+        val lateral = LATERAL_GAIN * amplitude * side * lookup(LATERAL, stepPhase)
 
         val z = (GRAVITY + strength * amplitude * vertical).coerceAtLeast(0.0)
         return floatArrayOf(
             (strength * lateral).toFloat(),
-            (strength * 0.35 * amplitude * forward).toFloat(),
+            (strength * FORWARD_GAIN * amplitude * forward).toFloat(),
             z.toFloat()
         )
     }
