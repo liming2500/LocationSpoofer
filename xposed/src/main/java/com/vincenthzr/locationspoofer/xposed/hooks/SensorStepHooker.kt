@@ -77,6 +77,15 @@ object SensorStepHooker {
         Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR
     )
 
+    /** 需要改写读数的传感器类型：计步、步数检测、原始/线性加速度、方向类 */
+    private fun sensorNeedsSpoofing(type: Int): Boolean =
+        type == Sensor.TYPE_STEP_COUNTER ||
+            type == Sensor.TYPE_STEP_DETECTOR ||
+            type == Sensor.TYPE_SIGNIFICANT_MOTION ||
+            type == Sensor.TYPE_ACCELEROMETER ||
+            type == Sensor.TYPE_LINEAR_ACCELERATION ||
+            type in ORIENTATION_TYPES
+
     fun hookSensorStepSimulation(classLoader: ClassLoader) {
         val targetClasses = listOf(
             "android.hardware.SensorManager",
@@ -99,17 +108,26 @@ object SensorStepHooker {
             } catch (_: Throwable) {}
 
             // 2. Hook getSensorList
+            //
+            // 模拟器通常根本不提供计步 / 步数检测器。以前只在"按类型查询且结果为空"时才补虚拟传感器，
+            // 而不少 App 是 `getSensorList(TYPE_ALL)` 之后自己按类型过滤的——拿到的列表里没有计步器，
+            // 于是退回"用加速度计自己算步"。运动世界在模拟器里显示的步频异常正是走的这条路。
+            // 这里对 TYPE_ALL 也补齐缺失的计步类传感器。
             try {
                 XposedHelpers.hookAllMethods(managerClass, "getSensorList") { chain, _ ->
                     val result = chain.proceed(chain.args.toTypedArray())
                     val type = (chain.args.firstOrNull() as? Int) ?: return@hookAllMethods result
-                    if (type == Sensor.TYPE_STEP_COUNTER || type == Sensor.TYPE_STEP_DETECTOR) {
-                        if (result is List<*> && result.isEmpty()) {
-                            val mock = getOrCreateMockSensor(type, classLoader)
-                            if (mock != null) return@hookAllMethods listOf(mock)
-                        }
-                    }
-                    return@hookAllMethods result
+                    if (result !is List<*>) return@hookAllMethods result
+
+                    @Suppress("UNCHECKED_CAST")
+                    val list = result as List<Sensor>
+                    val wantsAll = type == Sensor.TYPE_ALL
+                    val missing = listOf(Sensor.TYPE_STEP_COUNTER, Sensor.TYPE_STEP_DETECTOR)
+                        .filter { wanted -> (wantsAll || type == wanted) && list.none { it?.type == wanted } }
+                    if (missing.isEmpty()) return@hookAllMethods result
+                    val mocks = missing.mapNotNull { getOrCreateMockSensor(it, classLoader) }
+                    if (mocks.isEmpty()) return@hookAllMethods result
+                    return@hookAllMethods list + mocks
                 }
             } catch (_: Throwable) {}
 
@@ -137,12 +155,7 @@ object SensorStepHooker {
 
                         if (listener != null) {
                             val targetSensor = sensor ?: getOrCreateMockSensor(Sensor.TYPE_STEP_COUNTER, classLoader)
-                            val tracked = targetSensor != null && (
-                                targetSensor.type == Sensor.TYPE_STEP_COUNTER ||
-                                    targetSensor.type == Sensor.TYPE_STEP_DETECTOR ||
-                                    targetSensor.type == Sensor.TYPE_ACCELEROMETER ||
-                                    targetSensor.type in ORIENTATION_TYPES
-                                )
+                            val tracked = targetSensor != null && sensorNeedsSpoofing(targetSensor.type)
                             if (tracked) {
                                 val entry = CapturedSensorListener(listener, targetSensor, handler)
                                 if (!capturedListeners.any { it.listener === listener && it.sensor?.type == targetSensor.type }) {
@@ -205,6 +218,7 @@ object SensorStepHooker {
                     if (handle != null && values != null) {
                         val sensorType = handleToTypeMap[handle]
                         val speed = config.optDouble("speed_m_s", 0.0)
+                        countSensorFrame(sensorType, config)
 
                         // 朝向属于定位的一部分，不受"步数与加速度模拟"开关影响
                         if (sensorType != null && sensorType in ORIENTATION_TYPES) {
@@ -229,6 +243,21 @@ object SensorStepHooker {
                                 if (speed > 0.1) {
                                     applySyntheticVibration(values, config, speed)
                                 }
+                            } else if (sensorType == Sensor.TYPE_LINEAR_ACCELERATION && values.size >= 3) {
+                                // 线性加速度 = 去掉重力的加速度。不少计步算法（包括部分校园跑 App）
+                                // 优先订阅它而不是原始加速度计；以前没有改写，于是它们拿到的是模拟器里
+                                // 真实的静止读数，只能靠别的渠道"凑"步数。这里给出与加速度计一致的
+                                // 去重力波形，三轴同样一步一峰。
+                                if (speed > 0.1) {
+                                    val raw = floatArrayOf(0f, 0f, 9.8f)
+                                    applySyntheticVibration(raw, config, speed)
+                                    values[0] = raw[0]
+                                    values[1] = raw[1]
+                                    values[2] = (raw[2] - 9.80665f)
+                                }
+                            } else if (sensorType == Sensor.TYPE_GRAVITY && values.size >= 3) {
+                                // 重力传感器：运动中重力方向基本恒定，保持真实读数即可。
+                                // 这里显式跳过，避免被上面的分支误改。
                             }
                         }
                     }
@@ -291,6 +320,13 @@ object SensorStepHooker {
                                     }
                                 } else if (event.sensor.type == Sensor.TYPE_ACCELEROMETER && event.values.size >= 3 && speed > 0.1) {
                                     applySyntheticVibration(event.values, config, speed)
+                                    event.timestamp = SystemClock.elapsedRealtimeNanos()
+                                } else if (event.sensor.type == Sensor.TYPE_LINEAR_ACCELERATION && event.values.size >= 3 && speed > 0.1) {
+                                    val raw = floatArrayOf(0f, 0f, 9.8f)
+                                    applySyntheticVibration(raw, config, speed)
+                                    event.values[0] = raw[0]
+                                    event.values[1] = raw[1]
+                                    event.values[2] = raw[2] - 9.80665f
                                     event.timestamp = SystemClock.elapsedRealtimeNanos()
                                 }
                             }
@@ -531,6 +567,83 @@ object SensorStepHooker {
             lastDetectorTime = now
         }
         return due
+    }
+
+    /**
+     * 用与 App 相同的口径（按当前帧率采样合成波形、去均值、波峰计数）估算一遍步频，
+     * 用来区分"我们的波形有问题"和"App 的算法/取值路径有问题"。
+     */
+    private fun cadenceFromOwnWaveform(): Int {
+        val hz = frameCounter[Sensor.TYPE_ACCELEROMETER]?.get(1)?.toDouble()?.takeIf { it >= 5.0 }
+            ?: frameCounter[Sensor.TYPE_LINEAR_ACCELERATION]?.get(1)?.toDouble()?.takeIf { it >= 5.0 }
+            ?: 0.0
+        if (hz <= 0.0) return 0
+        val config = (XposedHelpers.module as? LocationHooker)?.readConfig() ?: return 0
+        val speed = config.optDouble("speed_m_s", 0.0)
+        if (speed <= 0.05) return 0
+        val session = RouteEngine.realismSession(config)
+        val cadence = if (config.optBoolean("is_auto_cadence", true)) {
+            calculateAutoCadence(speed).toDouble()
+        } else {
+            config.optInt("step_cadence_spm", 165).toDouble()
+        }
+        val samples = ArrayList<Double>()
+        val rnd = java.util.Random(0)
+        val n = (hz * 20).toInt()
+        for (k in 0 until n) {
+            // 与真实下发一样：按当前累计步数的相位取样
+            val a = session.accelerometer(k / hz * cadence / 60.0, speed, null, rnd)
+            samples += kotlin.math.sqrt((a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).toDouble())
+        }
+        val mean = samples.average()
+        val centered = samples.map { it - mean }
+        val range = centered.max() - centered.min()
+        var peaks = 0
+        var last = -1
+        for (i in 1 until centered.size - 1) {
+            val cur = centered[i]
+            if (cur > centered[i - 1] && cur >= centered[i + 1] && cur - centered.min() > 0.2 * range) {
+                if (last < 0 || (i - last) / hz > 0.05) {
+                    peaks++
+                    last = i
+                }
+            }
+        }
+        return (peaks / (centered.size / hz) * 60).toInt()
+    }
+
+    // ---- 诊断：按秒统计各路传感器事件的到达速率，写进配置供"诊断"页查看。
+    // 模拟器里运动世界显示的步频异常，需要确认它到底订阅了哪些传感器、采样率是多少。
+    private val frameCounter = java.util.concurrent.ConcurrentHashMap<Int, IntArray>() // type -> [count, rate, sec]
+    private var lastFrameLog = 0L
+
+    @Volatile var diagnostics: String = ""
+        private set
+
+    private fun countSensorFrame(sensorType: Int?, config: JSONObject) {
+        if (sensorType == null) return
+        val now = System.currentTimeMillis()
+        val sec = (now / 1000L).toInt()
+        val slot = frameCounter.getOrPut(sensorType) { intArrayOf(0, 0, sec) }
+        synchronized(slot) {
+            if (slot[2] != sec) {
+                slot[1] = slot[0]
+                slot[0] = 0
+                slot[2] = sec
+            }
+            slot[0]++
+        }
+        if (now - lastFrameLog < 5_000L) return
+        lastFrameLog = now
+        val sb = StringBuilder("StepDiag ")
+        frameCounter.forEach { (type, s) ->
+            sb.append(type).append(':').append(s[1]).append("Hz ")
+        }
+        sb.append("steps=").append(stepClock.steps.toLong())
+            .append(" listeners=").append(capturedListeners.size)
+            .append(" detected=").append(cadenceFromOwnWaveform())
+        diagnostics = sb.toString()
+        com.vincenthzr.locationspoofer.xposed.utils.XposedBridge.log(sb.toString())
     }
 
     private fun getSensorHandle(sensor: Sensor): Int? {

@@ -236,6 +236,15 @@ Root access and system-level hooks may affect system stability and app compatibi
 
 ## Changelog
 
+### 3.0.8
+
+**Fixed**
+- `getSensorList(TYPE_ALL)` returned no step counter on emulators: the virtual sensors were only injected when querying by type returned an empty list. Apps that fetch the full list and filter by type themselves got no pedometer and fell back to counting steps from the accelerometer. `TYPE_ALL` now also gets the missing step counter / detector
+- `TYPE_LINEAR_ACCELERATION` was never rewritten, though some step-counting algorithms subscribe to it in preference to the raw accelerometer and therefore saw the emulator's real idle readings. It is now rewritten with the same gravity-free waveform as the accelerometer
+
+**Diagnostics**
+- Every 5 seconds a `StepDiag` line is written to logcat (tag `LocationSpoofer`): the frame rate of each subscribed sensor, the current step total, the listener count, and the cadence obtained by sampling our own waveform at that rate with the same peak-counting rule. When cadence looks wrong, that line tells you whether the waveform or the app's read path is at fault
+
 ### 3.0.7
 
 **Fixed**
