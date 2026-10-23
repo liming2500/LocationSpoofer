@@ -67,6 +67,9 @@ object MotionRealism {
     private const val RUN_SPEED_THRESHOLD = 2.2
     private const val GRAVITY = 9.80665f
 
+    /** 计算加速度振幅时速度的上限：避免超高速度档位算出不符合生理的冲击力 */
+    private const val MAX_AMPLITUDE_SPEED = 6.0
+
     private const val SPEED_SALT = 0x5EED5EEDL
     private const val CADENCE_SALT = 0x0CADE0CEL
     private const val STEP_SALT = 0x57E9057EL
@@ -270,6 +273,18 @@ object MotionRealism {
         return exp(-0.5 * (d / width) * (d / width))
     }
 
+    /**
+     * 不对称的单峰冲击：落地瞬间上升很快、回落较慢，比对称高斯更像真实着地波形。
+     * [rise] 用于 center 之前的宽度，[fall] 用于 center 之后，单位都是"步"（相位 0~1）。
+     */
+    private fun impulse(p: Double, center: Double, rise: Double, fall: Double): Double {
+        var d = p - center
+        if (d > 0.5) d -= 1.0
+        if (d < -0.5) d += 1.0
+        val w = if (d < 0) rise else fall
+        return exp(-0.5 * (d / w) * (d / w))
+    }
+
     /** 采样成查表并去掉均值：真实加速度计在一个步态周期内的平均值必须等于重力，否则长时间积分会暴露 */
     private fun zeroMeanTable(shape: (Double) -> Double): DoubleArray {
         val table = DoubleArray(SHAPE_SAMPLES) { shape(it.toDouble() / SHAPE_SAMPLES) }
@@ -278,20 +293,30 @@ object MotionRealism {
         return table
     }
 
-    // 步行：脚跟着地冲击 → 支撑期回落 → 蹬地第二峰 → 摆动期低谷
+    // 步行：脚跟着地冲击 → 支撑期回落 → 蹬地后进入摆动期低谷
+    //
+    // 每个"步"（相位 0~1）里只允许出现**一个**极大值。计步传感器大多用"均值去偏 + 波峰计数 + 不应期"
+    // 来数步，一步里若有两个高度接近的峰（旧的波形就是这样：0.00 处 1.00、0.16 处 0.73），
+    // 会被数成两步，App 显示的平均步频就翻倍到 300+。所以第二峰只保留为不显峰的平台，
+    // 其余动态量都放在谷（摆动期低谷）上，让单个周期的波峰数恒为 1。
     private val WALK_VERTICAL = zeroMeanTable { p ->
-        1.0 * bump(p, 0.00, 0.045) - 0.45 * bump(p, 0.13, 0.07) + 0.55 * bump(p, 0.42, 0.09) - 0.65 * bump(p, 0.72, 0.13)
+        1.00 * impulse(p, 0.02, 0.030, 0.070) - 0.45 * bump(p, 0.55, 0.17)
     }
     private val WALK_FORWARD = zeroMeanTable { p ->
-        -0.5 * bump(p, 0.03, 0.05) + 0.45 * bump(p, 0.40, 0.09) - 0.15 * bump(p, 0.75, 0.15)
+        0.45 * impulse(p, 0.42, 0.070, 0.090) - 0.35 * bump(p, 0.88, 0.13)
     }
 
-    // 跑步：尖锐的落地冲击 + 支撑期主峰 + 腾空期接近失重
+    // 跑步：尖锐的落地冲击 + 腾空期接近失重
     private val RUN_VERTICAL = zeroMeanTable { p ->
-        1.0 * bump(p, 0.00, 0.035) + 0.55 * bump(p, 0.16, 0.09) - 0.85 * bump(p, 0.62, 0.18)
+        1.00 * impulse(p, 0.02, 0.022, 0.055) - 0.55 * bump(p, 0.55, 0.17)
     }
     private val RUN_FORWARD = zeroMeanTable { p ->
-        -0.6 * bump(p, 0.02, 0.04) + 0.5 * bump(p, 0.25, 0.08)
+        0.50 * impulse(p, 0.28, 0.060, 0.080) - 0.40 * bump(p, 0.80, 0.14)
+    }
+
+    /** 左右摆动：每一步一次侧向冲击，符号按奇偶步交替，同样保证一步只有一个峰 */
+    private val LATERAL = zeroMeanTable { p ->
+        impulse(p, 0.05, 0.035, 0.060)
     }
 
     private fun lookup(table: DoubleArray, phase: Double): Double {
@@ -309,12 +334,15 @@ object MotionRealism {
         strength: Double
     ): FloatArray {
         val running = speed >= RUN_SPEED_THRESHOLD
-        val amplitude = if (running) 6.0 + 1.5 * speed else 2.0 + 1.0 * speed
+        // 振幅随速度增长，但上限压住：速度再快也不该出现几十 m/s² 的读数（10 m/s 时旧公式到 21 m/s²）
+        val amplitude = if (running) 6.0 + 1.5 * speed.coerceAtMost(MAX_AMPLITUDE_SPEED)
+        else 2.0 + 1.0 * speed.coerceAtMost(MAX_AMPLITUDE_SPEED)
         val vertical = lookup(if (running) RUN_VERTICAL else WALK_VERTICAL, stepPhase)
         val forward = lookup(if (running) RUN_FORWARD else WALK_FORWARD, stepPhase)
-        // 左右方向：以一个跨步（两步）为周期摆动，左右脚着地时的侧向冲击方向相反
+        // 左右方向：侧向冲击方向按左右脚交替，一步一次；摆动项以一个跨步（两步）为周期
         val side = if (stepIndex % 2 == 0L) 1.0 else -1.0
-        val lateral = 0.12 * amplitude * sin(PI * stepsFloat) + 0.1 * amplitude * side * bump(stepPhase, 0.02, 0.05)
+        val lateral = 0.55 * amplitude * side * lookup(LATERAL, stepPhase) +
+            0.05 * amplitude * sin(PI * stepsFloat)
 
         val z = (GRAVITY + strength * amplitude * vertical).coerceAtLeast(0.0)
         return floatArrayOf(

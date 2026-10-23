@@ -143,4 +143,45 @@ class MotionRealismTest {
         assertTrue(a !== c)
         assertTrue(a !== d)
     }
+
+    /**
+     * 一步之内只能有一个局部极大值。
+     *
+     * 目标 App 的计步器普遍是"去均值 → 波峰计数 → 加不应期"，一步里出现两个等高的峰会被数成两步，
+     * 于是 3 m/s（自动步频 163 spm）在 App 里显示成 300+ spm。这里按 500 Hz 采样整个步态周期，
+     * 逐个判断局部极大值，确保步频不会被翻倍。
+     */
+    @Test
+    fun `synthetic gait has exactly one peak per step`() {
+        val s = MotionRealism.Session(start, MotionRealism.Level.OFF, 0)
+        val rnd = Random(0)
+        for (speed in listOf(1.0, 1.4, 2.0, 3.0, 4.0, 6.0)) {
+            val samplesPerStep = 500
+            val z = (0 until samplesPerStep).map { i ->
+                val stepsFloat = i.toDouble() / samplesPerStep
+                s.accelerometer(stepsFloat, speed, null, rnd)[2].toDouble() - 9.80665
+            }
+            // 环形求局部极大值：首尾相接，落在相位 0 附近的峰也能被数到一次
+            val peaks = (0 until samplesPerStep).count { i ->
+                val prev = z[(i - 1 + samplesPerStep) % samplesPerStep]
+                val cur = z[i]
+                val next = z[(i + 1) % samplesPerStep]
+                cur > prev && cur >= next
+            }
+            assertEquals("speed $speed", 1, peaks)
+        }
+    }
+
+    /** 加速度振幅不能随速度无限膨胀：10 m/s 时旧的线性公式给到 21 m/s²，属于不可能出现的读数 */
+    @Test
+    fun `accelerometer amplitude stays physiological at high speed`() {
+        val s = MotionRealism.Session(start, MotionRealism.Level.OFF, 0)
+        val rnd = Random(0)
+        for (speed in listOf(3.0, 6.0, 12.0)) {
+            val z = (0 until 200).maxOf { i ->
+                s.accelerometer(i * 0.05, speed, null, rnd)[2]
+            }
+            assertTrue("speed $speed peak $z", z < 30f)
+        }
+    }
 }

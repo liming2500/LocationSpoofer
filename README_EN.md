@@ -236,6 +236,12 @@ Root access and system-level hooks may affect system stability and app compatibi
 
 ## Changelog
 
+### 3.0.5
+
+**Fixed**
+- Auto cadence reported as 300+: the synthesized accelerometer waveform had two near-equal peaks per step, so target apps that count steps by peak detection counted each step twice — 3 m/s (163 spm) showed up as 300+. The waveform now has a single peak per step, and a unit test samples it at 500 Hz to assert exactly one local maximum per step
+- Accelerometer amplitude scaled linearly with speed (reaching 21 m/s² at 10 m/s); it is now capped to a physiological range
+
 ### 3.0.4
 
 **Added**
