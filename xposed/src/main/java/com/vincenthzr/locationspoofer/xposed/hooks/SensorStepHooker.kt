@@ -77,6 +77,11 @@ object SensorStepHooker {
         Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR
     )
 
+    /** 是否为本地新建的虚拟传感器（系统 native 层并不认识它） */
+    private fun isMockSensor(sensor: Sensor): Boolean =
+        sensor === mockStepCounterSensor ||
+            sensor === mockStepDetectorSensor
+
     /** 需要改写读数的传感器类型：计步、步数检测、原始/线性加速度、方向类 */
     private fun sensorNeedsSpoofing(type: Int): Boolean =
         type == Sensor.TYPE_STEP_COUNTER ||
@@ -140,6 +145,7 @@ object SensorStepHooker {
                         var listener: Any? = null
                         var sensor: Sensor? = null
                         var handler: Handler? = null
+                        var virtualSensor: Sensor? = null
 
                         for (arg in args) {
                             if (arg != null) {
@@ -155,6 +161,7 @@ object SensorStepHooker {
 
                         if (listener != null) {
                             val targetSensor = sensor ?: getOrCreateMockSensor(Sensor.TYPE_STEP_COUNTER, classLoader)
+                            virtualSensor = targetSensor
                             val tracked = targetSensor != null && sensorNeedsSpoofing(targetSensor.type)
                             if (tracked) {
                                 val entry = CapturedSensorListener(listener, targetSensor, handler)
@@ -170,6 +177,13 @@ object SensorStepHooker {
                                 // 动态 Hook 该 Listener 的具体实现类中的 onSensorChanged 方法
                                 hookConcreteListenerClass(listener.javaClass, classLoader)
                             }
+                        }
+
+                        // 虚拟传感器在系统 native 层不存在，真正注册必然失败（返回 false），
+                        // 后果是很多 App 判定"没有这个传感器"、改用加速度计自己算步。
+                        // 这里直接对虚拟传感器返回 true，并跳过注册——事件由我们按步频主动投递。
+                        if (virtualSensor != null && isMockSensor(virtualSensor)) {
+                            return@hookAllMethods true
                         }
 
                         return@hookAllMethods chain.proceed(chain.args.toTypedArray())
@@ -489,10 +503,8 @@ object SensorStepHooker {
             val targetHandler = entry.handler ?: Handler(Looper.getMainLooper())
 
             // 真实传感器已有原生事件流，改写即可，不能再补推
-            val isMockSensor = sensor === mockStepCounterSensor ||
-                sensor === mockStepDetectorSensor ||
-                sensor === mockAccelerometerSensor
-            if (!isMockSensor) continue
+            val isVirtual = isMockSensor(sensor)
+            if (!isVirtual) continue
 
             when (sensor.type) {
                 Sensor.TYPE_STEP_COUNTER -> {
@@ -677,6 +689,23 @@ object SensorStepHooker {
             setSensorField(sensor, "mVersion", 1)
             setSensorField(sensor, "mResolution", 1.0f)
             setSensorField(sensor, "mPower", 0.05f)
+            // 模拟"真实硬件计步器"的元数据：最大量程与上报延迟。
+            // 部分 App 用它判断是不是硬件计步器（量程 0 或延迟为 0 会被认成伪传感器）。
+            when (type) {
+                Sensor.TYPE_STEP_COUNTER -> {
+                    setSensorField(sensor, "mMaxRange", 4.2949673E9f)
+                    setSensorField(sensor, "mMinDelay", 0)
+                    setSensorField(sensor, "mFifoReservedEventCount", 0)
+                    setSensorField(sensor, "mFifoMaxEventCount", 0)
+                    setSensorField(sensor, "mStringType", "android.sensor.stepcounter")
+                }
+                Sensor.TYPE_STEP_DETECTOR -> {
+                    setSensorField(sensor, "mMaxRange", 1.0f)
+                    setSensorField(sensor, "mMinDelay", 0)
+                    setSensorField(sensor, "mStringType", "android.sensor.stepdetector")
+                }
+                else -> {}
+            }
 
             when (type) {
                 Sensor.TYPE_STEP_COUNTER -> mockStepCounterSensor = sensor

@@ -236,6 +236,12 @@ Root access and system-level hooks may affect system stability and app compatibi
 
 ## Changelog
 
+### 3.0.9
+
+**Fixed**
+- The injected pedometer always failed to register: the synthetic `Sensor` does not exist in the native sensor stack, so `registerListener` returned `false` and many apps concluded there was no pedometer and fell back to counting steps from the accelerometer (the path 运动世界 takes on an emulator). Registration of the virtual step counter / detector now reports success, and events are delivered by the module at the configured cadence
+- The virtual pedometer now carries realistic hardware metadata (max range, minimum delay, `mStringType`); some apps use those fields to tell a hardware sensor from a fake one
+
 ### 3.0.8
 
 **Fixed**
