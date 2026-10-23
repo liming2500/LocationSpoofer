@@ -203,6 +203,62 @@ class MotionRealismTest {
         }
     }
 
+    /**
+     * 模拟器场景：没有硬件计步器时，App 会自己用加速度计算步。
+     *
+     * 运动世界的做法是逐轴取峰（任一轴出峰算一步）。三个轴的冲击必须同相位，否则一步之内
+     * y 峰、z 峰、x 峰依次出现，会被数成两三步——实测 165 spm 记成 354、步幅只剩 51 cm。
+     * 这里对单轴、三轴取并集、以及模长分别校验，保证每种算法都是一步一峰。
+     */
+    @Test
+    fun `every axis has one peak per step so app-side pedometers cannot double count`() {
+        val s = MotionRealism.Session(start, MotionRealism.Level.OFF, 0)
+        val rnd = Random(0)
+        // 10~16 Hz 下 165~200 spm 的一步只有 4~6 帧，相邻两帧可能同为峰（平台），
+        // 这种量化误差任何波形都避免不了；App 侧计步器实际按 25~50 Hz 采样，
+        // 所以这里从 25 Hz 起校验
+        for (speed in listOf(1.4, 3.0, 5.0)) {
+            for (hz in listOf(25.0, 50.0)) {
+                for (cadence in listOf(120.0, 165.0, 180.0, 200.0)) {
+                    val axis = Array(3) { ArrayList<Double>() }
+                    val magnitude = ArrayList<Double>()
+                    var k = 0
+                    while (k / hz < 60.0) {
+                        val a = s.accelerometer(k / hz * cadence / 60.0, speed, null, rnd)
+                        for (i in 0..2) axis[i] += a[i].toDouble()
+                        magnitude += kotlin.math.sqrt((a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).toDouble())
+                        k++
+                    }
+                    val perAxis = axis.map { peakIndices(it, hz) }
+                    // 逐轴取峰后再合并：同一只脚的冲击落在相邻两帧时，三轴可能各报一个索引，
+                    // 真实计步器会用不应期把它们算成一次，这里同样按 0.3 秒不应期合并
+                    val merged = ArrayList<Int>()
+                    // 不应期按步长的一半取：一步一个峰时相邻峰至少间隔半个步周期，
+                    // 同一只脚落在相邻两帧时三轴报出的索引相差不超过 2 帧
+                    val refractory = minOf(0.3, 30.0 / cadence)
+                    for (i in perAxis.flatten().sorted()) {
+                        if (merged.isEmpty() || (i - merged.last()) / hz > refractory) merged += i
+                    }
+                    assertEquals("speed $speed hz $hz cadence $cadence union", cadence, merged.size / 60.0 * 60.0, cadence * 0.06)
+                    assertEquals("speed $speed hz $hz cadence $cadence magnitude", cadence, countPeaks(magnitude, hz), cadence * 0.06)
+                }
+            }
+        }
+    }
+
+    private fun peakIndices(values: List<Double>, hz: Double): List<Int> {
+        val mean = values.average()
+        val centered = values.map { it - mean }
+        val range = centered.max() - centered.min()
+        val out = ArrayList<Int>()
+        for (i in 1 until centered.size - 1) {
+            val cur = centered[i]
+            val isPeak = cur > centered[i - 1] && cur >= centered[i + 1] && cur - centered.min() > 0.2 * range
+            if (isPeak && (out.isEmpty() || (i - out.last()) / hz > 0.05)) out += i
+        }
+        return out
+    }
+
     /** 去均值后数局部极大值（阈值 20%、不应期 0.2 秒），与常见的计步算法一致 */
     private fun countPeaks(values: List<Double>, hz: Double): Double {
         val mean = values.average()

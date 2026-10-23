@@ -236,6 +236,13 @@ Root access and system-level hooks may affect system stability and app compatibi
 
 ## Changelog
 
+### 3.0.7
+
+**Fixed**
+- Cadence reported wrong by 运动世界校园 (Sport World Campus) on an emulator while correct on a real device: emulators expose no hardware step counter, so `getSensorList(TYPE_STEP_COUNTER)` returns empty and some campus-running apps fall back to counting steps from the accelerometer themselves. The three axes used to peak at different phases (vertical 0.02, forward 0.30, lateral flipping every other step), so per-axis or any-axis peak counting turned each step into two or three — measured 354 spm with a 51 cm stride
+- Vertical, forward and lateral now use a **same-phase, same-width** single-peak impact, so per-axis, union-of-axes and magnitude counting all give one peak per step; a unit test covers 25/50 Hz, 120–200 spm and three speed presets
+- Lateral sway no longer flips sign every other step (that stepped the x axis from +A to -A each step, doubling delta/per-axis counters)
+
 ### 3.0.6
 
 **Fixed**

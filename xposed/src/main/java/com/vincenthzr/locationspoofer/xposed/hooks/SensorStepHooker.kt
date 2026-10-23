@@ -218,6 +218,12 @@ object SensorStepHooker {
                                 if (speed > 0.1) {
                                     values[0] = 1.0f
                                 }
+                            } else if (sensorType == Sensor.TYPE_SIGNIFICANT_MOTION) {
+                                // 单值事件传感器：值为 1 表示刚检测到一次显著运动。
+                                // 部分校园跑步 App 用它判断"真的在跑"，保持 1 即可，绝不能把步数写进去
+                                if (speed > 0.1) {
+                                    values[0] = 1.0f
+                                }
                             } else if (sensorType == Sensor.TYPE_ACCELEROMETER && values.size >= 3) {
                                 // 加速度计传感器：仅在运动中(speed > 0.1)叠加生理跑步/步行震动特征，静态时绝不篡改
                                 if (speed > 0.1) {

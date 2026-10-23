@@ -233,7 +233,7 @@ object MotionRealism {
             val out = if (template != null) {
                 template.sample(stepsFloat / 2.0, strength)
             } else {
-                proceduralGait(stepPhase, stepsFloat, stepIndex, speed, strength)
+                proceduralGait(stepPhase, stepsFloat, speed, strength)
             }
             if (level.sensorNoise > 0) {
                 for (i in 0..2) out[i] += (noise.nextGaussian() * level.sensorNoise).toFloat()
@@ -308,7 +308,7 @@ object MotionRealism {
         1.00 * impulse(p, 0.02, 0.080, 0.110) - 0.30 * bump(p, 0.55, 0.19)
     }
     private val WALK_FORWARD = zeroMeanTable { p ->
-        0.45 * impulse(p, 0.42, 0.070, 0.090) - 0.35 * bump(p, 0.88, 0.13)
+        0.45 * impulse(p, 0.02, 0.080, 0.110) - 0.15 * bump(p, 0.55, 0.19)
     }
 
     // 跑步：尖锐的落地冲击 + 腾空期接近失重
@@ -320,19 +320,24 @@ object MotionRealism {
         1.00 * impulse(p, 0.02, 0.085, 0.105) - 0.30 * bump(p, 0.55, 0.19)
     }
     private val RUN_FORWARD = zeroMeanTable { p ->
-        0.50 * impulse(p, 0.30, 0.080, 0.100) - 0.40 * bump(p, 0.80, 0.15)
+        0.45 * impulse(p, 0.02, 0.085, 0.105) - 0.15 * bump(p, 0.55, 0.19)
     }
 
     /**
-     * 左右摆动：每一步一次侧向冲击，符号按奇偶步交替，同样保证一步只有一个峰。
+     * 左右摆动：与竖直、前后冲击**同相位**的一次侧向冲击，一步一个峰。
      *
-     * 侧向冲击必须和竖直冲击**同相位**。以前它放在相位 0.05、竖直峰在 0.02，
-     * 两轴峰值错开约 0.03 步：在 12~16 Hz 采样下每步会先采到 x 的峰、几步后又采到 z 的峰，
-     * 模长信号因此出现"有的步两个峰、有的步一个峰"，波峰计数算出的步频在 130~310 之间乱跳。
-     * 现在两个轴的冲击都以相位 0.02 为中心、宽度一致，模长每步只有单峰。
+     * 三个轴必须同相位。实机有硬件计步/步数传感器，App 直接读它的累计值，波形怎么画都无所谓；
+     * 但模拟器里 `getSensorList(TYPE_STEP_COUNTER)` 是空的，部分校园跑步 App（运动世界）会退回
+     * "自己用加速度计算步"。此时若 y 峰在相位 0.30、z 峰在 0.02、x 还是按奇偶步跳变，
+     * 每步都会在三个轴的**不同时刻**各出一个峰，逐轴取峰或任一轴取峰就会把一步数成两步——
+     * 实测 165 spm 被记成 354（步幅只剩 51 cm），而 Keep 只用模长，所以看起来正常。
+     *
+     * 以前还试过 sin(2π·相位) 的平滑侧摆：它的峰与竖直峰错开、且在跨步边界处过零，
+     * 16 Hz/200 spm 附近逐轴取峰仍会多出一次，所以这里改回与竖直同相位的窄冲击。
+     * 三条曲线的相位、宽度完全一致，任何单轴、模长、逐轴取并集的算法都得到一步一峰。
      */
     private val LATERAL = zeroMeanTable { p ->
-        impulse(p, 0.02, 0.080, 0.100)
+        impulse(p, 0.02, 0.085, 0.105) - 0.15 * bump(p, 0.55, 0.19)
     }
 
     private fun lookup(table: DoubleArray, phase: Double): Double {
@@ -345,7 +350,6 @@ object MotionRealism {
     private fun proceduralGait(
         stepPhase: Double,
         stepsFloat: Double,
-        stepIndex: Long,
         speed: Double,
         strength: Double
     ): FloatArray {
@@ -355,11 +359,9 @@ object MotionRealism {
         else 2.0 + 1.0 * speed.coerceAtMost(MAX_AMPLITUDE_SPEED)
         val vertical = lookup(if (running) RUN_VERTICAL else WALK_VERTICAL, stepPhase)
         val forward = lookup(if (running) RUN_FORWARD else WALK_FORWARD, stepPhase)
-        // 左右方向：侧向冲击方向按左右脚交替，一步一次。
-        // 这里**只保留这一个冲击项**：之前还叠加了一个 sin(π·步数) 的摆动项，
-        // 它与侧向冲击相位错开，等于给 x 轴又加了一个峰，单轴取峰的计步算法会因此多计。
-        val side = if (stepIndex % 2 == 0L) 1.0 else -1.0
-        val lateral = LATERAL_GAIN * amplitude * side * lookup(LATERAL, stepPhase)
+        // 左右方向：与竖直冲击同相位的一次侧向冲击（见 [LATERAL] 的说明）。
+        // 不再按奇偶步给冲击反号——那样 x 轴每步会从 +A 阶跃到 -A，逐轴取峰会数成两倍。
+        val lateral = LATERAL_GAIN * amplitude * lookup(LATERAL, stepPhase)
 
         val z = (GRAVITY + strength * amplitude * vertical).coerceAtLeast(0.0)
         return floatArrayOf(
